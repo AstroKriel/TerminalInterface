@@ -30,6 +30,8 @@ Each kind of output has a fixed colour and marker. The help legend is generated 
 | `CONTEXT` | dot | gray | a resolved value | decided |
 | `ERROR` | closed circle | red | an error, before exiting | decided |
 
+> **Note:** a richer message layer, with typed messages, action outcomes, and boxed panels, is expected to move into this package later. These themes are its first layer, not a closed set: new message kinds are added alongside them, and the existing functions keep their output.
+
 ---
 
 ## Output Functions
@@ -56,9 +58,9 @@ Names and signatures match the existing layer, so tools moving onto this package
 | `run_cmd_and_capture_output(config, cmd)` | mutating, output captured | printed, skipped | stdout | decided |
 | `query_cmd(cmd, error_on_failure=True)` | read-only | runs | stdout | decided |
 | `probe_cmd(cmd)` | read-only, silent | runs | exit status | decided |
-| `query_cmd_result(cmd, cwd=None)` | read-only | runs | a `CommandResult` | proposed |
+| `query_cmd_result(cmd, cwd=None)` | read-only | runs | a `CommandOutcome` | proposed |
 
-`CommandResult` holds `cmd_text` (the command exactly as printed), `stdout`, `stderr`, and `returncode`, and never raises on a non-zero exit. It serves tools that record each finding together with the command that produced it, so the record can show what ran and let the user rerun it. State: proposed.
+`CommandOutcome` holds `command` (the command exactly as printed), `working_directory` (`None` if not set), `exit_code`, `stdout`, and `stderr`, with a `succeeded` property; `query_cmd_result` never raises on a non-zero exit. It serves tools that record each finding together with the command that produced it, so the record can show what ran and let the user rerun it. The name and fields match an existing result type that is expected to move into this package, so that the move is additive. State: proposed.
 
 | Question | State |
 |---|---|
@@ -73,7 +75,7 @@ Some tools keep a history of what they did to a machine. Two optional features s
 
 | Feature | Detail | State |
 |---|---|---|
-| Timestamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal | proposed |
+| Timestamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | proposed |
 | Persistent record | every line printed, steps and commands included, is also appended to a file, as plain text without colour markup | proposed |
 | Record format | one line per entry: timestamp, tool name, then the line as printed | proposed |
 | Record in dry-run | open | open |
