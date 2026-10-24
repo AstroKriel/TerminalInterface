@@ -30,6 +30,8 @@ The second generalisation: the existing entry point hardcoded the name, usage li
 | `global_flags` | extra flags beyond `--dry-run`, as `CommandArg`s | decided |
 | `make_config` | builds the `Config` of the tool (or a subclass) from the parsed global flags | decided |
 | `commands` | the command table: groups and hidden commands, in help order | decided |
+| `show_timestamps` | whether terminal lines carry a timestamp; off by default | decided |
+| `record_path` | where the persistent record is appended; `None` (the default) writes no record | decided |
 | Type name | `ToolSpec`; a variable holding one is named `tool_spec` | decided |
 
 ```text
@@ -49,6 +51,10 @@ run_cli(tool_spec=tool_spec)
 | Command groups | one heading per section, each command with its help, in table order | decided |
 | Global flags | `--dry-run` and each extra flag with its help | decided |
 | Output legend | one line per theme, generated from the theme table | decided |
-| Separator | a single tab between a name and its help, in every section; no padding with runs of spaces | decided |
+| Indent | four spaces before every row | decided |
+| Separator | spaces only, never tabs, so the layout is the same width on every machine | decided |
+| Column width | computed per help screen: the longest label on the screen (command, flag, or legend label) plus two spaces; every section shares it, so descriptions line up across the whole screen | decided |
+
+The column width is never hardcoded, so a long command name widens the column instead of breaking the alignment.
 
 The third generalisation: generating the legend from the themes removes the second copy of the colour values that the existing help kept.
