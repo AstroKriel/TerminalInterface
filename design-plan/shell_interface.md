@@ -55,17 +55,16 @@ Names and signatures match the existing layer, so tools moving onto this package
 |---|---|---|---|---|
 | `run_cmd(config, cmd, cwd=None)` | mutating; raises on failure | printed, skipped | nothing | decided |
 | `try_run_cmd(config, cmd, cwd=None)` | mutating; reports failure | printed, skipped | `True` on success | decided |
-| `run_cmd_and_capture_output(config, cmd)` | mutating, output captured | printed, skipped | stdout | decided |
-| `query_cmd(cmd, error_on_failure=True)` | read-only | runs | stdout | decided |
+| `run_cmd_and_capture_output(config, cmd, cwd=None)` | mutating, output captured | printed, skipped | stdout | decided |
+| `query_cmd(cmd, error_on_failure=True, cwd=None)` | read-only | runs | stdout | decided |
 | `probe_cmd(cmd)` | read-only, silent | runs | exit status | decided |
-| `query_cmd_result(cmd, cwd=None)` | read-only | runs | a `CommandOutcome` | proposed |
+| `query_cmd_result(cmd, cwd=None)` | read-only | runs | a `CommandOutcome` | decided |
 
-`CommandOutcome` holds `command` (the command exactly as printed), `working_directory` (`None` if not set), `exit_code`, `stdout`, and `stderr`, with a `succeeded` property; `query_cmd_result` never raises on a non-zero exit. It serves tools that record each finding together with the command that produced it, so the record can show what ran and let the user rerun it. The name and fields match an existing result type that is expected to move into this package, so that the move is additive. State: proposed.
+`cwd` is new on `run_cmd_and_capture_output` and `query_cmd`, so every runner that prints its command accepts it; it comes last and defaults to `None`, so existing calls are unchanged. State: decided.
 
-| Question | State |
-|---|---|
-| Give `run_cmd_and_capture_output` and `query_cmd` the same `cwd` argument as the other runners | proposed |
-| How a command with arguments containing spaces is printed, so that the printed text can be copied and run as is | open |
+`CommandOutcome` holds `command` (the command exactly as printed), `working_directory` (`None` if not set), `exit_code`, `stdout`, and `stderr`, with a `succeeded` property. `query_cmd_result` prints its command with the `QUERY` theme, like `query_cmd`, and never raises on a non-zero exit. It serves tools that record each finding together with the command that produced it, so the record can show what ran and let the user rerun it. The name and fields match an existing result type that is expected to move into this package, so that the move is additive. State: decided.
+
+Every runner prints its command with `shlex.join(cmd)`, which quotes an argument only when it contains spaces or shell characters, so the printed text can be copied and run as is: `["git", "commit", "-m", "a message"]` prints as `git commit -m 'a message'`. State: decided.
 
 ---
 
@@ -75,9 +74,9 @@ Some tools keep a history of what they did to a machine. Two optional features s
 
 | Feature | Detail | State |
 |---|---|---|
-| Timestamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | proposed |
-| Persistent record | every line printed, steps and commands included, is also appended to a file, as plain text without colour markup | proposed |
-| Record format | one line per entry: timestamp, tool name, then the line as printed | proposed |
-| Record in dry-run | open | open |
+| Timestamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | decided |
+| Persistent record | every line printed, steps and commands included, is also appended to a file, as plain text without colour markup | decided |
+| Record format | `[<timestamp>] (<tool_name>): <line>`, one line per entry, always timestamped whether or not the terminal shows timestamps | decided |
+| Record in dry-run | nothing is written: the record is a history of what was done to the machine, and a dry-run does nothing | decided |
 
 Both are off unless a tool turns them on, so tools that do not need them see no change.

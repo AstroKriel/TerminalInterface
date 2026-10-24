@@ -70,7 +70,7 @@ TerminalInterface/
 
 | Decision | Detail | State |
 |---|---|---|
-| Package name | `heimdall`, so imports read `from heimdall import shell_interface` | proposed |
-| Python | `>=3.12,<3.14`, matching the tools that will use it | proposed |
+| Package name | `heimdall`, so imports read `from heimdall import shell_interface` | decided |
+| Python | `>=3.11`, the oldest version any planned user declares; tests run on 3.11 | decided |
 | Module names | `shell_interface` keeps the name tools already import, so their call sites stay unchanged | decided |
-| First version | the existing terminal layer, generalised in three places (see the module notes), plus the additions marked proposed there | decided |
+| First version | the existing terminal layer, generalised in three places, plus the additions described in the module notes: `cwd` on every printing runner, `query_cmd_result`, quoted command printing, timestamps, and the persistent record | decided |

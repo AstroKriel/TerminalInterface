@@ -11,7 +11,7 @@ Design notes for `heimdall.cli_builder`: describing subcommands once, and gettin
 | `CommandArg` | one argument: a bare positional or a `--flag`, with type, default, metavar, help, `store_true`, `required`, and `nargs` | decided |
 | `cli_command(cmd_name=..., cmd_fn=..., cmd_help=..., cmd_args=..., is_hidden=...)` | one entry in the command table | decided |
 | `command_group(section_title=..., commands=[...])` | stamps a section title onto a list of entries, so each group names its section once | decided |
-| Section titles | plain strings, so a tool does not need its own enum type | proposed |
+| Section titles | plain strings, so a tool does not need its own enum type; a `str` enum still works, since its values are strings | decided |
 | Hidden commands | registered and callable, left out of the help listing | decided |
 | How a command function is called | `cmd_fn(config, <arg-1>, <arg-2>, ...)`, positional arguments in the order of `cmd_args` | decided |
 
@@ -30,10 +30,10 @@ The second generalisation: the existing entry point hardcoded the name, usage li
 | `global_flags` | extra flags beyond `--dry-run`, as `CommandArg`s | decided |
 | `make_config` | builds the `Config` of the tool (or a subclass) from the parsed global flags | decided |
 | `commands` | the command table: groups and hidden commands, in help order | decided |
-| Type name | `ToolSpec` | proposed |
+| Type name | `ToolSpec`; a variable holding one is named `tool_spec` | decided |
 
 ```text
-run_cli(tool_spec=<tool-spec>)
+run_cli(tool_spec=tool_spec)
 ```
 
 `run_cli` builds the parser, registers every subcommand and its arguments, parses, builds the config through `make_config`, dispatches, and exits with the return code of a failed command when one raises. State: decided.
@@ -49,7 +49,6 @@ run_cli(tool_spec=<tool-spec>)
 | Command groups | one heading per section, each command with its help, in table order | decided |
 | Global flags | `--dry-run` and each extra flag with its help | decided |
 | Output legend | one line per theme, generated from the theme table | decided |
+| Separator | a single tab between a name and its help, in every section; no padding with runs of spaces | decided |
 
 The third generalisation: generating the legend from the themes removes the second copy of the colour values that the existing help kept.
-
-> **Note:** help lines currently align command names with padded columns. Whether to keep that or switch to a single tab separator is open.
