@@ -136,15 +136,6 @@ class OutcomeContent(Enum):
     )
 
 
-def get_skipped_change_style() -> MessageStyle:
-    """A change that dry-run skipped: the icon of a change in the colour of the skipped status."""
-    return MessageStyle(
-        colour=OutcomeStatus.SKIPPED.value.colour,
-        icon=ActionType.CHANGE.value.icon,
-        description="change skipped in dry-run",
-    )
-
-
 ##
 ## === LEGEND
 ##
@@ -168,7 +159,7 @@ LEGEND_GROUPS: list[LegendGroup] = [
     ),
     LegendGroup(
         title="Actions",
-        grouped_message_styles=(*[_action_type.value for _action_type in ActionType], get_skipped_change_style()),
+        grouped_message_styles=tuple(_action_type.value for _action_type in ActionType),
     ),
     LegendGroup(
         title="Outcomes",
@@ -308,24 +299,26 @@ def write_line(
 
 def render_line(
     *,
-    message_style: MessageStyle,
+    icon: Symbol | None,
+    colour: Colour | None,
     text_markup: str,
     colour_whole_line: bool,
     is_result: bool = False,
 ) -> None:
-    """Render a line in the icon and colour of its message style; either the whole line or only the icon is coloured.
+    """Render a line with an icon and a colour; either the whole line or only the icon is coloured.
 
-    A style without an icon or colour renders the text plain.
+    The icon and colour are passed separately so a line can take them from different facets, e.g. the icon of a
+    change in the colour of the skipped status. Without an icon or colour the text renders plain.
     """
     icon_text = ""
-    if message_style.icon is not None:
-        icon_text = f"{message_style.icon.value} "
-    if message_style.colour is None:
+    if icon is not None:
+        icon_text = f"{icon.value} "
+    if colour is None:
         line_markup = f"{icon_text}{text_markup}"
     elif colour_whole_line:
-        line_markup = f"[{message_style.colour.value}]{icon_text}{text_markup}[/]"
+        line_markup = f"[{colour.value}]{icon_text}{text_markup}[/]"
     else:
-        line_markup = f"[{message_style.colour.value}]{icon_text.strip()}[/] {text_markup}"
+        line_markup = f"[{colour.value}]{icon_text.strip()}[/] {text_markup}"
     write_line(
         line_markup,
         is_result=is_result,

@@ -32,7 +32,7 @@ outcome              how a task or action ended, reported afterwards
 └── content          optional: a value (what an action produced) or a result (for the user, on stdout)
 ```
 
-The icon says which concept a line is (open circle: task; hooked arrow: note; right arrow: action; closed circle or middle dot: outcome) and the colour says which type or status. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `icon`, `description`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private core `_terminal_output`: `TASK_STYLE`; `NOTE_STYLE`; `ActionType` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `OutcomeContent` (`VALUE`, `RESULT`). A change skipped in dry-run is not defined separately: `get_skipped_change_style` builds it from the change icon and the skipped colour. `LEGEND_GROUPS` lists everything by concept, and the help legend is generated from it, so the legend cannot drift from the output. Lines are drawn by `render_line` and written by `write_line`.
+The icon says which concept a line is (open circle: task; hooked arrow: note; right arrow: action; closed circle or middle dot: outcome) and the colour says which type or status. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `icon`, `description`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private core `_terminal_output`: `TASK_STYLE`; `NOTE_STYLE`; `ActionType` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `OutcomeContent` (`VALUE`, `RESULT`). There are no named combinations: a change skipped in dry-run is drawn at render time with the change icon in the skipped colour, and the legend lists only the building blocks. `LEGEND_GROUPS` lists everything by concept, and the help legend is generated from it, so the legend cannot drift from the output. Lines are drawn by `render_line` and written by `write_line`.
 
 | Concept | Facet | Value | Icon | Colour | State |
 |---|---|---|---|---|---|
@@ -40,7 +40,6 @@ The icon says which concept a line is (open circle: task; hooked arrow: note; ri
 | note | | | hooked arrow | white | decided |
 | action | type | change | right arrow | blue | decided |
 | action | type | inspection | right arrow | grey | decided |
-| action | type and status | change skipped in dry-run | right arrow | orange, from the skipped status | decided |
 | outcome | status | success | closed circle | green | decided |
 | outcome | status | warning | closed circle | yellow | decided |
 | outcome | status | skipped | closed circle | orange | decided |

@@ -38,7 +38,6 @@ class TestLegend_Groups(unittest.TestCase):
         self.assertEqual(notes_group.grouped_message_styles, (_terminal_output.NOTE_STYLE,))
         for action_type in _terminal_output.ActionType:
             self.assertIn(action_type.value, actions_group.grouped_message_styles)
-        self.assertIn(_terminal_output.get_skipped_change_style(), actions_group.grouped_message_styles)
         for outcome_status in _terminal_output.OutcomeStatus:
             self.assertIn(outcome_status.value, outcomes_group.grouped_message_styles)
         for outcome_content in _terminal_output.OutcomeContent:
@@ -50,13 +49,6 @@ class TestLegend_Groups(unittest.TestCase):
         for legend_group in _terminal_output.LEGEND_GROUPS:
             for message_style in legend_group.grouped_message_styles:
                 self.assertNotEqual(message_style.description, "")
-
-    def test_skipped_change_combines_the_change_icon_and_skipped_colour(
-        self,
-    ) -> None:
-        skipped_change_style = _terminal_output.get_skipped_change_style()
-        self.assertEqual(skipped_change_style.icon, _terminal_output.ActionType.CHANGE.value.icon)
-        self.assertEqual(skipped_change_style.colour, _terminal_output.OutcomeStatus.SKIPPED.value.colour)
 
     def test_result_has_no_icon_or_colour(
         self,
@@ -191,7 +183,8 @@ class TestWriteLine_Record(unittest.TestCase):
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
                 _terminal_output.render_line(
-                    message_style=_terminal_output.TASK_STYLE,
+                    icon=_terminal_output.TASK_STYLE.icon,
+                    colour=_terminal_output.TASK_STYLE.colour,
                     text_markup="first",
                     colour_whole_line=False,
                 )

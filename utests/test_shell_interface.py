@@ -203,6 +203,18 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         self.assertTrue(command_succeeded)
         self.assertEqual(stderr_buffer.getvalue(), "→ (dryrun) skipped: git push\n")
 
+    def test_dry_run_line_uses_the_change_icon_in_the_skipped_colour(
+        self,
+    ) -> None:
+        with mock.patch.object(_terminal_output, "render_line") as mock_render_line:
+            shell_interface.run_cmd_and_show_output(
+                run_params=shell_interface.RunParams(dry_run=True),
+                cmd=["git", "push"],
+            )
+        render_kwargs = mock_render_line.call_args.kwargs
+        self.assertEqual(render_kwargs["icon"], _terminal_output.ActionType.CHANGE.value.icon)
+        self.assertEqual(render_kwargs["colour"], _terminal_output.OutcomeStatus.SKIPPED.value.colour)
+
     def test_logs_and_executes_when_not_dry_run(
         self,
     ) -> None:
