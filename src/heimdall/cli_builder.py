@@ -6,6 +6,7 @@
 
 ## stdlib
 import argparse
+import shlex
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
@@ -71,8 +72,8 @@ class CommandArg:
 class CommandDetails:
     """One subcommand: its help, its arguments, and the function it calls."""
     help: str
-    cmd_fn: Callable[..., None]
-    cmd_args: list[CommandArg]
+    command_fn: Callable[..., None]
+    command_args: list[CommandArg]
     section_title: str | None
     is_hidden: bool
 
@@ -82,11 +83,11 @@ class CommandDetails:
         run_params: shell_interface.RunParams,
         parsed_args: argparse.Namespace,
     ) -> None:
-        """Call cmd_fn with `run_params` and each argument by its argparse name, all as keywords."""
-        cmd_arg_values = {_cmd_arg.dest: getattr(parsed_args, _cmd_arg.dest) for _cmd_arg in self.cmd_args}
-        self.cmd_fn(
+        """Call command_fn with `run_params` and each argument by its argparse name, all as keywords."""
+        command_arg_values = {_command_arg.dest: getattr(parsed_args, _command_arg.dest) for _command_arg in self.command_args}
+        self.command_fn(
             run_params=run_params,
-            **cmd_arg_values,
+            **command_arg_values,
         )
 
 
@@ -143,36 +144,36 @@ _DRY_RUN_FLAG = CommandArg(
 ##
 
 
-def cli_command(
+def make_command(
     *,
-    cmd_name: str,
-    cmd_fn: Callable[..., None],
-    cmd_help: str = "",
-    cmd_args: list[CommandArg] | None = None,
+    command_name: str,
+    command_fn: Callable[..., None],
+    command_help: str = "",
+    command_args: list[CommandArg] | None = None,
     is_hidden: bool = False,
 ) -> CommandEntry:
-    """Build a (name, details) entry for the command table; `command_group` stamps its section."""
-    if cmd_args is None:
-        cmd_args = []
-    cmd_details = CommandDetails(
-        help=cmd_help,
-        cmd_fn=cmd_fn,
-        cmd_args=cmd_args,
+    """Build a (name, details) entry for the command table; `make_command_group` stamps its section."""
+    if command_args is None:
+        command_args = []
+    command_details = CommandDetails(
+        help=command_help,
+        command_fn=command_fn,
+        command_args=command_args,
         section_title=None,
         is_hidden=is_hidden,
     )
-    return (cmd_name, cmd_details)
+    return (command_name, command_details)
 
 
-def command_group(
+def make_command_group(
     *,
     section_title: str,
     commands: list[CommandEntry],
 ) -> list[CommandEntry]:
-    """Stamp section_title onto each command so a group names its section exactly once."""
+    """Stamp `section_title` onto each command so a group names its section exactly once."""
     return [
-        (_cmd_name, replace(_cmd_details, section_title=section_title))
-        for _cmd_name, _cmd_details in commands
+        (_command_name, replace(_command_details, section_title=section_title))
+        for _command_name, _command_details in commands
     ]
 
 
@@ -221,7 +222,7 @@ def _get_legend_label(
     """The symbol and colour name, e.g. `● green`; `plain` for a line with neither."""
     if message_style.symbol is None or message_style.colour is None:
         return "plain"
-    return f"{message_style.symbol.value}{message_style.colour.name.lower()}"
+    return f"{message_style.symbol.value} {message_style.colour.name.lower()}"
 
 
 def _get_legend_colour(
@@ -235,17 +236,18 @@ def _get_legend_colour(
 def _print_tool_help(
     tool: Tool,
 ) -> None:
-    """Every row on the screen shares one column width: the longest label plus a fixed gap."""
+    """Print the commands by section, the flags, and the output legend; every row shares one column width."""
     console = rich_Console(highlight=False)
     all_flags = [_DRY_RUN_FLAG, *tool.flags]
     visible_rows: list[tuple[str, str, str]] = []
-    for cmd_name, cmd_details in tool.commands:
-        if cmd_details.is_hidden or cmd_details.section_title is None:
+    for command_name, command_details in tool.commands:
+        if command_details.is_hidden:
             continue
-        visible_row = (cmd_details.section_title, cmd_name, cmd_details.help)
+        assert command_details.section_title is not None
+        visible_row = (command_details.section_title, command_name, command_details.help)
         visible_rows.append(visible_row)
     all_labels = [
-        *[_cmd_name for _, _cmd_name, _ in visible_rows],
+        *[_command_name for _, _command_name, _ in visible_rows],
         *[_flag.arg_name for _flag in all_flags],
         *[_get_legend_label(_message_style) for _message_style in _get_legend_styles()],
     ]
@@ -257,16 +259,16 @@ def _print_tool_help(
     console.print()
     console.print(f"[dim]usage:[/dim] {usage_text}")
     current_section = None
-    for section_title, cmd_name, cmd_help in visible_rows:
+    for section_title, command_name, command_help in visible_rows:
         if section_title != current_section:
             console.print()
             console.print(f"[bold]{_get_section_text(section_title)}[/bold]")
             current_section = section_title
         command_row = _format_help_row(
-            label=cmd_name,
-            label_style="cyan",
+            label=command_name,
+            label_style=_terminal_output.Colour.CYAN.value,
             column_width=column_width,
-            description=cmd_help,
+            description=command_help,
         )
         console.print(command_row)
     console.print()
@@ -277,7 +279,7 @@ def _print_tool_help(
             flag_help = ""
         flag_row = _format_help_row(
             label=flag.arg_name,
-            label_style="cyan",
+            label_style=_terminal_output.Colour.CYAN.value,
             column_width=column_width,
             description=flag_help,
         )
@@ -353,16 +355,24 @@ def _build_parser(
     )
     for flag in [_DRY_RUN_FLAG, *tool.flags]:
         arg_parser.add_argument(flag.arg_name, **flag.argparse_kwargs)
-    sub_parsers = arg_parser.add_subparsers(
-        dest="cmd",
+    subparsers = arg_parser.add_subparsers(
+        dest="command",
         required=True,
         metavar="<command>",
     )
-    for cmd_name, cmd_details in dict(tool.commands).items():
-        subparser = sub_parsers.add_parser(cmd_name, help=cmd_details.help)
-        for cmd_arg in cmd_details.cmd_args:
-            subparser.add_argument(cmd_arg.arg_name, **cmd_arg.argparse_kwargs)
+    for command_name, command_details in dict(tool.commands).items():
+        subparser = subparsers.add_parser(command_name, help=command_details.help)
+        for command_arg in command_details.command_args:
+            subparser.add_argument(command_arg.arg_name, **command_arg.argparse_kwargs)
     return arg_parser
+
+
+def _ensure_visible_commands_grouped(
+    tool: Tool,
+) -> None:
+    for command_name, command_details in tool.commands:
+        if not command_details.is_hidden and command_details.section_title is None:
+            raise ValueError(f"command `{command_name}` must be hidden or in a command group.")
 
 
 def run_cli(
@@ -371,6 +381,7 @@ def run_cli(
     argv: Sequence[str] | None = None,
 ) -> None:
     """Parse argv (default: `sys.argv`), build the run params, start output for the run, and dispatch one subcommand."""
+    _ensure_visible_commands_grouped(tool)
     parsed_args = _build_parser(tool).parse_args(argv)
     run_params = tool.make_run_params(parsed_args)
     _terminal_output.set_output_params(
@@ -378,14 +389,18 @@ def run_cli(
         record_path=tool.record_path,
         dry_run=run_params.dry_run,
     )
-    selected_cmd_details = dict(tool.commands)[parsed_args.cmd]
+    selected_command_details = dict(tool.commands)[parsed_args.command]
     try:
-        selected_cmd_details.call(
+        selected_command_details.call(
             run_params=run_params,
             parsed_args=parsed_args,
         )
-    except subprocess.CalledProcessError as proc_error:
-        raise SystemExit(proc_error.returncode) from proc_error
+    except subprocess.CalledProcessError as process_error:
+        failed_command = shlex.join(process_error.cmd)
+        shell_interface.exit_with_error(
+            shell_interface.escape_markup(f"`{failed_command}` failed with exit status {process_error.returncode}."),
+            exit_code=process_error.returncode,
+        )
 
 
 ## } MODULE

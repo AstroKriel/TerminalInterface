@@ -13,6 +13,7 @@ import re
 import subprocess
 import tempfile
 import unittest
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
 
@@ -54,6 +55,22 @@ def _get_help(
     return stdout_buffer.getvalue()
 
 
+def _make_go_command(
+    command_fn: Callable[..., None],
+    *,
+    command_args: list[cli_builder.CommandArg] | None = None,
+) -> list[cli_builder.CommandEntry]:
+    go_command = cli_builder.make_command(
+        command_name="go",
+        command_fn=command_fn,
+        command_args=command_args,
+    )
+    return cli_builder.make_command_group(
+        section_title="Commands",
+        commands=[go_command],
+    )
+
+
 def _make_tool(
     *,
     commands: list[cli_builder.CommandEntry],
@@ -79,7 +96,7 @@ class TestCommandDetails_ArgMapping(unittest.TestCase):
     def _call_with(
         self,
         *,
-        cmd_args: list[cli_builder.CommandArg],
+        command_args: list[cli_builder.CommandArg],
         parsed_values: dict[str, str | None],
     ) -> dict[str, str | None]:
         received: dict[str, str | None] = {}
@@ -87,16 +104,16 @@ class TestCommandDetails_ArgMapping(unittest.TestCase):
         def record_args(
             *,
             run_params: shell_interface.RunParams,
-            **cmd_arg_values: str | None,
+            **command_arg_values: str | None,
         ) -> None:
-            received.update(cmd_arg_values)
+            received.update(command_arg_values)
 
-        _, cmd_details = cli_builder.cli_command(
-            cmd_name="test-cmd",
-            cmd_fn=record_args,
-            cmd_args=cmd_args,
+        _, command_details = cli_builder.make_command(
+            command_name="test-command",
+            command_fn=record_args,
+            command_args=command_args,
         )
-        cmd_details.call(
+        command_details.call(
             run_params=shell_interface.RunParams(),
             parsed_args=argparse.Namespace(dry_run=False, **parsed_values),
         )
@@ -106,7 +123,7 @@ class TestCommandDetails_ArgMapping(unittest.TestCase):
         self,
     ) -> None:
         received = self._call_with(
-            cmd_args=[cli_builder.CommandArg(arg_name="branch_name")],
+            command_args=[cli_builder.CommandArg(arg_name="branch_name")],
             parsed_values={"branch_name": "feature"},
         )
         self.assertEqual(received, {"branch_name": "feature"})
@@ -115,7 +132,7 @@ class TestCommandDetails_ArgMapping(unittest.TestCase):
         self,
     ) -> None:
         received = self._call_with(
-            cmd_args=[cli_builder.CommandArg(arg_name="--base-ref")],
+            command_args=[cli_builder.CommandArg(arg_name="--base-ref")],
             parsed_values={"base_ref": "development"},
         )
         self.assertEqual(received, {"base_ref": "development"})
@@ -124,7 +141,7 @@ class TestCommandDetails_ArgMapping(unittest.TestCase):
         self,
     ) -> None:
         received = self._call_with(
-            cmd_args=[cli_builder.CommandArg(arg_name="--base")],
+            command_args=[cli_builder.CommandArg(arg_name="--base")],
             parsed_values={"base": None},
         )
         self.assertEqual(received, {"base": None})
@@ -142,13 +159,10 @@ class TestCommandDetails_ArgMapping(unittest.TestCase):
             received.append(base)
 
         tool = _make_tool(
-            commands=[
-                cli_builder.cli_command(
-                    cmd_name="go",
-                    cmd_fn=record_base,
-                    cmd_args=[cli_builder.CommandArg(arg_name="--base")],
-                ),
-            ],
+            commands=_make_go_command(
+                record_base,
+                command_args=[cli_builder.CommandArg(arg_name="--base")],
+            ),
         )
         cli_builder.run_cli(tool=tool, argv=["go"])
         self.assertEqual(received, [None])
@@ -159,15 +173,15 @@ class TestCommandGroup_SectionStamping(unittest.TestCase):
     def test_stamps_section_title_and_keeps_order(
         self,
     ) -> None:
-        commands = cli_builder.command_group(
+        commands = cli_builder.make_command_group(
             section_title="Syncing",
             commands=[
-                cli_builder.cli_command(cmd_name="alpha", cmd_fn=_do_nothing),
-                cli_builder.cli_command(cmd_name="beta", cmd_fn=_do_nothing),
+                cli_builder.make_command(command_name="alpha", command_fn=_do_nothing),
+                cli_builder.make_command(command_name="beta", command_fn=_do_nothing),
             ],
         )
-        self.assertEqual([_cmd_name for _cmd_name, _ in commands], ["alpha", "beta"])
-        self.assertEqual([_cmd_details.section_title for _, _cmd_details in commands], ["Syncing", "Syncing"])
+        self.assertEqual([_command_name for _command_name, _ in commands], ["alpha", "beta"])
+        self.assertEqual([_command_details.section_title for _, _command_details in commands], ["Syncing", "Syncing"])
 
 
 class TestRunCli_Dispatch(unittest.TestCase):
@@ -189,7 +203,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             received.append(run_params)
 
-        tool = _make_tool(commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=record_run_params)])
+        tool = _make_tool(commands=_make_go_command(record_run_params))
         cli_builder.run_cli(tool=tool, argv=["--dry-run", "go"])
         self.assertEqual(received, [shell_interface.RunParams(dry_run=True)])
 
@@ -207,7 +221,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         tool = cli_builder.Tool(
             name="tool",
             description="a tool",
-            commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=record_run_params)],
+            commands=_make_go_command(record_run_params),
             flags=[cli_builder.CommandArg(arg_name="--allow-dirty", store_true=True)],
             make_run_params=_make_tool_run_params,
         )
@@ -223,10 +237,19 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             raise subprocess.CalledProcessError(returncode=3, cmd=["false"])
 
-        tool = _make_tool(commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=fail)])
-        with self.assertRaises(SystemExit) as exit_context:
+        tool = _make_tool(commands=_make_go_command(fail))
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
             cli_builder.run_cli(tool=tool, argv=["go"])
         self.assertEqual(exit_context.exception.code, 3)
+        self.assertEqual(stderr_buffer.getvalue(), "● error: `false` failed with exit status 3.\n")
+
+    def test_visible_command_outside_a_group_is_rejected(
+        self,
+    ) -> None:
+        tool = _make_tool(commands=[cli_builder.make_command(command_name="loose", command_fn=_do_nothing)])
+        with self.assertRaises(ValueError):
+            cli_builder.run_cli(tool=tool, argv=["loose"])
 
     def test_record_is_started_from_the_tool(
         self,
@@ -244,7 +267,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         tool = cli_builder.Tool(
             name="tool",
             description="a tool",
-            commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=narrate)],
+            commands=_make_go_command(narrate),
             record_path=record_path,
         )
         with contextlib.redirect_stderr(io.StringIO()):
@@ -258,9 +281,9 @@ class TestHelp_Output(unittest.TestCase):
         self,
     ) -> cli_builder.Tool:
         return _make_tool(
-            commands=cli_builder.command_group(
+            commands=cli_builder.make_command_group(
                 section_title="Syncing",
-                commands=[cli_builder.cli_command(cmd_name="alpha", cmd_fn=_do_nothing, cmd_help="does alpha")],
+                commands=[cli_builder.make_command(command_name="alpha", command_fn=_do_nothing, command_help="does alpha")],
             ),
         )
 
@@ -292,13 +315,13 @@ class TestHelp_Output(unittest.TestCase):
         self,
     ) -> None:
         tool = _make_tool(
-            commands=cli_builder.command_group(
+            commands=cli_builder.make_command_group(
                 section_title="Syncing",
                 commands=[
-                    cli_builder.cli_command(
-                        cmd_name="a-much-longer-command-name",
-                        cmd_fn=_do_nothing,
-                        cmd_help="long one",
+                    cli_builder.make_command(
+                        command_name="a-much-longer-command-name",
+                        command_fn=_do_nothing,
+                        command_help="long one",
                     ),
                 ],
             ),
@@ -310,11 +333,11 @@ class TestHelp_Output(unittest.TestCase):
     ) -> None:
         tool = _make_tool(
             commands=[
-                *cli_builder.command_group(
+                *cli_builder.make_command_group(
                     section_title="Shown",
-                    commands=[cli_builder.cli_command(cmd_name="visible", cmd_fn=_do_nothing)],
+                    commands=[cli_builder.make_command(command_name="visible", command_fn=_do_nothing)],
                 ),
-                cli_builder.cli_command(cmd_name="secret", cmd_fn=_do_nothing, is_hidden=True),
+                cli_builder.make_command(command_name="secret", command_fn=_do_nothing, is_hidden=True),
             ],
         )
         help_text = _get_help(tool)
@@ -348,7 +371,9 @@ class TestHelp_Output(unittest.TestCase):
         for message_group in _terminal_output.MESSAGE_GROUPS:
             title_index = help_lines.index(f"  {message_group.title}")
             for line_offset, message_style in enumerate(message_group.grouped_message_styles, start=1):
-                legend_label = cli_builder._get_legend_label(message_style)
+                legend_label = "plain"
+                if message_style.symbol is not None and message_style.colour is not None:
+                    legend_label = f"{message_style.symbol.value} {message_style.colour.name.lower()}"
                 legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_style.description)}$"
                 self.assertRegex(help_lines[title_index + line_offset], re.compile(legend_pattern))
 
@@ -359,9 +384,9 @@ class TestHelp_Output(unittest.TestCase):
             SYNCING = "Syncing with the remote"
 
         tool = _make_tool(
-            commands=cli_builder.command_group(
+            commands=cli_builder.make_command_group(
                 section_title=SectionTitle.SYNCING,
-                commands=[cli_builder.cli_command(cmd_name="alpha", cmd_fn=_do_nothing)],
+                commands=[cli_builder.make_command(command_name="alpha", command_fn=_do_nothing)],
             ),
         )
         help_text = _get_help(tool)

@@ -9,11 +9,13 @@ Design notes for `heimdall.cli_builder`: describing a tool and its subcommands o
 | Part | Detail | State |
 |---|---|---|
 | `CommandArg` | one argument: a bare positional or a `--flag`, with type, default, metavar, help, `store_true`, `required`, and `nargs` | decided |
-| `cli_command(cmd_name=..., cmd_fn=..., cmd_help=..., cmd_args=..., is_hidden=...)` | one entry in the command table | decided |
-| `command_group(section_title=..., commands=[...])` | stamps a section title onto a list of entries, so each group names its section once | decided |
+| `make_command(command_name=..., command_fn=..., command_help=..., command_args=..., is_hidden=...)` | one entry in the command table | decided |
+| `make_command_group(section_title=..., commands=[...])` | stamps a section title onto a list of entries, so each group names its section once | decided |
+| Ungrouped commands | a visible command must be in a group; `run_cli` rejects one that is not, so a command never drops out of help silently | decided |
 | Section titles | plain strings, so a tool does not need its own enum type; a `str` enum still works, since its values are strings | decided |
 | Hidden commands | registered and callable, left out of the help listing | decided |
-| How a command function is called | `cmd_fn(run_params=..., <arg_1>=..., <arg_2>=...)`, every argument by keyword, named after its argparse destination (`--base-ref` becomes `base_ref`) | decided |
+| Failed command | `run_cli` reports an error outcome naming the command that failed, then exits with its exit status | decided |
+| How a command function is called | `command_fn(run_params=..., <arg_1>=..., <arg_2>=...)`, every argument by keyword, named after its argparse destination (`--base-ref` becomes `base_ref`) | decided |
 
 `CommandArg` is public here; in the existing layer it was private to one tool. Calling by keyword means a command function declares its parameters keyword-only and names them after the arguments they receive, so a mismatch fails loudly instead of passing a value to the wrong parameter.
 

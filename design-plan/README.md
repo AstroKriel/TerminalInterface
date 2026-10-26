@@ -76,4 +76,4 @@ TerminalInterface/
 | Python | `>=3.11`, the oldest version any planned user declares; tests run on 3.11 and 3.14 | decided |
 | Module names | `shell_interface` keeps the name tools already import | decided |
 | Private core | `_terminal_output` holds everything both public modules share, so a later message layer can be added as its own module on the same palette, consoles, and record without touching `shell_interface` | decided |
-| First version | the existing terminal layer, generalised in three places, plus the additions described in the module notes: runners named for what happens to their output, `cwd` on every runner, `query_cmd_and_capture_outcome`, quoted command printing, timestamps, and the persistent record | decided |
+| First version | the existing terminal layer, generalised in three places, plus the additions described in the module notes: runners named for what happens to their output, `working_directory` on every runner, `query_command_and_capture_outcome`, quoted command printing, timestamps, and the persistent record | decided |

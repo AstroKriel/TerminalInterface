@@ -28,6 +28,7 @@ class Colour(str, Enum):
     ORANGE = "#E48500"
     RED = "#FF4500"
     GREY = "#818181"
+    CYAN = "#00CED1"
 
 
 class Symbol(str, Enum):

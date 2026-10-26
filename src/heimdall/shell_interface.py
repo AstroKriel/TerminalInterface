@@ -15,6 +15,7 @@ from typing import NoReturn
 ## local
 from heimdall import _terminal_output
 from heimdall._terminal_output import OutcomeStatus as OutcomeStatus
+from heimdall._terminal_output import escape_markup as escape_markup
 
 ##
 ## === PARAMS
@@ -31,13 +32,6 @@ class RunParams:
 ## === OUTPUT
 ## message text is rich markup; anything added here (commands, resolved values) is escaped.
 ##
-
-
-def escape_markup(
-    text: str,
-) -> str:
-    """Make text print exactly as written, e.g. a title or path that contains square brackets."""
-    return _terminal_output.escape_markup(text)
 
 
 def _render_message(
@@ -118,19 +112,21 @@ def log_result(
 
 def exit_with_error(
     message: str,
+    *,
+    exit_code: int = 1,
 ) -> NoReturn:
-    """Report an error that ends the run, then exit the process with status 1."""
+    """Report an error that ends the run, then exit the process with `exit_code`."""
     _render_message(
         message_style=OutcomeStatus.ERROR.value,
         text_markup=f"error: {message}",
-        colour_whole_line=False,
+        colour_whole_line=True,
     )
-    sys.exit(1)
+    sys.exit(exit_code)
 
 
 ##
 ## === COMMAND RUNNERS
-## every runner prints its command with `shlex.join` before running it, except `query_cmd_and_discard_output`.
+## every runner prints its command with `shlex.join` before running it, except `query_command_and_discard_output`.
 ##
 
 _COMMAND_NOT_FOUND_EXIT_CODE = 127
@@ -152,12 +148,12 @@ class CommandOutcome:
         return self.exit_code == 0
 
 
-def _print_cmd(
+def _print_command(
     *,
     action: _terminal_output.Action,
-    cmd: list[str],
+    command: list[str],
     outcome_status: OutcomeStatus | None = None,
-    cmd_prefix: str = "",
+    command_prefix: str = "",
 ) -> None:
     """Print a command with the symbol of its action, in the colour of its outcome status when it already has one."""
     colour = action.value.colour
@@ -166,16 +162,16 @@ def _print_cmd(
     _terminal_output.render_line(
         symbol=action.value.symbol,
         colour=colour,
-        text_markup=f"{cmd_prefix}{escape_markup(shlex.join(cmd))}",
+        text_markup=f"{command_prefix}{escape_markup(shlex.join(command))}",
         colour_whole_line=True,
     )
 
 
-def run_cmd_and_show_output(
+def run_command_and_show_output(
     *,
     run_params: RunParams,
-    cmd: list[str],
-    cwd: Path | None = None,
+    command: list[str],
+    working_directory: Path | None = None,
     raise_error: bool = True,
 ) -> bool:
     """
@@ -184,68 +180,67 @@ def run_cmd_and_show_output(
     A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
     """
     if run_params.dry_run:
-        _print_cmd(
+        _print_command(
             action=_terminal_output.Action.CHANGE,
             outcome_status=OutcomeStatus.SKIPPED,
-            cmd=cmd,
-            cmd_prefix="(dryrun) skipped: ",
+            command=command,
+            command_prefix="(dryrun) skipped: ",
         )
         return True
-    _print_cmd(
+    _print_command(
         action=_terminal_output.Action.CHANGE,
-        cmd=cmd,
+        command=command,
     )
     result = subprocess.run(
-        cmd,
-        cwd=cwd,
+        command,
+        cwd=working_directory,
     )
     if raise_error and result.returncode != 0:
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
-            cmd=cmd,
+            cmd=command,
         )
     return result.returncode == 0
 
 
-def run_cmd_and_capture_output(
+def run_command_and_capture_output(
     *,
     run_params: RunParams,
-    cmd: list[str],
-    cwd: Path | None = None,
+    command: list[str],
+    working_directory: Path | None = None,
 ) -> str:
     """
     Run a mutating command and return its stdout with surrounding whitespace stripped; empty string in dry-run.
 
-    Output is stripped because it is a value for code to use; `query_cmd_and_capture_outcome` keeps it unstripped as a record.
-    In dry-run the change never happens, so its value is unknown: the empty string is a placeholder, and anything that
-    depends on it should report a skipped outcome instead of carrying on with it.
+    In dry-run the empty string is a placeholder for an unknown value; anything that depends on it should report a
+    skipped outcome instead of carrying on with it.
     """
     if run_params.dry_run:
-        _print_cmd(
+        _print_command(
             action=_terminal_output.Action.CHANGE,
             outcome_status=OutcomeStatus.SKIPPED,
-            cmd=cmd,
-            cmd_prefix="(dryrun) skipped: ",
+            command=command,
+            command_prefix="(dryrun) skipped: ",
         )
         return ""
-    _print_cmd(
+    _print_command(
         action=_terminal_output.Action.CHANGE,
-        cmd=cmd,
+        command=command,
     )
     result = subprocess.run(
-        cmd,
+        command,
         capture_output=True,
         text=True,
         check=True,
-        cwd=cwd,
+        cwd=working_directory,
     )
     return result.stdout.strip()
 
 
-def query_cmd_and_capture_output(
+def query_command_and_capture_output(
     *,
-    cmd: list[str],
-    cwd: Path | None = None,
+    command: list[str],
+    working_directory: Path | None = None,
     raise_error: bool = True,
 ) -> str:
     """
@@ -253,74 +248,74 @@ def query_cmd_and_capture_output(
 
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
-    _print_cmd(
+    _print_command(
         action=_terminal_output.Action.INSPECTION,
-        cmd=cmd,
+        command=command,
     )
     result = subprocess.run(
-        cmd,
+        command,
         capture_output=True,
         text=True,
-        cwd=cwd,
+        cwd=working_directory,
     )
     if raise_error and result.returncode != 0:
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
-            cmd=cmd,
+            cmd=command,
             output=result.stdout,
             stderr=result.stderr,
         )
     return result.stdout.strip()
 
 
-def query_cmd_and_capture_outcome(
+def query_command_and_capture_outcome(
     *,
-    cmd: list[str],
-    cwd: Path | None = None,
+    command: list[str],
+    working_directory: Path | None = None,
 ) -> CommandOutcome:
     """
     Run a read-only command and return its stdout, stderr, and exit code unstripped as a `CommandOutcome`; never raises.
 
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
-    _print_cmd(
+    _print_command(
         action=_terminal_output.Action.INSPECTION,
-        cmd=cmd,
+        command=command,
     )
     try:
         result = subprocess.run(
-            cmd,
+            command,
             capture_output=True,
             text=True,
-            cwd=cwd,
+            cwd=working_directory,
         )
     except FileNotFoundError:
         return CommandOutcome(
-            command=shlex.join(cmd),
-            working_directory=cwd,
+            command=shlex.join(command),
+            working_directory=working_directory,
             exit_code=_COMMAND_NOT_FOUND_EXIT_CODE,
             stdout="",
-            stderr=f"command not found: `{cmd[0]}`.",
+            stderr=f"command not found: `{command[0]}`.",
         )
     return CommandOutcome(
-        command=shlex.join(cmd),
-        working_directory=cwd,
+        command=shlex.join(command),
+        working_directory=working_directory,
         exit_code=result.returncode,
         stdout=result.stdout,
         stderr=result.stderr,
     )
 
 
-def query_cmd_and_discard_output(
+def query_command_and_discard_output(
     *,
-    cmd: list[str],
-    cwd: Path | None = None,
+    command: list[str],
+    working_directory: Path | None = None,
 ) -> int:
     """Run a read-only command silently and return its exit code, for yes/no checks; the one runner that prints nothing."""
     result = subprocess.run(
-        cmd,
+        command,
         capture_output=True,
-        cwd=cwd,
+        cwd=working_directory,
     )
     return result.returncode
 
