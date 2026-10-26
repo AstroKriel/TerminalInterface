@@ -182,6 +182,7 @@ def command_group(
 ##
 
 _HELP_INDENT = "    "
+_LEGEND_GROUP_INDENT = "  "
 _HELP_GAP_WIDTH = 2
 
 
@@ -205,10 +206,11 @@ def _format_help_row(
 
 
 def _get_legend_params() -> list[_terminal_output.MessageParams]:
-    """Message types first, then outcome statuses, each in declaration order."""
+    """Every legend row across all groups, in legend order."""
     return [
-        *[_message_type.value for _message_type in _terminal_output.MessageType],
-        *[_outcome_status.value for _outcome_status in _terminal_output.OutcomeStatus],
+        _message_params
+        for _, _group_params in _terminal_output.LEGEND_GROUPS
+        for _message_params in _group_params
     ]
 
 
@@ -270,14 +272,16 @@ def _print_tool_help(
         console.print(flag_row)
     console.print()
     console.print("[bold]Output legend[/bold]")
-    for message_params in _get_legend_params():
-        legend_row = _format_help_row(
-            label=_get_legend_label(message_params),
-            label_style=message_params.color.value,
-            column_width=column_width,
-            description=message_params.description,
-        )
-        console.print(legend_row)
+    for group_title, group_params in _terminal_output.LEGEND_GROUPS:
+        console.print(f"{_LEGEND_GROUP_INDENT}[dim]{group_title}[/dim]")
+        for message_params in group_params:
+            legend_row = _format_help_row(
+                label=_get_legend_label(message_params),
+                label_style=message_params.color.value,
+                column_width=column_width,
+                description=message_params.description,
+            )
+            console.print(legend_row)
     console.print()
 
 

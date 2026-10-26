@@ -283,7 +283,7 @@ class TestHelp_Output(unittest.TestCase):
         help_lines = _get_help(self._make_syncing_tool()).splitlines()
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
         dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
-        task_description = _terminal_output.MessageType.TASK.value.description
+        task_description = _terminal_output.TASK_PARAMS.description
         legend_line = next(_line for _line in help_lines if task_description in _line)
         self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index("print commands"))
         self.assertEqual(alpha_line.index("does alpha"), legend_line.index(task_description))
@@ -332,18 +332,16 @@ class TestHelp_Output(unittest.TestCase):
         self.assertIn("usage: tool [--dry-run] [--allow-dirty] <command> [args]", help_text)
         self.assertIn("    --allow-dirty  skip the check", help_text.splitlines())
 
-    def test_legend_comes_from_message_types_and_statuses(
+    def test_legend_lists_each_group_under_its_title(
         self,
     ) -> None:
-        help_text = _get_help(_make_tool(commands=[]))
-        all_message_params = [
-            *[_message_type.value for _message_type in _terminal_output.MessageType],
-            *[_outcome_status.value for _outcome_status in _terminal_output.OutcomeStatus],
-        ]
-        for message_params in all_message_params:
-            legend_label = f"{message_params.marker.value} {message_params.color.name.lower()}"
-            legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_params.description)}$"
-            self.assertRegex(help_text, re.compile(legend_pattern, flags=re.MULTILINE))
+        help_lines = _get_help(_make_tool(commands=[])).splitlines()
+        for group_title, group_params in _terminal_output.LEGEND_GROUPS:
+            title_index = help_lines.index(f"  {group_title}")
+            for row_offset, message_params in enumerate(group_params, start=1):
+                legend_label = f"{message_params.marker.value} {message_params.color.name.lower()}"
+                legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_params.description)}$"
+                self.assertRegex(help_lines[title_index + row_offset], re.compile(legend_pattern))
 
     def test_str_enum_section_titles_print_their_value(
         self,

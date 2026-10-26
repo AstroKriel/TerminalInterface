@@ -39,63 +39,93 @@ class Marker(str, Enum):
 
 @dataclass(frozen=True)
 class MessageParams:
-    """Colour, marker, and legend description for one message type or outcome status."""
+    """Colour, marker, and legend description for one kind of line."""
     color: Color
     marker: Marker
     description: str
 
 
-class MessageType(Enum):
-    """Every kind of message other than an outcome; declaration order is the order of the help legend."""
-    TASK = MessageParams(
-        color=Color.WHITE,
-        marker=Marker.CIRCLE_OPEN,
-        description="start of a task",
-    )
-    ACTION = MessageParams(
+##
+## === TASKS
+## a task is a stage of the work, announced in words before it starts.
+##
+
+TASK_PARAMS = MessageParams(
+    color=Color.WHITE,
+    marker=Marker.CIRCLE_OPEN,
+    description="start of a task",
+)
+
+##
+## === ACTIONS
+## an action is something done to the system, shown before it happens.
+##
+
+
+class ActionKind(Enum):
+    """A change is skipped in dry-run; an inspection always runs."""
+    CHANGE = MessageParams(
         color=Color.BLUE,
         marker=Marker.ARROW,
-        description="action that changes the system",
+        description="change to the system",
     )
-    SKIPPED = MessageParams(
-        color=Color.ORANGE,
-        marker=Marker.ARROW,
-        description="action skipped in dry-run",
-    )
-    QUERY = MessageParams(
+    INSPECTION = MessageParams(
         color=Color.GRAY,
         marker=Marker.ARROW,
-        description="action that only inspects the system",
+        description="inspection of the system",
     )
-    VALUE = MessageParams(
-        color=Color.GRAY,
-        marker=Marker.DOT,
-        description="value that an inspection found",
-    )
+
+
+SKIPPED_CHANGE_PARAMS = MessageParams(
+    color=Color.ORANGE,
+    marker=Marker.ARROW,
+    description="change skipped in dry-run",
+)
+
+##
+## === OUTCOMES
+## an outcome is how a task or action ended, reported afterwards; it may carry a value or a result.
+##
 
 
 class OutcomeStatus(Enum):
-    """How a task or action ended; declaration order is the order of the help legend."""
     SUCCESS = MessageParams(
         color=Color.GREEN,
         marker=Marker.CIRCLE_CLOSED,
-        description="success or result of a task",
+        description="success or a result",
     )
     WARNING = MessageParams(
         color=Color.YELLOW,
         marker=Marker.CIRCLE_CLOSED,
-        description="warning about a task or action",
+        description="warning",
     )
     SKIPPED = MessageParams(
         color=Color.ORANGE,
         marker=Marker.CIRCLE_CLOSED,
-        description="task or action that was skipped",
+        description="skipped",
     )
     FAILURE = MessageParams(
         color=Color.RED,
         marker=Marker.CIRCLE_CLOSED,
-        description="failure of a task or action",
+        description="failure",
     )
+
+
+VALUE_PARAMS = MessageParams(
+    color=Color.GRAY,
+    marker=Marker.DOT,
+    description="value that an inspection found",
+)
+
+##
+## === LEGEND
+##
+
+LEGEND_GROUPS: list[tuple[str, list[MessageParams]]] = [
+    ("Tasks", [TASK_PARAMS]),
+    ("Actions", [*[_action_kind.value for _action_kind in ActionKind], SKIPPED_CHANGE_PARAMS]),
+    ("Outcomes", [*[_outcome_status.value for _outcome_status in OutcomeStatus], VALUE_PARAMS]),
+]
 
 
 ##

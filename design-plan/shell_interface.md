@@ -20,22 +20,31 @@ This is the first generalisation: the existing layer carried a tool-specific fla
 
 The model has three concepts: a task (a stage of the work, announced in words before it starts), an action (something done to the system, either changing it or only inspecting it, shown before it happens), and an outcome (how a task or action ended, with a status, optionally carrying a value or a result).
 
-Each kind of line has a fixed colour, marker, and legend description: a `MessageParams` held as the value of one member of `MessageType` or `OutcomeStatus` in the private core `_terminal_output`. The names match those of the log manager expected to move in, and avoid the figure `Theme` used for light and dark plots. The help legend is generated from these members, message types first, so the legend cannot drift from the output.
+The concepts are layered: each base concept has its own kinds.
 
-| Message type | Marker | Colour | Used for | State |
-|---|---|---|---|---|
-| `TASK` | open circle | white | a task starting | decided |
-| `ACTION` | arrow | blue | an action that changes the system | decided |
-| `SKIPPED` | arrow | orange | a changing action skipped in dry-run | decided |
-| `QUERY` | arrow | gray | an action that only inspects the system | decided |
-| `VALUE` | dot | gray | a value an inspection found | decided |
+```text
+task                 a stage of the work, announced in words before it starts
+action               something done to the system, shown before it happens
+├── change           changes the system; skipped in dry-run
+└── inspection       only reads the system; always runs
+outcome              how a task or action ended, reported afterwards
+├── status           success | warning | skipped | failure
+└── content          optional: a value (what an inspection found) or a result (for the user, on stdout)
+```
 
-| Outcome status | Marker | Colour | Used for | State |
+Each kind of line has a fixed colour, marker, and legend description, a `MessageParams` in the private core `_terminal_output`: `TASK_PARAMS`; `ActionKind.CHANGE` and `ActionKind.INSPECTION`, plus `SKIPPED_CHANGE_PARAMS` for a change skipped in dry-run, printed as one line in the colour of the skipped status; `OutcomeStatus.SUCCESS`, `WARNING`, `SKIPPED`, and `FAILURE`, plus `VALUE_PARAMS`. `LEGEND_GROUPS` lists them under the three concepts, and the help legend is generated from it, so the legend cannot drift from the output.
+
+| Concept | Kind | Marker | Colour | State |
 |---|---|---|---|---|
-| `SUCCESS` | closed circle | green | a task or action that succeeded; also a result | decided |
-| `WARNING` | closed circle | yellow | a task or action worth noticing, e.g. done despite a dirty worktree | decided |
-| `SKIPPED` | closed circle | orange | a task or action that was skipped | decided |
-| `FAILURE` | closed circle | red | a task or action that failed; also the error that ends the run | decided |
+| task | | open circle | white | decided |
+| action | change | arrow | blue | decided |
+| action | inspection | arrow | gray | decided |
+| action | change skipped in dry-run | arrow | orange | decided |
+| outcome | success, or a result | closed circle | green | decided |
+| outcome | warning | closed circle | yellow | decided |
+| outcome | skipped | closed circle | orange | decided |
+| outcome | failure, including the error that ends the run | closed circle | red | decided |
+| outcome | value an inspection found | dot | gray | decided |
 
 > **Note:** a richer message layer, with titled blocks and notes, is expected to move into this package later. These message types and statuses are its first layer, not a closed set.
 

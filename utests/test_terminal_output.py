@@ -20,26 +20,40 @@ from heimdall import _terminal_output
 ##
 
 
-class TestMessageType_Legend(unittest.TestCase):
+class TestLegend_Groups(unittest.TestCase):
 
-    def test_every_message_type_and_status_has_a_description(
-        self,
-    ) -> None:
-        for message_type in _terminal_output.MessageType:
-            self.assertNotEqual(message_type.value.description, "")
-        for outcome_status in _terminal_output.OutcomeStatus:
-            self.assertNotEqual(outcome_status.value.description, "")
-
-    def test_declaration_order_is_the_legend_order(
+    def test_groups_follow_the_three_concepts(
         self,
     ) -> None:
         self.assertEqual(
-            [_message_type.name for _message_type in _terminal_output.MessageType],
-            ["TASK", "ACTION", "SKIPPED", "QUERY", "VALUE"],
+            [_group_title for _group_title, _ in _terminal_output.LEGEND_GROUPS],
+            ["Tasks", "Actions", "Outcomes"],
         )
+
+    def test_every_action_kind_and_status_is_in_its_group(
+        self,
+    ) -> None:
+        legend_by_group = dict(_terminal_output.LEGEND_GROUPS)
+        for action_kind in _terminal_output.ActionKind:
+            self.assertIn(action_kind.value, legend_by_group["Actions"])
+        for outcome_status in _terminal_output.OutcomeStatus:
+            self.assertIn(outcome_status.value, legend_by_group["Outcomes"])
+        self.assertIn(_terminal_output.SKIPPED_CHANGE_PARAMS, legend_by_group["Actions"])
+        self.assertIn(_terminal_output.VALUE_PARAMS, legend_by_group["Outcomes"])
+
+    def test_every_row_has_a_description(
+        self,
+    ) -> None:
+        for _, group_params in _terminal_output.LEGEND_GROUPS:
+            for message_params in group_params:
+                self.assertNotEqual(message_params.description, "")
+
+    def test_skipped_change_uses_the_skipped_status_color(
+        self,
+    ) -> None:
         self.assertEqual(
-            [_outcome_status.name for _outcome_status in _terminal_output.OutcomeStatus],
-            ["SUCCESS", "WARNING", "SKIPPED", "FAILURE"],
+            _terminal_output.SKIPPED_CHANGE_PARAMS.color,
+            _terminal_output.OutcomeStatus.SKIPPED.value.color,
         )
 
     def test_every_status_has_its_own_color(
@@ -162,7 +176,7 @@ class TestEmit_Record(unittest.TestCase):
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
                 _terminal_output.emit_message(
-                    message_params=_terminal_output.MessageType.TASK.value,
+                    message_params=_terminal_output.TASK_PARAMS,
                     text_markup="first",
                     color_whole_line=False,
                 )

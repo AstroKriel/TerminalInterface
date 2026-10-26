@@ -52,7 +52,7 @@ def log_task(
 ) -> None:
     """Announce a task that is starting."""
     _terminal_output.emit_message(
-        message_params=_terminal_output.MessageType.TASK.value,
+        message_params=_terminal_output.TASK_PARAMS,
         text_markup=message,
         color_whole_line=False,
     )
@@ -78,7 +78,7 @@ def log_value(
 ) -> None:
     """Report a value that an inspection found; the value prints exactly as written."""
     _terminal_output.emit_message(
-        message_params=_terminal_output.MessageType.VALUE.value,
+        message_params=_terminal_output.VALUE_PARAMS,
         text_markup=escape_markup(f"{name} = {value}"),
         color_whole_line=True,
     )
@@ -134,12 +134,12 @@ class CommandOutcome:
 
 def _print_cmd(
     *,
-    message_type: _terminal_output.MessageType,
+    message_params: _terminal_output.MessageParams,
     cmd: list[str],
     cmd_prefix: str = "",
 ) -> None:
     _terminal_output.emit_message(
-        message_params=message_type.value,
+        message_params=message_params,
         text_markup=f"{cmd_prefix}{escape_markup(shlex.join(cmd))}",
         color_whole_line=True,
     )
@@ -158,13 +158,13 @@ def run_cmd_and_show_output(
     """
     if run_params.dry_run:
         _print_cmd(
-            message_type=_terminal_output.MessageType.SKIPPED,
+            message_params=_terminal_output.SKIPPED_CHANGE_PARAMS,
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )
         return True
     _print_cmd(
-        message_type=_terminal_output.MessageType.ACTION,
+        message_params=_terminal_output.ActionKind.CHANGE.value,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -191,13 +191,13 @@ def run_cmd_and_capture_output(
     """
     if run_params.dry_run:
         _print_cmd(
-            message_type=_terminal_output.MessageType.SKIPPED,
+            message_params=_terminal_output.SKIPPED_CHANGE_PARAMS,
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )
         return ""
     _print_cmd(
-        message_type=_terminal_output.MessageType.ACTION,
+        message_params=_terminal_output.ActionKind.CHANGE.value,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -221,7 +221,7 @@ def query_cmd_and_capture_output(
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _print_cmd(
-        message_type=_terminal_output.MessageType.QUERY,
+        message_params=_terminal_output.ActionKind.INSPECTION.value,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -250,7 +250,7 @@ def query_cmd_and_capture_outcome(
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _print_cmd(
-        message_type=_terminal_output.MessageType.QUERY,
+        message_params=_terminal_output.ActionKind.INSPECTION.value,
         cmd=cmd,
     )
     try:
