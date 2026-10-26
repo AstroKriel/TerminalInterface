@@ -32,7 +32,7 @@ outcome              how a task or action ended, reported afterwards
 └── content          optional: a value (what an action produced) or a result (for the user, on stdout)
 ```
 
-The marker says which concept a line is (open circle: task; arrow: action; closed circle or dot: outcome) and the colour says which kind or status. Each base concept has its facets as enums of `MessageParams` in the private core `_terminal_output`: `TASK_PARAMS`; `ActionKind` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`); `OutcomeContent` (`VALUE`, `RESULT`). A change skipped in dry-run is not defined separately: `get_skipped_change_params` builds it from the change marker and the skipped colour. `LEGEND_GROUPS` lists everything under the three concepts, and the help legend is generated from it, so the legend cannot drift from the output.
+The marker says which concept a line is (open circle: task; arrow: action; closed circle or dot: outcome) and the colour says which kind or status. Each base concept has its facets as enums of `MessageStyle` (the name used by the log manager expected to move in) in the private core `_terminal_output`: `TASK_STYLE`; `ActionKind` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`); `OutcomeContent` (`VALUE`, `RESULT`). A change skipped in dry-run is not defined separately: `get_skipped_change_style` builds it from the change marker and the skipped colour. `LEGEND_GROUPS` lists everything under the three concepts, and the help legend is generated from it, so the legend cannot drift from the output.
 
 | Concept | Facet | Value | Marker | Colour | State |
 |---|---|---|---|---|---|

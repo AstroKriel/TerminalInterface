@@ -52,7 +52,7 @@ def log_task(
 ) -> None:
     """Announce a task that is starting."""
     _terminal_output.emit_message(
-        message_params=_terminal_output.TASK_PARAMS,
+        message_style=_terminal_output.TASK_STYLE,
         text_markup=message,
         color_whole_line=False,
     )
@@ -65,7 +65,7 @@ def log_outcome(
 ) -> None:
     """Report how a task or action ended; the status sets the colour and is never assumed."""
     _terminal_output.emit_message(
-        message_params=status.value,
+        message_style=status.value,
         text_markup=message,
         color_whole_line=True,
     )
@@ -78,7 +78,7 @@ def log_value(
 ) -> None:
     """Report a value that an action produced, by inspecting or by changing the system; the value prints exactly as written."""
     _terminal_output.emit_message(
-        message_params=_terminal_output.OutcomeContent.VALUE.value,
+        message_style=_terminal_output.OutcomeContent.VALUE.value,
         text_markup=escape_markup(f"{name} = {value}"),
         color_whole_line=True,
     )
@@ -89,7 +89,7 @@ def log_result(
 ) -> None:
     """Print a result for the user or a pipe: plain text on stdout, with no marker, colour, timestamp, or wrapping."""
     _terminal_output.emit_message(
-        message_params=_terminal_output.OutcomeContent.RESULT.value,
+        message_style=_terminal_output.OutcomeContent.RESULT.value,
         text_markup=message,
         color_whole_line=True,
         is_result=True,
@@ -101,7 +101,7 @@ def exit_with_error(
 ) -> NoReturn:
     """Report a failure that ends the run, then exit the process with status 1."""
     _terminal_output.emit_message(
-        message_params=OutcomeStatus.FAILURE.value,
+        message_style=OutcomeStatus.FAILURE.value,
         text_markup=f"error: {message}",
         color_whole_line=False,
     )
@@ -134,12 +134,12 @@ class CommandOutcome:
 
 def _print_cmd(
     *,
-    message_params: _terminal_output.MessageParams,
+    message_style: _terminal_output.MessageStyle,
     cmd: list[str],
     cmd_prefix: str = "",
 ) -> None:
     _terminal_output.emit_message(
-        message_params=message_params,
+        message_style=message_style,
         text_markup=f"{cmd_prefix}{escape_markup(shlex.join(cmd))}",
         color_whole_line=True,
     )
@@ -158,13 +158,13 @@ def run_cmd_and_show_output(
     """
     if run_params.dry_run:
         _print_cmd(
-            message_params=_terminal_output.get_skipped_change_params(),
+            message_style=_terminal_output.get_skipped_change_style(),
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )
         return True
     _print_cmd(
-        message_params=_terminal_output.ActionKind.CHANGE.value,
+        message_style=_terminal_output.ActionKind.CHANGE.value,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -193,13 +193,13 @@ def run_cmd_and_capture_output(
     """
     if run_params.dry_run:
         _print_cmd(
-            message_params=_terminal_output.get_skipped_change_params(),
+            message_style=_terminal_output.get_skipped_change_style(),
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )
         return ""
     _print_cmd(
-        message_params=_terminal_output.ActionKind.CHANGE.value,
+        message_style=_terminal_output.ActionKind.CHANGE.value,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -223,7 +223,7 @@ def query_cmd_and_capture_output(
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _print_cmd(
-        message_params=_terminal_output.ActionKind.INSPECTION.value,
+        message_style=_terminal_output.ActionKind.INSPECTION.value,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -252,7 +252,7 @@ def query_cmd_and_capture_outcome(
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _print_cmd(
-        message_params=_terminal_output.ActionKind.INSPECTION.value,
+        message_style=_terminal_output.ActionKind.INSPECTION.value,
         cmd=cmd,
     )
     try:

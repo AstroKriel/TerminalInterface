@@ -283,7 +283,7 @@ class TestHelp_Output(unittest.TestCase):
         help_lines = _get_help(self._make_syncing_tool()).splitlines()
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
         dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
-        task_description = _terminal_output.TASK_PARAMS.description
+        task_description = _terminal_output.TASK_STYLE.description
         legend_line = next(_line for _line in help_lines if task_description in _line)
         self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index("print commands"))
         self.assertEqual(alpha_line.index("does alpha"), legend_line.index(task_description))
@@ -347,9 +347,9 @@ class TestHelp_Output(unittest.TestCase):
         help_lines = _get_help(_make_tool(commands=[])).splitlines()
         for legend_group in _terminal_output.LEGEND_GROUPS:
             title_index = help_lines.index(f"  {legend_group.title}")
-            for line_offset, message_params in enumerate(legend_group.grouped_message_params, start=1):
-                legend_label = cli_builder._get_legend_label(message_params)
-                legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_params.description)}$"
+            for line_offset, message_style in enumerate(legend_group.grouped_message_styles, start=1):
+                legend_label = cli_builder._get_legend_label(message_style)
+                legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_style.description)}$"
                 self.assertRegex(help_lines[title_index + line_offset], re.compile(legend_pattern))
 
     def test_str_enum_section_titles_print_their_value(

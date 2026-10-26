@@ -207,30 +207,30 @@ def _format_help_row(
     return f"{_HELP_INDENT}[{label_style}]{label}[/]{padding}{description}"
 
 
-def _get_legend_params() -> list[_terminal_output.MessageParams]:
-    """Every message params in the legend, across all groups, in legend order."""
+def _get_legend_styles() -> list[_terminal_output.MessageStyle]:
+    """Every message style in the legend, across all groups, in legend order."""
     return [
-        _message_params
+        _message_style
         for _legend_group in _terminal_output.LEGEND_GROUPS
-        for _message_params in _legend_group.grouped_message_params
+        for _message_style in _legend_group.grouped_message_styles
     ]
 
 
 def _get_legend_label(
-    message_params: _terminal_output.MessageParams,
+    message_style: _terminal_output.MessageStyle,
 ) -> str:
     """The marker and colour name, e.g. `● green`; `plain` for a line with neither."""
-    if message_params.marker is None or message_params.color is None:
+    if message_style.marker is None or message_style.color is None:
         return "plain"
-    return f"{message_params.marker.value} {message_params.color.name.lower()}"
+    return f"{message_style.marker.value} {message_style.color.name.lower()}"
 
 
-def _get_legend_style(
-    message_params: _terminal_output.MessageParams,
+def _get_legend_color(
+    message_style: _terminal_output.MessageStyle,
 ) -> str | None:
-    if message_params.color is None:
+    if message_style.color is None:
         return None
-    return message_params.color.value
+    return message_style.color.value
 
 
 def _print_tool_help(
@@ -248,7 +248,7 @@ def _print_tool_help(
     all_labels = [
         *[_cmd_name for _, _cmd_name, _ in visible_rows],
         *[_flag.arg_name for _flag in all_flags],
-        *[_get_legend_label(_message_params) for _message_params in _get_legend_params()],
+        *[_get_legend_label(_message_style) for _message_style in _get_legend_styles()],
     ]
     column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
     usage_flags = " ".join(f"[{_flag.arg_name}]" for _flag in all_flags)
@@ -287,12 +287,12 @@ def _print_tool_help(
     console.print("[bold]Output legend[/bold]")
     for legend_group in _terminal_output.LEGEND_GROUPS:
         console.print(f"{_LEGEND_GROUP_INDENT}[dim]{legend_group.title}[/dim]")
-        for message_params in legend_group.grouped_message_params:
+        for message_style in legend_group.grouped_message_styles:
             legend_row = _format_help_row(
-                label=_get_legend_label(message_params),
-                label_style=_get_legend_style(message_params),
+                label=_get_legend_label(message_style),
+                label_style=_get_legend_color(message_style),
                 column_width=column_width,
-                description=message_params.description,
+                description=message_style.description,
             )
             console.print(legend_row)
     console.print()

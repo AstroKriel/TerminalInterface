@@ -38,7 +38,7 @@ class Marker(str, Enum):
 
 
 @dataclass(frozen=True)
-class MessageParams:
+class MessageStyle:
     """Colour, marker, and legend description for one kind of line; a line with neither prints as plain text."""
     color: Color | None
     marker: Marker | None
@@ -50,7 +50,7 @@ class MessageParams:
 ## a task is a stage of the work, announced in words before it starts.
 ##
 
-TASK_PARAMS = MessageParams(
+TASK_STYLE = MessageStyle(
     color=Color.WHITE,
     marker=Marker.CIRCLE_OPEN,
     description="start of a task",
@@ -64,12 +64,12 @@ TASK_PARAMS = MessageParams(
 
 class ActionKind(Enum):
     """A change is skipped in dry-run; an inspection always runs."""
-    CHANGE = MessageParams(
+    CHANGE = MessageStyle(
         color=Color.BLUE,
         marker=Marker.ARROW,
         description="change to the system",
     )
-    INSPECTION = MessageParams(
+    INSPECTION = MessageStyle(
         color=Color.GRAY,
         marker=Marker.ARROW,
         description="inspection of the system",
@@ -83,22 +83,22 @@ class ActionKind(Enum):
 
 
 class OutcomeStatus(Enum):
-    SUCCESS = MessageParams(
+    SUCCESS = MessageStyle(
         color=Color.GREEN,
         marker=Marker.CIRCLE_CLOSED,
         description="success",
     )
-    WARNING = MessageParams(
+    WARNING = MessageStyle(
         color=Color.YELLOW,
         marker=Marker.CIRCLE_CLOSED,
         description="warning",
     )
-    SKIPPED = MessageParams(
+    SKIPPED = MessageStyle(
         color=Color.ORANGE,
         marker=Marker.CIRCLE_CLOSED,
         description="skipped",
     )
-    FAILURE = MessageParams(
+    FAILURE = MessageStyle(
         color=Color.RED,
         marker=Marker.CIRCLE_CLOSED,
         description="failure",
@@ -107,21 +107,21 @@ class OutcomeStatus(Enum):
 
 class OutcomeContent(Enum):
     """What an outcome carries: a value for the narration, or a result for the user or a pipe."""
-    VALUE = MessageParams(
+    VALUE = MessageStyle(
         color=Color.GRAY,
         marker=Marker.DOT,
         description="value that an action produced",
     )
-    RESULT = MessageParams(
+    RESULT = MessageStyle(
         color=None,
         marker=None,
         description="result, printed plain on stdout",
     )
 
 
-def get_skipped_change_params() -> MessageParams:
+def get_skipped_change_style() -> MessageStyle:
     """A change that dry-run skipped: the marker of a change in the colour of the skipped status."""
-    return MessageParams(
+    return MessageStyle(
         color=OutcomeStatus.SKIPPED.value.color,
         marker=ActionKind.CHANGE.value.marker,
         description="change skipped in dry-run",
@@ -137,21 +137,21 @@ def get_skipped_change_params() -> MessageParams:
 class LegendGroup:
     """One concept in the help legend, with every kind of line it covers."""
     title: str
-    grouped_message_params: tuple[MessageParams, ...]
+    grouped_message_styles: tuple[MessageStyle, ...]
 
 
 LEGEND_GROUPS: list[LegendGroup] = [
     LegendGroup(
         title="Tasks",
-        grouped_message_params=(TASK_PARAMS,),
+        grouped_message_styles=(TASK_STYLE,),
     ),
     LegendGroup(
         title="Actions",
-        grouped_message_params=(*[_action_kind.value for _action_kind in ActionKind], get_skipped_change_params()),
+        grouped_message_styles=(*[_action_kind.value for _action_kind in ActionKind], get_skipped_change_style()),
     ),
     LegendGroup(
         title="Outcomes",
-        grouped_message_params=(
+        grouped_message_styles=(
             *[_outcome_status.value for _outcome_status in OutcomeStatus],
             *[_outcome_content.value for _outcome_content in OutcomeContent],
         ),
@@ -287,24 +287,24 @@ def emit(
 
 def emit_message(
     *,
-    message_params: MessageParams,
+    message_style: MessageStyle,
     text_markup: str,
     color_whole_line: bool,
     is_result: bool = False,
 ) -> None:
-    """Print a line in the marker and colour of its message params; either the whole line or only the marker is coloured.
+    """Print a line in the marker and colour of its message style; either the whole line or only the marker is coloured.
 
-    Params without a marker or colour print the text plain.
+    A style without a marker or colour prints the text plain.
     """
     marker_text = ""
-    if message_params.marker is not None:
-        marker_text = f"{message_params.marker.value} "
-    if message_params.color is None:
+    if message_style.marker is not None:
+        marker_text = f"{message_style.marker.value} "
+    if message_style.color is None:
         line_markup = f"{marker_text}{text_markup}"
     elif color_whole_line:
-        line_markup = f"[{message_params.color.value}]{marker_text}{text_markup}[/]"
+        line_markup = f"[{message_style.color.value}]{marker_text}{text_markup}[/]"
     else:
-        line_markup = f"[{message_params.color.value}]{marker_text.strip()}[/] {text_markup}"
+        line_markup = f"[{message_style.color.value}]{marker_text.strip()}[/] {text_markup}"
     emit(
         line_markup,
         is_result=is_result,

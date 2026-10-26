@@ -34,35 +34,35 @@ class TestLegend_Groups(unittest.TestCase):
         self,
     ) -> None:
         tasks_group, actions_group, outcomes_group = _terminal_output.LEGEND_GROUPS
-        self.assertEqual(tasks_group.grouped_message_params, (_terminal_output.TASK_PARAMS,))
+        self.assertEqual(tasks_group.grouped_message_styles, (_terminal_output.TASK_STYLE,))
         for action_kind in _terminal_output.ActionKind:
-            self.assertIn(action_kind.value, actions_group.grouped_message_params)
-        self.assertIn(_terminal_output.get_skipped_change_params(), actions_group.grouped_message_params)
+            self.assertIn(action_kind.value, actions_group.grouped_message_styles)
+        self.assertIn(_terminal_output.get_skipped_change_style(), actions_group.grouped_message_styles)
         for outcome_status in _terminal_output.OutcomeStatus:
-            self.assertIn(outcome_status.value, outcomes_group.grouped_message_params)
+            self.assertIn(outcome_status.value, outcomes_group.grouped_message_styles)
         for outcome_content in _terminal_output.OutcomeContent:
-            self.assertIn(outcome_content.value, outcomes_group.grouped_message_params)
+            self.assertIn(outcome_content.value, outcomes_group.grouped_message_styles)
 
-    def test_every_message_params_has_a_description(
+    def test_every_message_style_has_a_description(
         self,
     ) -> None:
         for legend_group in _terminal_output.LEGEND_GROUPS:
-            for message_params in legend_group.grouped_message_params:
-                self.assertNotEqual(message_params.description, "")
+            for message_style in legend_group.grouped_message_styles:
+                self.assertNotEqual(message_style.description, "")
 
     def test_skipped_change_combines_the_change_marker_and_skipped_color(
         self,
     ) -> None:
-        skipped_change_params = _terminal_output.get_skipped_change_params()
-        self.assertEqual(skipped_change_params.marker, _terminal_output.ActionKind.CHANGE.value.marker)
-        self.assertEqual(skipped_change_params.color, _terminal_output.OutcomeStatus.SKIPPED.value.color)
+        skipped_change_style = _terminal_output.get_skipped_change_style()
+        self.assertEqual(skipped_change_style.marker, _terminal_output.ActionKind.CHANGE.value.marker)
+        self.assertEqual(skipped_change_style.color, _terminal_output.OutcomeStatus.SKIPPED.value.color)
 
     def test_result_has_no_marker_or_color(
         self,
     ) -> None:
-        result_params = _terminal_output.OutcomeContent.RESULT.value
-        self.assertIsNone(result_params.marker)
-        self.assertIsNone(result_params.color)
+        result_style = _terminal_output.OutcomeContent.RESULT.value
+        self.assertIsNone(result_style.marker)
+        self.assertIsNone(result_style.color)
 
     def test_every_status_has_its_own_color(
         self,
@@ -184,7 +184,7 @@ class TestEmit_Record(unittest.TestCase):
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
                 _terminal_output.emit_message(
-                    message_params=_terminal_output.TASK_PARAMS,
+                    message_style=_terminal_output.TASK_STYLE,
                     text_markup="first",
                     color_whole_line=False,
                 )
