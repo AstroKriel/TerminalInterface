@@ -7,7 +7,6 @@
 ## stdlib
 import argparse
 import subprocess
-import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -15,11 +14,10 @@ from pathlib import Path
 from typing import Any, TypeAlias
 
 ## third-party
-import rich.markup
-from rich.console import Console
+from rich.console import Console as rich_Console
 
 ## local
-from heimdall import shell_interface
+from heimdall import _terminal_output, shell_interface
 
 ##
 ## === DATA STRUCTURES
@@ -39,12 +37,16 @@ class CommandArg:
     nargs: str | None = None
 
     @property
-    def dest(self) -> str:
+    def dest(
+        self,
+    ) -> str:
         """The `argparse.Namespace` attribute this arg lands on, e.g. `--word-diff` -> `word_diff`."""
         return self.arg_name.lstrip("-").replace("-", "_")
 
     @property
-    def argparse_kwargs(self) -> dict[str, Any]:
+    def argparse_kwargs(
+        self,
+    ) -> dict[str, Any]:
         """Build the kwargs for `add_argument`; flags with no explicit help get a default-value hint."""
         if self.store_true:
             kwargs: dict[str, Any] = {"action": "store_true", "default": False}
@@ -67,6 +69,7 @@ class CommandArg:
 
 @dataclass(frozen=True)
 class CommandDetails:
+    """One subcommand: its help, its arguments, and the function it calls."""
     help: str
     cmd_fn: Callable[..., None]
     cmd_args: list[CommandArg]
@@ -76,32 +79,58 @@ class CommandDetails:
     def call(
         self,
         *,
-        config: shell_interface.Config,
+        run_params: shell_interface.RunParams,
         parsed_args: argparse.Namespace,
     ) -> None:
-        """Call cmd_fn with config first, then each cmd_arg value in order."""
-        cmd_arg_values = [getattr(parsed_args, _cmd_arg.dest) for _cmd_arg in self.cmd_args]
-        self.cmd_fn(config, *cmd_arg_values)
+        """Call cmd_fn with `run_params` and each argument by its argparse name, all as keywords."""
+        cmd_arg_values = {_cmd_arg.dest: getattr(parsed_args, _cmd_arg.dest) for _cmd_arg in self.cmd_args}
+        self.cmd_fn(
+            run_params=run_params,
+            **cmd_arg_values,
+        )
 
+
+##
+## === TYPE ALIASES
+##
 
 CommandEntry: TypeAlias = tuple[str, CommandDetails]
 
+##
+## === TOOL
+##
 
-def _make_default_config(
+
+def _make_default_run_params(
     parsed_args: argparse.Namespace,
-) -> shell_interface.Config:
-    return shell_interface.Config(dry_run=parsed_args.dry_run)
+) -> shell_interface.RunParams:
+    return shell_interface.RunParams(dry_run=parsed_args.dry_run)
 
 
 @dataclass(frozen=True)
-class ToolSpec:
-    tool_name: str
+class Tool:
+    """
+    One command line tool: its name, its commands, its flags, and how its output behaves.
+
+    Fields
+    ---
+    - `flags`:
+        Flags beyond `--dry-run`, which every tool has.
+
+    - `make_run_params`:
+        Builds the `RunParams` of the tool (or a subclass) from the parsed flags.
+
+    - `record_path`:
+        Where every printed line is also appended as plain text; `None` writes no record.
+    """
+    name: str
     description: str
     commands: list[CommandEntry]
-    global_flags: list[CommandArg] = field(default_factory=list)
-    make_config: Callable[[argparse.Namespace], shell_interface.Config] = _make_default_config
+    flags: list[CommandArg] = field(default_factory=list)
+    make_run_params: Callable[[argparse.Namespace], shell_interface.RunParams] = _make_default_run_params
     show_timestamps: bool = False
     record_path: Path | None = None
+    narration_stream: _terminal_output.OutputStream = _terminal_output.OutputStream.STDERR
 
 
 _DRY_RUN_FLAG = CommandArg(
@@ -123,7 +152,7 @@ def cli_command(
     cmd_args: list[CommandArg] | None = None,
     is_hidden: bool = False,
 ) -> CommandEntry:
-    """Build a (name, details) entry for the command table; command_group stamps its section."""
+    """Build a (name, details) entry for the command table; `command_group` stamps its section."""
     if cmd_args is None:
         cmd_args = []
     cmd_details = CommandDetails(
@@ -152,6 +181,9 @@ def command_group(
 ## === HELP
 ##
 
+_HELP_INDENT = "    "
+_HELP_GAP_WIDTH = 2
+
 
 def _get_section_text(
     section_title: str,
@@ -159,10 +191,6 @@ def _get_section_text(
     if isinstance(section_title, Enum):
         return str(section_title.value)
     return section_title
-
-
-_HELP_INDENT = "    "
-_HELP_GAP_WIDTH = 2
 
 
 def _format_help_row(
@@ -177,35 +205,33 @@ def _format_help_row(
 
 
 def _get_legend_label(
-    legend_entry: shell_interface.LegendEntry,
+    theme: _terminal_output.Theme,
 ) -> str:
-    return f"{legend_entry.marker} {legend_entry.color_name}"
+    return f"{theme.value.marker.value} {theme.value.color.name.lower()}"
 
 
 def _print_tool_help(
-    *,
-    tool_spec: ToolSpec,
+    tool: Tool,
 ) -> None:
     """Every row on the screen shares one column width: the longest label plus a fixed gap."""
-    console = Console(highlight=False)
-    all_global_flags = [_DRY_RUN_FLAG, *tool_spec.global_flags]
+    console = rich_Console(highlight=False)
+    all_flags = [_DRY_RUN_FLAG, *tool.flags]
     visible_rows: list[tuple[str, str, str]] = []
-    for cmd_name, cmd_details in tool_spec.commands:
+    for cmd_name, cmd_details in tool.commands:
         if cmd_details.is_hidden or cmd_details.section_title is None:
             continue
         visible_row = (cmd_details.section_title, cmd_name, cmd_details.help)
         visible_rows.append(visible_row)
-    legend_entries = shell_interface.get_legend()
     all_labels = [
         *[_cmd_name for _, _cmd_name, _ in visible_rows],
-        *[_global_flag.arg_name for _global_flag in all_global_flags],
-        *[_get_legend_label(_legend_entry) for _legend_entry in legend_entries],
+        *[_flag.arg_name for _flag in all_flags],
+        *[_get_legend_label(_theme) for _theme in _terminal_output.Theme],
     ]
     column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
-    usage_flags = " ".join(f"[{_global_flag.arg_name}]" for _global_flag in all_global_flags)
-    usage_text = rich.markup.escape(f"{tool_spec.tool_name} {usage_flags} <command> [args]")
+    usage_flags = " ".join(f"[{_flag.arg_name}]" for _flag in all_flags)
+    usage_text = shell_interface.escape_markup(f"{tool.name} {usage_flags} <command> [args]")
     console.print()
-    console.print(f"[bold]{tool_spec.tool_name}[/bold]: {tool_spec.description}")
+    console.print(f"[bold]{tool.name}[/bold]: {tool.description}")
     console.print()
     console.print(f"[dim]usage:[/dim] {usage_text}")
     current_section = None
@@ -222,13 +248,13 @@ def _print_tool_help(
         )
         console.print(command_row)
     console.print()
-    console.print("[bold]Global flags[/bold]")
-    for global_flag in all_global_flags:
-        flag_help = global_flag.help
+    console.print("[bold]Flags[/bold]")
+    for flag in all_flags:
+        flag_help = flag.help
         if flag_help is None:
             flag_help = ""
         flag_row = _format_help_row(
-            label=global_flag.arg_name,
+            label=flag.arg_name,
             label_style="cyan",
             column_width=column_width,
             description=flag_help,
@@ -236,23 +262,24 @@ def _print_tool_help(
         console.print(flag_row)
     console.print()
     console.print("[bold]Output legend[/bold]")
-    for legend_entry in legend_entries:
+    for theme in _terminal_output.Theme:
         legend_row = _format_help_row(
-            label=_get_legend_label(legend_entry),
-            label_style=legend_entry.color_hex,
+            label=_get_legend_label(theme),
+            label_style=theme.value.color.value,
             column_width=column_width,
-            description=legend_entry.meaning,
+            description=theme.value.meaning,
         )
         console.print(legend_row)
     console.print()
 
 
 def _make_help_action(
-    *,
-    tool_spec: ToolSpec,
+    tool: Tool,
 ) -> type[argparse.Action]:
+
     class _GroupedHelpAction(argparse.Action):
         """Replace the default --help with a section-grouped command listing."""
+
         def __init__(
             self,
             option_strings: list[str],
@@ -267,6 +294,7 @@ def _make_help_action(
                 nargs=0,
                 help=help,
             )
+
         def __call__(
             self,
             parser: argparse.ArgumentParser,
@@ -274,8 +302,9 @@ def _make_help_action(
             values: str | Sequence[str] | None,
             option_string: str | None = None,
         ) -> None:
-            _print_tool_help(tool_spec=tool_spec)
+            _print_tool_help(tool)
             parser.exit()
+
     return _GroupedHelpAction
 
 
@@ -284,51 +313,57 @@ def _make_help_action(
 ##
 
 
-def run_cli(
-    *,
-    tool_spec: ToolSpec,
-    argv: Sequence[str] | None = None,
-) -> None:
-    """Parse argv (default: sys.argv), build the config, set up output, and dispatch one subcommand."""
+def _build_parser(
+    tool: Tool,
+) -> argparse.ArgumentParser:
     arg_parser = argparse.ArgumentParser(
-        prog=tool_spec.tool_name,
-        description=tool_spec.description,
+        prog=tool.name,
+        description=tool.description,
         add_help=False,
     )
     arg_parser.add_argument(
         "-h",
         "--help",
-        action=_make_help_action(tool_spec=tool_spec),
+        action=_make_help_action(tool),
         default=argparse.SUPPRESS,
     )
-    for global_flag in [_DRY_RUN_FLAG, *tool_spec.global_flags]:
-        arg_parser.add_argument(global_flag.arg_name, **global_flag.argparse_kwargs)
+    for flag in [_DRY_RUN_FLAG, *tool.flags]:
+        arg_parser.add_argument(flag.arg_name, **flag.argparse_kwargs)
     sub_parsers = arg_parser.add_subparsers(
         dest="cmd",
         required=True,
         metavar="<command>",
     )
-    commands_by_name = dict(tool_spec.commands)
-    for cmd_name, cmd_details in commands_by_name.items():
+    for cmd_name, cmd_details in dict(tool.commands).items():
         subparser = sub_parsers.add_parser(cmd_name, help=cmd_details.help)
         for cmd_arg in cmd_details.cmd_args:
             subparser.add_argument(cmd_arg.arg_name, **cmd_arg.argparse_kwargs)
-    parsed_args = arg_parser.parse_args(argv)
-    config = tool_spec.make_config(parsed_args)
-    shell_interface.configure_output(
-        tool_name=tool_spec.tool_name,
-        show_timestamps=tool_spec.show_timestamps,
-        record_path=tool_spec.record_path,
-        dry_run=config.dry_run,
+    return arg_parser
+
+
+def run_cli(
+    *,
+    tool: Tool,
+    argv: Sequence[str] | None = None,
+) -> None:
+    """Parse argv (default: `sys.argv`), build the run params, start output for the run, and dispatch one subcommand."""
+    parsed_args = _build_parser(tool).parse_args(argv)
+    run_params = tool.make_run_params(parsed_args)
+    _terminal_output.start_run(
+        tool_name=tool.name,
+        show_timestamps=tool.show_timestamps,
+        record_path=tool.record_path,
+        narration_stream=tool.narration_stream,
+        dry_run=run_params.dry_run,
     )
-    selected_cmd_details = commands_by_name[parsed_args.cmd]
+    selected_cmd_details = dict(tool.commands)[parsed_args.cmd]
     try:
         selected_cmd_details.call(
-            config=config,
+            run_params=run_params,
             parsed_args=parsed_args,
         )
     except subprocess.CalledProcessError as proc_error:
-        sys.exit(proc_error.returncode)
+        raise SystemExit(proc_error.returncode) from proc_error
 
 
 ## } MODULE

@@ -1,6 +1,6 @@
 # cli_builder
 
-Design notes for `heimdall.cli_builder`: describing subcommands once, and getting argument parsing, grouped help, and global flags from that description.
+Design notes for `heimdall.cli_builder`: describing a tool and its subcommands once, and getting argument parsing, grouped help, and flags from that description.
 
 ---
 
@@ -13,9 +13,9 @@ Design notes for `heimdall.cli_builder`: describing subcommands once, and gettin
 | `command_group(section_title=..., commands=[...])` | stamps a section title onto a list of entries, so each group names its section once | decided |
 | Section titles | plain strings, so a tool does not need its own enum type; a `str` enum still works, since its values are strings | decided |
 | Hidden commands | registered and callable, left out of the help listing | decided |
-| How a command function is called | `cmd_fn(config, <arg-1>, <arg-2>, ...)`, positional arguments in the order of `cmd_args` | decided |
+| How a command function is called | `cmd_fn(run_params=..., <arg_1>=..., <arg_2>=...)`, every argument by keyword, named after its argparse destination (`--base-ref` becomes `base_ref`) | decided |
 
-`CommandArg` is public here; in the existing layer it was private to one tool.
+`CommandArg` is public here; in the existing layer it was private to one tool. Calling by keyword means a command function declares its parameters keyword-only and names them after the arguments they receive, so a mismatch fails loudly instead of passing a value to the wrong parameter.
 
 ---
 
@@ -25,20 +25,21 @@ The second generalisation: the existing entry point hardcoded the name, usage li
 
 | Field | Holds | State |
 |---|---|---|
-| `tool_name` | the command typed, e.g. `<tool_name>`; shown in help and usage | decided |
+| `name` | the command typed, e.g. `<tool_name>`; shown in help and usage | decided |
 | `description` | one line, shown at the top of help | decided |
-| `global_flags` | extra flags beyond `--dry-run`, as `CommandArg`s | decided |
-| `make_config` | builds the `Config` of the tool (or a subclass) from the parsed global flags | decided |
 | `commands` | the command table: groups and hidden commands, in help order | decided |
+| `flags` | flags beyond `--dry-run`, which every tool has, as `CommandArg`s | decided |
+| `make_run_params` | builds the `RunParams` of the tool (or a subclass) from the parsed flags | decided |
 | `show_timestamps` | whether terminal lines carry a timestamp; off by default | decided |
 | `record_path` | where the persistent record is appended; `None` (the default) writes no record | decided |
-| Type name | `ToolSpec`; a variable holding one is named `tool_spec` | decided |
+| `narration_stream` | where narration goes; stderr by default | decided |
+| Type name | `Tool`; a variable holding one is named `tool` | proposed |
 
 ```text
-run_cli(tool_spec=tool_spec)
+run_cli(tool=tool)
 ```
 
-`run_cli` builds the parser, registers every subcommand and its arguments, parses, builds the config through `make_config`, dispatches, and exits with the return code of a failed command when one raises. State: decided.
+`run_cli` builds the parser, registers every subcommand and its arguments, parses, builds the run params through `make_run_params`, sets the output for the run, dispatches, and exits with the return code of a failed command when one raises. State: decided.
 
 ---
 
@@ -47,9 +48,9 @@ run_cli(tool_spec=tool_spec)
 | Section | Contents | State |
 |---|---|---|
 | Header | tool name and description | decided |
-| Usage | `<tool_name> [--dry-run] [<extra-flags>] <command> [args]`, built from `global_flags` | decided |
+| Usage | `<tool_name> [--dry-run] [<extra-flags>] <command> [args]`, built from `flags` | decided |
 | Command groups | one heading per section, each command with its help, in table order | decided |
-| Global flags | `--dry-run` and each extra flag with its help | decided |
+| Flags | `--dry-run` and each extra flag with its help | decided |
 | Output legend | one line per theme, generated from the theme table | decided |
 | Indent | four spaces before every row | decided |
 | Separator | spaces only, never tabs, so the layout is the same width on every machine | decided |

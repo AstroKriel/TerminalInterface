@@ -6,17 +6,18 @@
 
 ## stdlib
 import argparse
+import contextlib
+import dataclasses
+import io
 import re
 import subprocess
-from dataclasses import dataclass
+import tempfile
+import unittest
 from enum import Enum
 from pathlib import Path
 
-## third-party
-import pytest
-
 ## local
-from heimdall import cli_builder, shell_interface
+from heimdall import _terminal_output, cli_builder, shell_interface
 
 ##
 ## === HELPERS
@@ -24,22 +25,47 @@ from heimdall import cli_builder, shell_interface
 
 
 def _do_nothing(
-    config: shell_interface.Config,
+    *,
+    run_params: shell_interface.RunParams,
 ) -> None:
     return None
 
 
-@dataclass
-class _ToolConfig(shell_interface.Config):
+@dataclasses.dataclass(frozen=True)
+class _ToolRunParams(shell_interface.RunParams):
     allow_dirty: bool = False
 
 
-def _make_tool_config(
+def _make_tool_run_params(
     parsed_args: argparse.Namespace,
-) -> _ToolConfig:
-    return _ToolConfig(
+) -> _ToolRunParams:
+    return _ToolRunParams(
         dry_run=parsed_args.dry_run,
         allow_dirty=parsed_args.allow_dirty,
+    )
+
+
+def _get_help(
+    tool: cli_builder.Tool,
+) -> str:
+    stdout_buffer = io.StringIO()
+    with contextlib.redirect_stdout(stdout_buffer), contextlib.suppress(SystemExit):
+        cli_builder.run_cli(tool=tool, argv=["--help"])
+    return stdout_buffer.getvalue()
+
+
+def _make_tool(
+    *,
+    commands: list[cli_builder.CommandEntry],
+    flags: list[cli_builder.CommandArg] | None = None,
+) -> cli_builder.Tool:
+    if flags is None:
+        flags = []
+    return cli_builder.Tool(
+        name="tool",
+        description="a tool",
+        commands=commands,
+        flags=flags,
     )
 
 
@@ -48,70 +74,89 @@ def _make_tool_config(
 ##
 
 
-class TestCommandDetails_ArgMapping:
+class TestCommandDetails_ArgMapping(unittest.TestCase):
 
-    def test_positional_arg_is_passed_to_fn(
+    def _call_with(
         self,
-    ) -> None:
-        received: list[str] = []
-        def record_branch(
-            config: shell_interface.Config,
-            branch_name: str,
+        *,
+        cmd_args: list[cli_builder.CommandArg],
+        parsed_values: dict[str, str | None],
+    ) -> dict[str, str | None]:
+        received: dict[str, str | None] = {}
+
+        def record_args(
+            *,
+            run_params: shell_interface.RunParams,
+            **cmd_arg_values: str | None,
         ) -> None:
-            received.append(branch_name)
+            received.update(cmd_arg_values)
+
         _, cmd_details = cli_builder.cli_command(
             cmd_name="test-cmd",
-            cmd_fn=record_branch,
-            cmd_args=[cli_builder.CommandArg(arg_name="branch_name")],
+            cmd_fn=record_args,
+            cmd_args=cmd_args,
         )
-        parsed_args = argparse.Namespace(dry_run=False, branch_name="feature")
-        cmd_details.call(config=shell_interface.Config(), parsed_args=parsed_args)
-        assert received == ["feature"]
+        cmd_details.call(
+            run_params=shell_interface.RunParams(),
+            parsed_args=argparse.Namespace(dry_run=False, **parsed_values),
+        )
+        return received
 
-    def test_named_flag_is_passed_to_fn(
+    def test_positional_arg_is_passed_by_name(
+        self,
+    ) -> None:
+        received = self._call_with(
+            cmd_args=[cli_builder.CommandArg(arg_name="branch_name")],
+            parsed_values={"branch_name": "feature"},
+        )
+        self.assertEqual(received, {"branch_name": "feature"})
+
+    def test_named_flag_is_passed_without_dashes(
+        self,
+    ) -> None:
+        received = self._call_with(
+            cmd_args=[cli_builder.CommandArg(arg_name="--base-ref")],
+            parsed_values={"base_ref": "development"},
+        )
+        self.assertEqual(received, {"base_ref": "development"})
+
+    def test_named_flag_passes_none_when_not_set(
+        self,
+    ) -> None:
+        received = self._call_with(
+            cmd_args=[cli_builder.CommandArg(arg_name="--base")],
+            parsed_values={"base": None},
+        )
+        self.assertEqual(received, {"base": None})
+
+    def test_unset_flag_reaches_the_command_as_none_through_run_cli(
         self,
     ) -> None:
         received: list[str | None] = []
+
         def record_base(
-            config: shell_interface.Config,
-            base: str | None = None,
+            *,
+            run_params: shell_interface.RunParams,
+            base: str | None,
         ) -> None:
             received.append(base)
-        _, cmd_details = cli_builder.cli_command(
-            cmd_name="test-cmd",
-            cmd_fn=record_base,
-            cmd_args=[cli_builder.CommandArg(arg_name="--base")],
-        )
-        parsed_args = argparse.Namespace(dry_run=False, base="development")
-        cmd_details.call(config=shell_interface.Config(), parsed_args=parsed_args)
-        assert received == ["development"]
 
-    def test_named_flag_and_positional_arg_together(
-        self,
-    ) -> None:
-        received: list[str | None] = []
-        def record_both(
-            config: shell_interface.Config,
-            base: str | None,
-            path: str | None,
-        ) -> None:
-            received.extend([base, path])
-        _, cmd_details = cli_builder.cli_command(
-            cmd_name="test-cmd",
-            cmd_fn=record_both,
-            cmd_args=[
-                cli_builder.CommandArg(arg_name="--base"),
-                cli_builder.CommandArg(arg_name="path", nargs="?"),
+        tool = _make_tool(
+            commands=[
+                cli_builder.cli_command(
+                    cmd_name="go",
+                    cmd_fn=record_base,
+                    cmd_args=[cli_builder.CommandArg(arg_name="--base")],
+                ),
             ],
         )
-        parsed_args = argparse.Namespace(dry_run=False, base="main", path="src/foo.py")
-        cmd_details.call(config=shell_interface.Config(), parsed_args=parsed_args)
-        assert received == ["main", "src/foo.py"]
+        cli_builder.run_cli(tool=tool, argv=["go"])
+        self.assertEqual(received, [None])
 
 
-class TestCommandGroup_SectionStamping:
+class TestCommandGroup_SectionStamping(unittest.TestCase):
 
-    def test_stamps_section_title_on_every_command(
+    def test_stamps_section_title_and_keeps_order(
         self,
     ) -> None:
         commands = cli_builder.command_group(
@@ -121,162 +166,131 @@ class TestCommandGroup_SectionStamping:
                 cli_builder.cli_command(cmd_name="beta", cmd_fn=_do_nothing),
             ],
         )
-        assert [_cmd_details.section_title for _, _cmd_details in commands] == ["Syncing", "Syncing"]
+        self.assertEqual([_cmd_name for _cmd_name, _ in commands], ["alpha", "beta"])
+        self.assertEqual([_cmd_details.section_title for _, _cmd_details in commands], ["Syncing", "Syncing"])
 
-    def test_preserves_command_names_and_order(
+
+class TestRunCli_Dispatch(unittest.TestCase):
+
+    def setUp(
         self,
     ) -> None:
-        commands = cli_builder.command_group(
-            section_title="Syncing",
-            commands=[
-                cli_builder.cli_command(cmd_name="alpha", cmd_fn=_do_nothing),
-                cli_builder.cli_command(cmd_name="beta", cmd_fn=_do_nothing),
-            ],
-        )
-        assert [_cmd_name for _cmd_name, _ in commands] == ["alpha", "beta"]
+        _terminal_output.reset_run()
+        self.addCleanup(_terminal_output.reset_run)
 
-
-class TestRunCli_Dispatch:
-
-    def test_dispatches_with_default_config(
+    def test_dispatches_with_default_run_params(
         self,
     ) -> None:
-        received: list[shell_interface.Config] = []
-        def record_config(
-            config: shell_interface.Config,
+        received: list[shell_interface.RunParams] = []
+
+        def record_run_params(
+            *,
+            run_params: shell_interface.RunParams,
         ) -> None:
-            received.append(config)
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
-            description="a tool",
-            commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=record_config)],
-        )
-        cli_builder.run_cli(tool_spec=tool_spec, argv=["--dry-run", "go"])
-        assert received == [shell_interface.Config(dry_run=True)]
+            received.append(run_params)
 
-    def test_extra_global_flag_reaches_config(
+        tool = _make_tool(commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=record_run_params)])
+        cli_builder.run_cli(tool=tool, argv=["--dry-run", "go"])
+        self.assertEqual(received, [shell_interface.RunParams(dry_run=True)])
+
+    def test_extra_flag_reaches_run_params(
         self,
     ) -> None:
-        received: list[shell_interface.Config] = []
-        def record_config(
-            config: shell_interface.Config,
+        received: list[shell_interface.RunParams] = []
+
+        def record_run_params(
+            *,
+            run_params: shell_interface.RunParams,
         ) -> None:
-            received.append(config)
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
+            received.append(run_params)
+
+        tool = cli_builder.Tool(
+            name="tool",
             description="a tool",
-            commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=record_config)],
-            global_flags=[cli_builder.CommandArg(arg_name="--allow-dirty", store_true=True)],
-            make_config=_make_tool_config,
+            commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=record_run_params)],
+            flags=[cli_builder.CommandArg(arg_name="--allow-dirty", store_true=True)],
+            make_run_params=_make_tool_run_params,
         )
-        cli_builder.run_cli(tool_spec=tool_spec, argv=["--allow-dirty", "go"])
-        assert received == [_ToolConfig(dry_run=False, allow_dirty=True)]
+        cli_builder.run_cli(tool=tool, argv=["--allow-dirty", "go"])
+        self.assertEqual(received, [_ToolRunParams(dry_run=False, allow_dirty=True)])
 
     def test_failed_command_exits_with_its_return_code(
         self,
     ) -> None:
         def fail(
-            config: shell_interface.Config,
+            *,
+            run_params: shell_interface.RunParams,
         ) -> None:
             raise subprocess.CalledProcessError(returncode=3, cmd=["false"])
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
-            description="a tool",
-            commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=fail)],
-        )
-        with pytest.raises(SystemExit) as exit_info:
-            cli_builder.run_cli(tool_spec=tool_spec, argv=["go"])
-        assert exit_info.value.code == 3
 
-    def test_record_is_configured_from_tool_spec(
+        tool = _make_tool(commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=fail)])
+        with self.assertRaises(SystemExit) as exit_context:
+            cli_builder.run_cli(tool=tool, argv=["go"])
+        self.assertEqual(exit_context.exception.code, 3)
+
+    def test_record_is_started_from_the_tool(
         self,
-        tmp_path: Path,
     ) -> None:
+        temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_directory.cleanup)
+        record_path = Path(temporary_directory.name) / "record.log"
+
         def narrate(
-            config: shell_interface.Config,
+            *,
+            run_params: shell_interface.RunParams,
         ) -> None:
             shell_interface.log_step("recorded")
-        record_path = tmp_path / "record.log"
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
+
+        tool = cli_builder.Tool(
+            name="tool",
             description="a tool",
             commands=[cli_builder.cli_command(cmd_name="go", cmd_fn=narrate)],
             record_path=record_path,
         )
-        cli_builder.run_cli(tool_spec=tool_spec, argv=["go"])
-        assert "(tool): ○ recorded" in record_path.read_text()
+        with contextlib.redirect_stderr(io.StringIO()):
+            cli_builder.run_cli(tool=tool, argv=["go"])
+        self.assertIn("(tool): ○ recorded", record_path.read_text())
 
 
-class TestHelp_Output:
+class TestHelp_Output(unittest.TestCase):
 
-    def _get_help(
+    def _make_syncing_tool(
         self,
-        tool_spec: cli_builder.ToolSpec,
-        capsys: pytest.CaptureFixture[str],
-    ) -> str:
-        with pytest.raises(SystemExit):
-            cli_builder.run_cli(tool_spec=tool_spec, argv=["--help"])
-        return capsys.readouterr().out
-
-    def test_lists_sections_and_commands_with_tabs(
-        self,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
-            description="a tool",
+    ) -> cli_builder.Tool:
+        return _make_tool(
             commands=cli_builder.command_group(
                 section_title="Syncing",
                 commands=[cli_builder.cli_command(cmd_name="alpha", cmd_fn=_do_nothing, cmd_help="does alpha")],
             ),
         )
-        help_text = self._get_help(tool_spec, capsys)
-        assert "tool: a tool" in help_text
-        assert "usage: tool [--dry-run] <command> [args]" in help_text
-        assert "Syncing" in help_text
-        assert re.search(r"^ {4}alpha +does alpha$", help_text, flags=re.MULTILINE)
+
+    def test_lists_name_usage_and_sections(
+        self,
+    ) -> None:
+        help_text = _get_help(self._make_syncing_tool())
+        self.assertIn("tool: a tool", help_text)
+        self.assertIn("usage: tool [--dry-run] <command> [args]", help_text)
+        self.assertRegex(help_text, re.compile(r"^ {4}alpha +does alpha$", flags=re.MULTILINE))
 
     def test_separates_with_spaces_only(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
-            description="a tool",
-            commands=cli_builder.command_group(
-                section_title="Syncing",
-                commands=[cli_builder.cli_command(cmd_name="alpha", cmd_fn=_do_nothing, cmd_help="does alpha")],
-            ),
-        )
-        help_text = self._get_help(tool_spec, capsys)
-        assert "\t" not in help_text
+        self.assertNotIn("\t", _get_help(self._make_syncing_tool()))
 
     def test_descriptions_share_one_column(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
-            description="a tool",
-            commands=cli_builder.command_group(
-                section_title="Syncing",
-                commands=[cli_builder.cli_command(cmd_name="alpha", cmd_fn=_do_nothing, cmd_help="does alpha")],
-            ),
-        )
-        help_lines = self._get_help(tool_spec, capsys).splitlines()
+        help_lines = _get_help(self._make_syncing_tool()).splitlines()
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
         dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
         legend_line = next(_line for _line in help_lines if "action starting" in _line)
-        assert alpha_line.index("does alpha") == dry_run_line.index("print commands")
-        assert alpha_line.index("does alpha") == legend_line.index("action starting")
+        self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index("print commands"))
+        self.assertEqual(alpha_line.index("does alpha"), legend_line.index("action starting"))
 
     def test_longest_label_sets_the_column(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
-            description="a tool",
+        tool = _make_tool(
             commands=cli_builder.command_group(
                 section_title="Syncing",
                 commands=[
@@ -288,16 +302,12 @@ class TestHelp_Output:
                 ],
             ),
         )
-        help_text = self._get_help(tool_spec, capsys)
-        assert "    a-much-longer-command-name  long one" in help_text.splitlines()
+        self.assertIn("    a-much-longer-command-name  long one", _get_help(tool).splitlines())
 
     def test_omits_hidden_commands(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
-            description="a tool",
+        tool = _make_tool(
             commands=[
                 *cli_builder.command_group(
                     section_title="Shown",
@@ -306,51 +316,52 @@ class TestHelp_Output:
                 cli_builder.cli_command(cmd_name="secret", cmd_fn=_do_nothing, is_hidden=True),
             ],
         )
-        help_text = self._get_help(tool_spec, capsys)
-        assert "visible" in help_text
-        assert "secret" not in help_text
+        help_text = _get_help(tool)
+        self.assertIn("visible", help_text)
+        self.assertNotIn("secret", help_text)
 
-    def test_lists_extra_global_flags(
+    def test_lists_extra_flags(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
-            description="a tool",
+        tool = _make_tool(
             commands=[],
-            global_flags=[cli_builder.CommandArg(arg_name="--allow-dirty", store_true=True, help="skip the check")],
+            flags=[cli_builder.CommandArg(arg_name="--allow-dirty", store_true=True, help="skip the check")],
         )
-        help_text = self._get_help(tool_spec, capsys)
-        assert "usage: tool [--dry-run] [--allow-dirty] <command> [args]" in help_text
-        assert "    --allow-dirty  skip the check" in help_text.splitlines()
+        help_text = _get_help(tool)
+        self.assertIn("usage: tool [--dry-run] [--allow-dirty] <command> [args]", help_text)
+        self.assertIn("    --allow-dirty  skip the check", help_text.splitlines())
 
-    def test_legend_comes_from_themes(
+    def test_legend_comes_from_the_themes(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        tool_spec = cli_builder.ToolSpec(tool_name="tool", description="a tool", commands=[])
-        help_text = self._get_help(tool_spec, capsys)
-        for legend_entry in shell_interface.get_legend():
-            legend_pattern = rf"^ {{4}}{re.escape(legend_entry.marker)} {legend_entry.color_name} +{re.escape(legend_entry.meaning)}$"
-            assert re.search(legend_pattern, help_text, flags=re.MULTILINE)
+        help_text = _get_help(_make_tool(commands=[]))
+        for theme in _terminal_output.Theme:
+            legend_label = f"{theme.value.marker.value} {theme.value.color.name.lower()}"
+            legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(theme.value.meaning)}$"
+            self.assertRegex(help_text, re.compile(legend_pattern, flags=re.MULTILINE))
 
     def test_str_enum_section_titles_print_their_value(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
         class SectionTitle(str, Enum):
             SYNCING = "Syncing with the remote"
-        tool_spec = cli_builder.ToolSpec(
-            tool_name="tool",
-            description="a tool",
+
+        tool = _make_tool(
             commands=cli_builder.command_group(
                 section_title=SectionTitle.SYNCING,
                 commands=[cli_builder.cli_command(cmd_name="alpha", cmd_fn=_do_nothing)],
             ),
         )
-        help_text = self._get_help(tool_spec, capsys)
-        assert "Syncing with the remote" in help_text
-        assert "SectionTitle" not in help_text
+        help_text = _get_help(tool)
+        self.assertIn("Syncing with the remote", help_text)
+        self.assertNotIn("SectionTitle", help_text)
 
+
+##
+## === ENTRY POINT
+##
+
+if __name__ == "__main__":
+    unittest.main()
 
 ## } U-TEST

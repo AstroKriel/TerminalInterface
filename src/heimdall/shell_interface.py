@@ -5,227 +5,67 @@
 ##
 
 ## stdlib
-import datetime
 import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
-from typing import NoReturn, final
+from typing import NoReturn
 
-## third-party
-import rich.markup
-import rich.text
-from rich.console import Console
+## local
+from heimdall import _terminal_output
 
 ##
-## === CONFIG
+## === PARAMS
 ##
 
 
-@dataclass
-class Config:
+@dataclass(frozen=True)
+class RunParams:
+    """Options for one run of a tool; tools subclass it to add their own flags."""
     dry_run: bool = False
-
-
-@dataclass
-class _OutputSettings:
-    tool_name: str = ""
-    show_timestamps: bool = False
-    record_path: Path | None = None
-
-
-_OUTPUT_SETTINGS = _OutputSettings()
-
-
-def configure_output(
-    *,
-    tool_name: str,
-    show_timestamps: bool = False,
-    record_path: Path | None = None,
-    dry_run: bool = False,
-) -> None:
-    """Set once per process, before any output; the record is never written in dry-run."""
-    _OUTPUT_SETTINGS.tool_name = tool_name
-    _OUTPUT_SETTINGS.show_timestamps = show_timestamps
-    if dry_run:
-        _OUTPUT_SETTINGS.record_path = None
-    else:
-        _OUTPUT_SETTINGS.record_path = record_path
-
-
-##
-## === THEMES
-##
-
-_CONSOLE = Console(
-    highlight=False,
-    stderr=True,
-)
-_CONSOLE_OUT = Console(
-    highlight=False,
-    stderr=False,
-)
-
-
-class _Colors(str, Enum):
-    WHITE = "#FFFFFF"
-    GREEN = "#32CD32"
-    BLUE = "#2A71F6"
-    ORANGE = "#E48500"
-    RED = "#FF4500"
-    GRAY = "#818181"
-
-
-class _Markers(str, Enum):
-    CIRCLE_OPEN = "○"
-    CIRCLE_CLOSED = "●"
-    ARROW = "→"
-    DOT = "·"
-
-
-@dataclass(frozen=True)
-class _Theme:
-    color: _Colors
-    marker: _Markers
-
-
-@final
-class _Themes:
-    STEP = _Theme(
-        color=_Colors.WHITE,
-        marker=_Markers.CIRCLE_OPEN,
-    )
-    SUCCESS = _Theme(
-        color=_Colors.GREEN,
-        marker=_Markers.CIRCLE_CLOSED,
-    )
-    ACTION = _Theme(
-        color=_Colors.BLUE,
-        marker=_Markers.ARROW,
-    )
-    SKIPPED = _Theme(
-        color=_Colors.ORANGE,
-        marker=_Markers.ARROW,
-    )
-    ERROR = _Theme(
-        color=_Colors.RED,
-        marker=_Markers.CIRCLE_CLOSED,
-    )
-    QUERY = _Theme(
-        color=_Colors.GRAY,
-        marker=_Markers.ARROW,
-    )
-    CONTEXT = _Theme(
-        color=_Colors.GRAY,
-        marker=_Markers.DOT,
-    )
-
-
-_LEGEND_MEANINGS: list[tuple[_Theme, str]] = [
-    (_Themes.STEP, "action starting"),
-    (_Themes.SUCCESS, "action outcome"),
-    (_Themes.ERROR, "error"),
-    (_Themes.ACTION, "command being run"),
-    (_Themes.SKIPPED, "skipped command (dry-run)"),
-    (_Themes.QUERY, "read-only lookup command"),
-    (_Themes.CONTEXT, "resolved value / context"),
-]
-
-
-@dataclass(frozen=True)
-class LegendEntry:
-    marker: str
-    color_name: str
-    color_hex: str
-    meaning: str
-
-
-def get_legend() -> list[LegendEntry]:
-    """One entry per kind of output, built from the themes themselves."""
-    legend_entries: list[LegendEntry] = []
-    for theme, meaning in _LEGEND_MEANINGS:
-        legend_entry = LegendEntry(
-            marker=theme.marker.value,
-            color_name=theme.color.name.lower(),
-            color_hex=theme.color.value,
-            meaning=meaning,
-        )
-        legend_entries.append(legend_entry)
-    return legend_entries
 
 
 ##
 ## === OUTPUT
+## message text is rich markup; anything added here (commands, resolved values) is escaped.
 ##
 
 
-def get_timestamp() -> str:
-    return datetime.datetime.now().isoformat(
-        sep=" ",
-        timespec="seconds",
-    )
-
-
-def _emit(
-    *,
-    line_markup: str,
-    to_stdout: bool = False,
-) -> None:
-    timestamp = get_timestamp()
-    console_line = line_markup
-    if _OUTPUT_SETTINGS.show_timestamps:
-        timestamp_text = rich.markup.escape(f"[{timestamp}]")
-        console_line = f"[{_Colors.GRAY.value}]{timestamp_text}[/] {line_markup}"
-    if to_stdout:
-        _CONSOLE_OUT.print(console_line)
-    else:
-        _CONSOLE.print(console_line)
-    record_path = _OUTPUT_SETTINGS.record_path
-    if record_path is None:
-        return
-    plain_line = rich.text.Text.from_markup(line_markup).plain
-    record_entry = f"[{timestamp}] ({_OUTPUT_SETTINGS.tool_name}): {plain_line}\n"
-    record_path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-    with open(record_path, "a") as record_stream:
-        record_stream.write(record_entry)
-
-
-def _print_cmd(
-    *,
-    theme: _Theme,
-    cmd: list[str],
-    cmd_prefix: str,
-) -> None:
-    cmd_text = rich.markup.escape(shlex.join(cmd))
-    _emit(line_markup=f"[{theme.color.value}]{theme.marker.value}{cmd_prefix}{cmd_text}[/]")
+def escape_markup(
+    text: str,
+) -> str:
+    """Make text print exactly as written, e.g. a title or path that contains square brackets."""
+    return _terminal_output.escape_markup(text)
 
 
 def log_msg(
     msg: str,
 ) -> None:
-    """Print msg to stderr; all diagnostic output goes here to keep stdout clean."""
-    _emit(line_markup=msg)
+    """Print msg as narration, with no marker."""
+    _terminal_output.emit(msg)
 
 
 def log_step(
     msg: str,
 ) -> None:
-    """Narrate a major decision point within a command."""
-    theme = _Themes.STEP
-    _emit(line_markup=f"[{theme.color.value}]{theme.marker.value}[/] {msg}")
+    """Narrate a step that is starting."""
+    _terminal_output.emit_themed(
+        theme=_terminal_output.Theme.STEP,
+        text_markup=msg,
+        color_whole_line=False,
+    )
 
 
 def log_outcome(
     msg: str,
 ) -> None:
-    """Record which path was taken after a branch or decision."""
-    theme = _Themes.SUCCESS
-    _emit(line_markup=f"[{theme.color.value}]{theme.marker.value} {msg}[/]")
+    """Narrate which way a step went."""
+    _terminal_output.emit_themed(
+        theme=_terminal_output.Theme.SUCCESS,
+        text_markup=msg,
+        color_whole_line=True,
+    )
 
 
 def bind_var(
@@ -233,39 +73,46 @@ def bind_var(
     var_name: str,
     var_value: str,
 ) -> None:
-    """Log a variable name alongside the value it was resolved to."""
-    theme = _Themes.CONTEXT
-    binding_text = rich.markup.escape(f"{var_name} = {var_value}")
-    _emit(line_markup=f"[{theme.color.value}]{theme.marker.value} {binding_text}[/]")
+    """Narrate a name and the value it resolved to; the value prints exactly as written."""
+    _terminal_output.emit_themed(
+        theme=_terminal_output.Theme.CONTEXT,
+        text_markup=escape_markup(f"{var_name} = {var_value}"),
+        color_whole_line=True,
+    )
 
 
 def log_result(
     msg: str,
 ) -> None:
-    """Print a user-facing result to stdout."""
-    theme = _Themes.SUCCESS
-    _emit(
-        line_markup=f"[{theme.color.value}]{theme.marker.value} {msg}[/]",
-        to_stdout=True,
+    """Print a result for the user or a pipe; always on stdout."""
+    _terminal_output.emit_themed(
+        theme=_terminal_output.Theme.SUCCESS,
+        text_markup=msg,
+        color_whole_line=True,
+        is_result=True,
     )
 
 
 def kill(
     msg: str,
 ) -> NoReturn:
-    """Print an error message to stderr and exit the process immediately."""
-    theme = _Themes.ERROR
-    _emit(line_markup=f"[{theme.color.value}]{theme.marker.value}[/] error: {msg}")
+    """Print an error and exit the process with status 1."""
+    style = _terminal_output.Theme.ERROR.value
+    _terminal_output.emit(f"[{style.color.value}]{style.marker.value}[/] error: {msg}")
     sys.exit(1)
 
 
 ##
-## === EXECUTION
+## === COMMAND RUNNERS
+## every runner prints its command with `shlex.join` before running it, except `query_cmd_and_discard_output`.
 ##
+
+_COMMAND_NOT_FOUND_EXIT_CODE = 127
 
 
 @dataclass(frozen=True)
 class CommandOutcome:
+    """Everything about one finished command; `command` is the text exactly as printed."""
     command: str
     working_directory: Path | None
     exit_code: int
@@ -279,73 +126,73 @@ class CommandOutcome:
         return self.exit_code == 0
 
 
-def run_cmd(
-    config: Config,
+def _print_cmd(
+    *,
+    theme: _terminal_output.Theme,
     cmd: list[str],
-    cwd: Path | None = None,
+    cmd_prefix: str = "",
 ) -> None:
-    """Run a mutating command; raises on failure; skipped entirely in dry-run mode."""
-    if config.dry_run:
-        _print_cmd(
-            theme=_Themes.SKIPPED,
-            cmd=cmd,
-            cmd_prefix=" (dryrun) skipped: ",
-        )
-        return
-    _print_cmd(
-        theme=_Themes.ACTION,
-        cmd=cmd,
-        cmd_prefix=" ",
-    )
-    subprocess.run(
-        cmd,
-        check=True,
-        cwd=cwd,
+    _terminal_output.emit_themed(
+        theme=theme,
+        text_markup=f"{cmd_prefix}{escape_markup(shlex.join(cmd))}",
+        color_whole_line=True,
     )
 
 
-def try_run_cmd(
-    config: Config,
+def run_cmd_and_show_output(
+    *,
+    run_params: RunParams,
     cmd: list[str],
     cwd: Path | None = None,
+    raise_error: bool = True,
 ) -> bool:
-    """Run a mutating command; returns True on success, False on failure. Skipped in dry-run."""
-    if config.dry_run:
+    """Run a mutating command with its output shown live in the terminal; `True` iff it succeeded or was skipped in dry-run.
+
+    A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
+    """
+    if run_params.dry_run:
         _print_cmd(
-            theme=_Themes.SKIPPED,
+            theme=_terminal_output.Theme.SKIPPED,
             cmd=cmd,
-            cmd_prefix=" (dryrun) skipped: ",
+            cmd_prefix="(dryrun) skipped: ",
         )
         return True
     _print_cmd(
-        theme=_Themes.ACTION,
+        theme=_terminal_output.Theme.ACTION,
         cmd=cmd,
-        cmd_prefix=" ",
     )
     result = subprocess.run(
         cmd,
         cwd=cwd,
     )
+    if raise_error and result.returncode != 0:
+        raise subprocess.CalledProcessError(
+            returncode=result.returncode,
+            cmd=cmd,
+        )
     return result.returncode == 0
 
 
 def run_cmd_and_capture_output(
-    config: Config,
+    *,
+    run_params: RunParams,
     cmd: list[str],
     cwd: Path | None = None,
 ) -> str:
-    """Run a mutating command and return its stdout; empty string in dry-run."""
-    if config.dry_run:
+    """Run a mutating command and return its stdout with surrounding whitespace stripped; empty string in dry-run.
+
+    Output is stripped because it is a value for code to use; `query_cmd_and_capture_outcome` keeps it unstripped as a record.
+    """
+    if run_params.dry_run:
         _print_cmd(
-            theme=_Themes.SKIPPED,
+            theme=_terminal_output.Theme.SKIPPED,
             cmd=cmd,
-            cmd_prefix=" (dryrun) skipped: ",
+            cmd_prefix="(dryrun) skipped: ",
         )
         return ""
     _print_cmd(
-        theme=_Themes.ACTION,
+        theme=_terminal_output.Theme.ACTION,
         cmd=cmd,
-        cmd_prefix=" ",
     )
     result = subprocess.run(
         cmd,
@@ -357,19 +204,19 @@ def run_cmd_and_capture_output(
     return result.stdout.strip()
 
 
-def query_cmd(
+def query_cmd_and_capture_output(
+    *,
     cmd: list[str],
-    error_on_failure: bool = True,
     cwd: Path | None = None,
+    raise_error: bool = True,
 ) -> str:
-    """Run a read-only command, log it, and return its stdout; always executes, even in dry-run.
+    """Run a read-only command and return its stdout with surrounding whitespace stripped; runs even in dry-run.
 
-    When error_on_failure=False, a non-zero exit returns an empty string instead of raising.
+    A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _print_cmd(
-        theme=_Themes.QUERY,
+        theme=_terminal_output.Theme.QUERY,
         cmd=cmd,
-        cmd_prefix=" ",
     )
     result = subprocess.run(
         cmd,
@@ -377,7 +224,7 @@ def query_cmd(
         text=True,
         cwd=cwd,
     )
-    if error_on_failure and result.returncode != 0:
+    if raise_error and result.returncode != 0:
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
             cmd=cmd,
@@ -387,22 +234,34 @@ def query_cmd(
     return result.stdout.strip()
 
 
-def query_cmd_result(
+def query_cmd_and_capture_outcome(
+    *,
     cmd: list[str],
     cwd: Path | None = None,
 ) -> CommandOutcome:
-    """Run a read-only command, log it, and return everything about the run; never raises on a non-zero exit."""
+    """Run a read-only command and return its stdout, stderr, and exit code unstripped as a `CommandOutcome`; never raises.
+
+    A program that is not installed is reported as exit status 127, the shell code for command not found.
+    """
     _print_cmd(
-        theme=_Themes.QUERY,
+        theme=_terminal_output.Theme.QUERY,
         cmd=cmd,
-        cmd_prefix=" ",
     )
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+    except FileNotFoundError:
+        return CommandOutcome(
+            command=shlex.join(cmd),
+            working_directory=cwd,
+            exit_code=_COMMAND_NOT_FOUND_EXIT_CODE,
+            stdout="",
+            stderr=f"command not found: `{cmd[0]}`.",
+        )
     return CommandOutcome(
         command=shlex.join(cmd),
         working_directory=cwd,
@@ -412,13 +271,16 @@ def query_cmd_result(
     )
 
 
-def probe_cmd(
+def query_cmd_and_discard_output(
+    *,
     cmd: list[str],
+    cwd: Path | None = None,
 ) -> int:
-    """Run a command silently and return its exit code; used for boolean existence checks."""
+    """Run a read-only command silently and return its exit code, for yes/no checks; the one runner that prints nothing."""
     result = subprocess.run(
         cmd,
         capture_output=True,
+        cwd=cwd,
     )
     return result.returncode
 

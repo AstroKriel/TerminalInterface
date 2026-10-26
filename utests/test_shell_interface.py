@@ -5,358 +5,320 @@
 ##
 
 ## stdlib
+import contextlib
+import dataclasses
+import io
 import subprocess
-from dataclasses import dataclass
+import tempfile
+import unittest
+from collections.abc import Callable
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-## third-party
-import pytest
+from unittest import mock
 
 ## local
-from heimdall import shell_interface
+from heimdall import _terminal_output, shell_interface
 
 ##
 ## === TEST SUITE
 ##
 
 
-class TestConfig_Defaults:
+class TestRunParams_Defaults(unittest.TestCase):
 
     def test_dry_run_is_false(
         self,
     ) -> None:
-        config = shell_interface.Config()
-        assert config.dry_run is False
+        self.assertFalse(shell_interface.RunParams().dry_run)
 
     def test_subclass_passes_through_runners(
         self,
     ) -> None:
-        @dataclass
-        class ToolConfig(shell_interface.Config):
+        @dataclasses.dataclass(frozen=True)
+        class ToolRunParams(shell_interface.RunParams):
             allow_dirty: bool = False
-        tool_config = ToolConfig(dry_run=True, allow_dirty=True)
-        with patch("subprocess.run") as mock_run:
-            shell_interface.run_cmd(config=tool_config, cmd=["git", "push"])
-            mock_run.assert_not_called()
+
+        tool_run_params = ToolRunParams(dry_run=True, allow_dirty=True)
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
+            shell_interface.run_cmd_and_show_output(run_params=tool_run_params, cmd=["git", "push"])
+        mock_run.assert_not_called()
 
 
-class TestLogFunctions_Output:
+class TestLogFunctions_Output(unittest.TestCase):
+
+    def setUp(
+        self,
+    ) -> None:
+        _terminal_output.reset_run()
+        self.addCleanup(_terminal_output.reset_run)
+
+    def _capture(
+        self,
+        log_call: Callable[[], None],
+    ) -> tuple[str, str]:
+        stdout_buffer = io.StringIO()
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
+            log_call()
+        return (stdout_buffer.getvalue(), stderr_buffer.getvalue())
 
     def test_log_msg_writes_to_stderr(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        shell_interface.log_msg("hello")
-        captured = capsys.readouterr()
-        assert captured.out == ""
-        assert "hello" in captured.err
+        stdout_text, stderr_text = self._capture(lambda: shell_interface.log_msg("hello"))
+        self.assertEqual(stdout_text, "")
+        self.assertIn("hello", stderr_text)
 
     def test_log_step_includes_marker_and_message(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        shell_interface.log_step("doing something")
-        captured = capsys.readouterr()
-        assert "○" in captured.err
-        assert "doing something" in captured.err
+        _, stderr_text = self._capture(lambda: shell_interface.log_step("doing something"))
+        self.assertEqual(stderr_text, "○ doing something\n")
 
     def test_log_outcome_includes_marker_and_message(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        shell_interface.log_outcome("it worked")
-        captured = capsys.readouterr()
-        assert "●" in captured.err
-        assert "it worked" in captured.err
+        _, stderr_text = self._capture(lambda: shell_interface.log_outcome("it worked"))
+        self.assertEqual(stderr_text, "● it worked\n")
 
-    def test_bind_var_includes_dot_and_values(
+    def test_bind_var_prints_value_literally(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        shell_interface.bind_var(var_name="branch_name", var_value="main")
-        captured = capsys.readouterr()
-        assert "·" in captured.err
-        assert "branch_name = main" in captured.err
-
-    def test_bind_var_prints_brackets_literally(
-        self,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        shell_interface.bind_var(var_name="pattern", var_value="[bold]x")
-        captured = capsys.readouterr()
-        assert "[bold]x" in captured.err
+        _, stderr_text = self._capture(
+            lambda: shell_interface.bind_var(var_name="pattern", var_value="[bold]x"),
+        )
+        self.assertEqual(stderr_text, "· pattern = [bold]x\n")
 
     def test_log_result_writes_to_stdout(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        shell_interface.log_result("all good")
-        captured = capsys.readouterr()
-        assert captured.err == ""
-        assert "●" in captured.out
-        assert "all good" in captured.out
+        stdout_text, stderr_text = self._capture(lambda: shell_interface.log_result("all good"))
+        self.assertEqual(stderr_text, "")
+        self.assertEqual(stdout_text, "● all good\n")
+
+    def test_escape_markup_keeps_brackets(
+        self,
+    ) -> None:
+        stdout_text, _ = self._capture(
+            lambda: shell_interface.log_result(shell_interface.escape_markup("[News] title")),
+        )
+        self.assertEqual(stdout_text, "● [News] title\n")
 
     def test_kill_exits_with_status_one(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        with pytest.raises(SystemExit) as exit_info:
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
             shell_interface.kill("broken")
-        captured = capsys.readouterr()
-        assert exit_info.value.code == 1
-        assert "error: broken" in captured.err
+        self.assertEqual(exit_context.exception.code, 1)
+        self.assertEqual(stderr_buffer.getvalue(), "● error: broken\n")
 
 
-class TestPrintedCommands_Quoting:
+class TestPrintedCommands_Quoting(unittest.TestCase):
+
+    def setUp(
+        self,
+    ) -> None:
+        _terminal_output.reset_run()
+        self.addCleanup(_terminal_output.reset_run)
+
+    def _print_query(
+        self,
+        cmd: list[str],
+    ) -> str:
+        stderr_buffer = io.StringIO()
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
+            mock_run.return_value = mock.MagicMock(stdout="", returncode=0)
+            shell_interface.query_cmd_and_capture_output(cmd=cmd)
+        return stderr_buffer.getvalue()
 
     def test_argument_with_spaces_is_quoted(
         self,
-        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="", returncode=0)
-            shell_interface.query_cmd(cmd=["git", "commit", "-m", "a message"])
-        captured = capsys.readouterr()
-        assert "git commit -m 'a message'" in captured.err
+        self.assertEqual(self._print_query(["git", "commit", "-m", "a message"]), "→ git commit -m 'a message'\n")
 
-    def test_brackets_in_arguments_are_printed_literally(
-        self,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="", returncode=0)
-            shell_interface.query_cmd(cmd=["ls", "[red]"])
-        captured = capsys.readouterr()
-        assert "[red]" in captured.err
-
-
-class TestRunCmd_DryRun:
-
-    def test_skips_subprocess(
+    def test_brackets_in_arguments_print_literally(
         self,
     ) -> None:
-        config = shell_interface.Config(dry_run=True)
-        with patch("subprocess.run") as mock_run:
-            shell_interface.run_cmd(config=config, cmd=["git", "push"])
-            mock_run.assert_not_called()
+        self.assertEqual(self._print_query(["ls", "[red]"]), "→ ls '[red]'\n")
 
-    def test_logs_skipped(
-        self,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        config = shell_interface.Config(dry_run=True)
-        shell_interface.run_cmd(config=config, cmd=["git", "push"])
-        captured = capsys.readouterr()
-        assert "dryrun" in captured.err
-        assert "git push" in captured.err
 
-    def test_executes_when_not_dry_run(
+class TestRunners_KeywordOnly(unittest.TestCase):
+
+    def test_positional_arguments_are_rejected(
         self,
     ) -> None:
-        config = shell_interface.Config(dry_run=False)
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            shell_interface.run_cmd(config=config, cmd=["git", "status"])
-            mock_run.assert_called_once()
-
-    def test_logs_command_before_executing(
-        self,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        config = shell_interface.Config(dry_run=False)
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            shell_interface.run_cmd(config=config, cmd=["git", "status"])
-        captured = capsys.readouterr()
-        assert "git status" in captured.err
+        with self.assertRaises(TypeError):
+            shell_interface.query_cmd_and_capture_output(["true"])  # pyright: ignore[reportCallIssue]
+        with self.assertRaises(TypeError):
+            shell_interface.query_cmd_and_discard_output(["true"])  # pyright: ignore[reportCallIssue]
 
 
-class TestRunCmdAndCaptureOutput_Behaviour:
+class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
 
-    def test_skips_subprocess_in_dry_run(
+    def setUp(
         self,
     ) -> None:
-        config = shell_interface.Config(dry_run=True)
-        with patch("subprocess.run") as mock_run:
-            _ = shell_interface.run_cmd_and_capture_output(
-                config=config,
-                cmd=["git", "rev-list", "--count", "HEAD"],
+        _terminal_output.reset_run()
+        self.addCleanup(_terminal_output.reset_run)
+
+    def test_dry_run_skips_logs_and_counts_as_success(
+        self,
+    ) -> None:
+        stderr_buffer = io.StringIO()
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
+            command_succeeded = shell_interface.run_cmd_and_show_output(
+                run_params=shell_interface.RunParams(dry_run=True),
+                cmd=["git", "push"],
             )
-            mock_run.assert_not_called()
+        mock_run.assert_not_called()
+        self.assertTrue(command_succeeded)
+        self.assertEqual(stderr_buffer.getvalue(), "→ (dryrun) skipped: git push\n")
+
+    def test_logs_and_executes_when_not_dry_run(
+        self,
+    ) -> None:
+        stderr_buffer = io.StringIO()
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
+            mock_run.return_value = mock.MagicMock(returncode=0)
+            command_succeeded = shell_interface.run_cmd_and_show_output(
+                run_params=shell_interface.RunParams(),
+                cmd=["git", "status"],
+            )
+        mock_run.assert_called_once()
+        self.assertTrue(command_succeeded)
+        self.assertEqual(stderr_buffer.getvalue(), "→ git status\n")
+
+    def test_failure_raises_by_default(
+        self,
+    ) -> None:
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
+            shell_interface.run_cmd_and_show_output(run_params=shell_interface.RunParams(), cmd=["false"])
+
+    def test_failure_returns_false_when_not_raising(
+        self,
+    ) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            command_succeeded = shell_interface.run_cmd_and_show_output(
+                run_params=shell_interface.RunParams(),
+                cmd=["false"],
+                raise_error=False,
+            )
+        self.assertFalse(command_succeeded)
+
+
+class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
 
     def test_returns_empty_string_in_dry_run(
         self,
     ) -> None:
-        config = shell_interface.Config(dry_run=True)
-        result = shell_interface.run_cmd_and_capture_output(
-            config=config,
-            cmd=["git", "rev-list", "--count", "HEAD"],
-        )
-        assert result == ""
-
-    def test_passes_cwd(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        config = shell_interface.Config(dry_run=False)
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="3\n", returncode=0)
-            _ = shell_interface.run_cmd_and_capture_output(
-                config=config,
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
+            captured_output = shell_interface.run_cmd_and_capture_output(
+                run_params=shell_interface.RunParams(dry_run=True),
                 cmd=["git", "rev-list", "--count", "HEAD"],
-                cwd=tmp_path,
             )
-            assert mock_run.call_args.kwargs["cwd"] == tmp_path
+        mock_run.assert_not_called()
+        self.assertEqual(captured_output, "")
 
-
-class TestQueryCmd_Behaviour:
-
-    def test_always_executes(
+    def test_strips_and_passes_cwd(
         self,
     ) -> None:
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="main\n", returncode=0)
-            _ = shell_interface.query_cmd(cmd=["git", "branch", "--show-current"])
-            mock_run.assert_called_once()
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
+            mock_run.return_value = mock.MagicMock(stdout="3\n", returncode=0)
+            captured_output = shell_interface.run_cmd_and_capture_output(
+                run_params=shell_interface.RunParams(),
+                cmd=["git", "rev-list", "--count", "HEAD"],
+                cwd=Path("/tmp"),
+            )
+        self.assertEqual(captured_output, "3")
+        self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))
 
-    def test_passes_cwd(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="main\n", returncode=0)
-            _ = shell_interface.query_cmd(cmd=["git", "branch", "--show-current"], cwd=tmp_path)
-            assert mock_run.call_args.kwargs["cwd"] == tmp_path
+
+class TestQueryCmdAndCaptureOutput_Behaviour(unittest.TestCase):
 
     def test_raises_on_failure_by_default(
         self,
     ) -> None:
-        with pytest.raises(subprocess.CalledProcessError):
-            shell_interface.query_cmd(cmd=["false"])
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
+            shell_interface.query_cmd_and_capture_output(cmd=["false"])
 
-    def test_returns_empty_string_when_failure_allowed(
+    def test_returns_empty_string_when_not_raising(
         self,
     ) -> None:
-        result = shell_interface.query_cmd(cmd=["false"], error_on_failure=False)
-        assert result == ""
+        with contextlib.redirect_stderr(io.StringIO()):
+            query_output = shell_interface.query_cmd_and_capture_output(cmd=["false"], raise_error=False)
+        self.assertEqual(query_output, "")
+
+    def test_passes_cwd(
+        self,
+    ) -> None:
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
+            mock_run.return_value = mock.MagicMock(stdout="main\n", returncode=0)
+            shell_interface.query_cmd_and_capture_output(cmd=["git", "branch", "--show-current"], cwd=Path("/tmp"))
+        self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))
 
 
-class TestQueryCmdResult_Outcome:
+class TestQueryCmdAndCaptureOutcome_Outcome(unittest.TestCase):
+
+    working_directory: Path
+
+    def setUp(
+        self,
+    ) -> None:
+        temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_directory.cleanup)
+        self.working_directory = Path(temporary_directory.name)
 
     def test_records_command_output_and_exit_code(
         self,
-        tmp_path: Path,
     ) -> None:
-        command_outcome = shell_interface.query_cmd_result(cmd=["echo", "a b"], cwd=tmp_path)
-        assert command_outcome.command == "echo 'a b'"
-        assert command_outcome.working_directory == tmp_path
-        assert command_outcome.exit_code == 0
-        assert command_outcome.stdout == "a b\n"
-        assert command_outcome.succeeded
+        with contextlib.redirect_stderr(io.StringIO()):
+            command_outcome = shell_interface.query_cmd_and_capture_outcome(cmd=["echo", "a b"], cwd=self.working_directory)
+        self.assertEqual(command_outcome.command, "echo 'a b'")
+        self.assertEqual(command_outcome.working_directory, self.working_directory)
+        self.assertEqual(command_outcome.stdout, "a b\n")
+        self.assertTrue(command_outcome.succeeded)
 
     def test_does_not_raise_on_failure(
         self,
     ) -> None:
-        command_outcome = shell_interface.query_cmd_result(cmd=["false"])
-        assert command_outcome.exit_code != 0
-        assert not command_outcome.succeeded
+        with contextlib.redirect_stderr(io.StringIO()):
+            command_outcome = shell_interface.query_cmd_and_capture_outcome(cmd=["false"])
+        self.assertFalse(command_outcome.succeeded)
 
-    def test_prints_command(
-        self,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        _ = shell_interface.query_cmd_result(cmd=["true"])
-        captured = capsys.readouterr()
-        assert "→ true" in captured.err
-
-
-class TestTimestamps_Output:
-
-    def test_off_by_default(
-        self,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        shell_interface.log_step("plain")
-        captured = capsys.readouterr()
-        assert not captured.err.startswith("[")
-
-    def test_prefix_when_enabled(
-        self,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        shell_interface.configure_output(tool_name="tool", show_timestamps=True)
-        with patch.object(shell_interface, "get_timestamp", return_value="2026-01-02 03:04:05"):
-            shell_interface.log_step("stamped")
-        captured = capsys.readouterr()
-        assert captured.err.startswith("[2026-01-02 03:04:05] ○ stamped")
-
-
-class TestRecord_File:
-
-    def test_appends_plain_lines(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        record_path = tmp_path / "logs" / "record.log"
-        shell_interface.configure_output(tool_name="tool", record_path=record_path)
-        with patch.object(shell_interface, "get_timestamp", return_value="2026-01-02 03:04:05"):
-            shell_interface.log_step("first")
-            shell_interface.log_msg("[bold]second[/bold]")
-        record_lines = record_path.read_text().splitlines()
-        assert record_lines == [
-            "[2026-01-02 03:04:05] (tool): ○ first",
-            "[2026-01-02 03:04:05] (tool): second",
-        ]
-
-    def test_records_commands(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        record_path = tmp_path / "record.log"
-        shell_interface.configure_output(tool_name="tool", record_path=record_path)
-        _ = shell_interface.query_cmd(cmd=["echo", "a b"])
-        assert "→ echo 'a b'" in record_path.read_text()
-
-    def test_not_written_in_dry_run(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        record_path = tmp_path / "record.log"
-        shell_interface.configure_output(tool_name="tool", record_path=record_path, dry_run=True)
-        shell_interface.log_step("nothing happens")
-        assert not record_path.exists()
-
-    def test_off_by_default(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        shell_interface.log_step("nowhere")
-        assert list(tmp_path.iterdir()) == []
-
-
-class TestLegend_Entries:
-
-    def test_one_entry_per_theme(
+    def test_missing_program_is_exit_status_127(
         self,
     ) -> None:
-        legend_entries = shell_interface.get_legend()
-        assert [_legend_entry.color_name for _legend_entry in legend_entries] == [
-            "white",
-            "green",
-            "red",
-            "blue",
-            "orange",
-            "gray",
-            "gray",
-        ]
+        with contextlib.redirect_stderr(io.StringIO()):
+            command_outcome = shell_interface.query_cmd_and_capture_outcome(cmd=["heimdall-no-such-program"])
+        self.assertEqual(command_outcome.exit_code, 127)
+        self.assertEqual(command_outcome.stderr, "command not found: `heimdall-no-such-program`.")
 
-    def test_markers_match_output(
+
+class TestQueryCmdAndDiscardOutput_Behaviour(unittest.TestCase):
+
+    def test_prints_nothing_and_returns_the_exit_code(
         self,
     ) -> None:
-        legend_entries = shell_interface.get_legend()
-        assert legend_entries[0].marker == "○"
-        assert legend_entries[3].marker == "→"
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer):
+            exit_code = shell_interface.query_cmd_and_discard_output(cmd=["false"])
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(stderr_buffer.getvalue(), "")
 
+    def test_passes_cwd(
+        self,
+    ) -> None:
+        with mock.patch("subprocess.run") as mock_run:
+            mock_run.return_value = mock.MagicMock(returncode=0)
+            shell_interface.query_cmd_and_discard_output(cmd=["true"], cwd=Path("/tmp"))
+        self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))
+
+
+##
+## === ENTRY POINT
+##
+
+if __name__ == "__main__":
+    unittest.main()
 
 ## } U-TEST

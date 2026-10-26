@@ -9,15 +9,27 @@ Design notes for moving an existing tool onto `heimdall`, and for keeping each t
 A tool moves over on its own branch. The goal is identical behaviour, so every step is checkable.
 
 1. Add `heimdall` as a dependency, pinned to a commit (see [Pinning](#pinning)).
-2. Replace the import of the terminal module of the tool with `from heimdall import shell_interface`; call sites stay unchanged.
-3. If the tool has flags beyond `--dry-run`, subclass `Config` with them.
-4. Replace the entry point of the tool with a `ToolSpec` and a call to `run_cli`.
-5. Delete the copy of the terminal layer that the tool kept.
-6. Check: the tests of the tool pass unchanged, and the help output before and after lists the same commands, flags, and help text in the same order.
+2. Replace the import of the terminal module of the tool with `from heimdall import shell_interface`; output call sites stay unchanged.
+3. If the tool has flags beyond `--dry-run`, subclass `RunParams` with them, frozen like the base.
+4. Rename mechanically: the `config` parameter of every command function becomes `run_params`, every runner call uses the new runner name (see [Runner names](#runner-names)) and passes `run_params=` and `cmd=` by keyword, and every command function takes its arguments keyword-only, named after their argparse destinations.
+5. Replace the entry point of the tool with a `Tool` and a call to `run_cli`.
+6. Delete the copy of the terminal layer that the tool kept.
+7. Check: the tests of the tool pass after the mechanical rename, and the help output before and after lists the same commands, flags, and help text in the same order.
 
-Some output changes by design and is not a regression: help separators become single tabs, the legend is generated, and printed commands are quoted where an argument contains spaces. A tool whose copy of the layer is older than this package also gains the newer features (dry-run styles, read-only runners) as part of the move.
+Some output changes by design and is not a regression: help columns are aligned with spaces from the longest label, the legend is generated, the flags heading reads "Flags", and printed commands are quoted where an argument contains spaces or square brackets. A tool whose copy of the layer is older than this package also gains the newer features (dry-run styles, read-only runners) as part of the move.
 
 A tool that uses its own plain-text logging moves its narration onto the output functions; anything specific to its subject, such as file actions, stays in the tool and calls the command runners.
+
+### Runner names
+
+| Earlier name | Name here | Change at the call site |
+|---|---|---|
+| `run_cmd(config, cmd)` | `run_cmd_and_show_output(run_params=..., cmd=...)` | none beyond the rename |
+| `try_run_cmd(config, cmd)` | `run_cmd_and_show_output(run_params=..., cmd=..., raise_error=False)` | add `raise_error=False` |
+| `run_cmd_and_capture_output(config, cmd)` | `run_cmd_and_capture_output(run_params=..., cmd=...)` | none beyond `run_params` |
+| `query_cmd(cmd, error_on_failure=...)` | `query_cmd_and_capture_output(cmd=..., raise_error=...)` | `error_on_failure` becomes `raise_error` |
+| `query_cmd_result(cmd)` | `query_cmd_and_capture_outcome(cmd=...)` | none beyond the rename |
+| `probe_cmd(cmd)` | `query_cmd_and_discard_output(cmd=...)` | pass `cmd` by keyword |
 
 ---
 

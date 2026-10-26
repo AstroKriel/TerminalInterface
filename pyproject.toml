@@ -31,12 +31,14 @@ extraPaths = ["src", "."]
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.11"
+
+## --- rules to enforce
 reportMissingImports = true
-reportMissingTypeStubs = false
-reportUnusedParameter = "none"
-reportImplicitStringConcatenation = "none"
-reportUnusedCallResult = "none"
-reportImplicitOverride = "none"
-reportExplicitAny = "none"
-reportAny = "none"
-reportPrivateUsage = "none"
+
+## --- rules to suppress
+reportExplicitAny = "none"  # argparse kwargs are genuinely heterogeneous
+reportAny = "none"  # cascade from argparse kwargs and `Namespace` attributes
+reportImplicitOverride = "none"  # `typing.override` needs Python 3.12; heimdall supports 3.11
+reportUnusedCallResult = "none"  # `subprocess.run`, `add_argument`, and `unittest.main` are called for their side effects
+reportUnusedParameter = "none"  # command functions take `run_params` by contract even when they do not use it
+reportUninitializedInstanceVariable = "none"  # false positive: test attributes are set in `setUp`
