@@ -76,7 +76,7 @@ def log_value(
     name: str,
     value: str,
 ) -> None:
-    """Report a value that an inspection found; the value prints exactly as written."""
+    """Report a value that an action produced, by inspecting or by changing the system; the value prints exactly as written."""
     _terminal_output.emit_message(
         message_params=_terminal_output.VALUE_PARAMS,
         text_markup=escape_markup(f"{name} = {value}"),
@@ -188,6 +188,8 @@ def run_cmd_and_capture_output(
     """Run a mutating command and return its stdout with surrounding whitespace stripped; empty string in dry-run.
 
     Output is stripped because it is a value for code to use; `query_cmd_and_capture_outcome` keeps it unstripped as a record.
+    In dry-run the change never happens, so its value is unknown: the empty string is a placeholder, and anything that
+    depends on it should report a skipped outcome instead of carrying on with it.
     """
     if run_params.dry_run:
         _print_cmd(

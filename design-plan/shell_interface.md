@@ -29,7 +29,7 @@ action               something done to the system, shown before it happens
 └── inspection       only reads the system; always runs
 outcome              how a task or action ended, reported afterwards
 ├── status           success | warning | skipped | failure
-└── content          optional: a value (what an inspection found) or a result (for the user, on stdout)
+└── content          optional: a value (what an action produced) or a result (for the user, on stdout)
 ```
 
 Each kind of line has a fixed colour, marker, and legend description, a `MessageParams` in the private core `_terminal_output`: `TASK_PARAMS`; `ActionKind.CHANGE` and `ActionKind.INSPECTION`, plus `SKIPPED_CHANGE_PARAMS` for a change skipped in dry-run, printed as one line in the colour of the skipped status; `OutcomeStatus.SUCCESS`, `WARNING`, `SKIPPED`, and `FAILURE`, plus `VALUE_PARAMS`. `LEGEND_GROUPS` lists them under the three concepts, and the help legend is generated from it, so the legend cannot drift from the output.
@@ -44,7 +44,9 @@ Each kind of line has a fixed colour, marker, and legend description, a `Message
 | outcome | warning | closed circle | yellow | decided |
 | outcome | skipped | closed circle | orange | decided |
 | outcome | failure, including the error that ends the run | closed circle | red | decided |
-| outcome | value an inspection found | dot | gray | decided |
+| outcome | value an action produced | dot | gray | decided |
+
+An inspection exists to produce a value; a change exists to alter the system and may produce a value along the way, e.g. the path of a directory it created. In dry-run a change is skipped, so a value it would have produced is unknown: anything that depends on that value reports a skipped outcome instead of carrying on with a placeholder. State: decided.
 
 > **Note:** a richer message layer, with titled blocks and notes, is expected to move into this package later. These message types and statuses are its first layer, not a closed set.
 
@@ -57,7 +59,7 @@ Each kind of line has a fixed colour, marker, and legend description, a `Message
 | `log_message(message)` | a plain message | narration | decided |
 | `log_task(message)` | a task starting | narration | decided |
 | `log_outcome(message, *, status)` | how a task or action ended; `status` is required, never assumed | narration | decided |
-| `log_value(*, name, value)` | a value an inspection found, as `name = value` | narration | decided |
+| `log_value(*, name, value)` | a value an action produced, as `name = value` | narration | decided |
 | `log_result(message)` | a result for the user or a pipe | stdout | decided |
 | `exit_with_error(message)` | a failure that ends the run, then exits with status 1 | narration | decided |
 | `escape_markup(text)` | nothing; returns text that prints exactly as written | N/A | decided |

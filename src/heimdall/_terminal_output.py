@@ -114,7 +114,7 @@ class OutcomeStatus(Enum):
 VALUE_PARAMS = MessageParams(
     color=Color.GRAY,
     marker=Marker.DOT,
-    description="value that an inspection found",
+    description="value that an action produced",
 )
 
 ##
