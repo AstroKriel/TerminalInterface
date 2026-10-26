@@ -283,10 +283,10 @@ class TestHelp_Output(unittest.TestCase):
         help_lines = _get_help(self._make_syncing_tool()).splitlines()
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
         dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
-        step_meaning = _terminal_output.MessageType.STEP.value.meaning
-        legend_line = next(_line for _line in help_lines if step_meaning in _line)
+        step_description = _terminal_output.MessageType.STEP.value.description
+        legend_line = next(_line for _line in help_lines if step_description in _line)
         self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index("print commands"))
-        self.assertEqual(alpha_line.index("does alpha"), legend_line.index(step_meaning))
+        self.assertEqual(alpha_line.index("does alpha"), legend_line.index(step_description))
 
     def test_longest_label_sets_the_column(
         self,
@@ -338,7 +338,7 @@ class TestHelp_Output(unittest.TestCase):
         help_text = _get_help(_make_tool(commands=[]))
         for message_type in _terminal_output.MessageType:
             legend_label = f"{message_type.value.marker.value} {message_type.value.color.name.lower()}"
-            legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_type.value.meaning)}$"
+            legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_type.value.description)}$"
             self.assertRegex(help_text, re.compile(legend_pattern, flags=re.MULTILINE))
 
     def test_str_enum_section_titles_print_their_value(

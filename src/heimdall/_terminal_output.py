@@ -38,10 +38,10 @@ class Marker(str, Enum):
 
 @dataclass(frozen=True)
 class MessageParams:
-    """Colour, marker, and legend meaning for one message type."""
+    """Colour, marker, and legend description for one message type."""
     color: Color
     marker: Marker
-    meaning: str
+    description: str
 
 
 class MessageType(Enum):
@@ -49,37 +49,37 @@ class MessageType(Enum):
     STEP = MessageParams(
         color=Color.WHITE,
         marker=Marker.CIRCLE_OPEN,
-        meaning="start of a step",
+        description="start of a step",
     )
     SUCCESS = MessageParams(
         color=Color.GREEN,
         marker=Marker.CIRCLE_CLOSED,
-        meaning="outcome of a step or result of the tool",
+        description="outcome of a step or result of the tool",
     )
     ERROR = MessageParams(
         color=Color.RED,
         marker=Marker.CIRCLE_CLOSED,
-        meaning="error that stops the tool",
+        description="error that stops the tool",
     )
     ACTION = MessageParams(
         color=Color.BLUE,
         marker=Marker.ARROW,
-        meaning="command that changes the system",
+        description="command that changes the system",
     )
     SKIPPED = MessageParams(
         color=Color.ORANGE,
         marker=Marker.ARROW,
-        meaning="command skipped in dry-run",
+        description="command skipped in dry-run",
     )
     QUERY = MessageParams(
         color=Color.GRAY,
         marker=Marker.ARROW,
-        meaning="command that only reads",
+        description="command that only reads",
     )
     CONTEXT = MessageParams(
         color=Color.GRAY,
         marker=Marker.DOT,
-        meaning="value that a name resolved to",
+        description="value that a name resolved to",
     )
 
 

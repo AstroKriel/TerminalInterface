@@ -267,7 +267,7 @@ def _print_tool_help(
             label=_get_legend_label(message_type),
             label_style=message_type.value.color.value,
             column_width=column_width,
-            description=message_type.value.meaning,
+            description=message_type.value.description,
         )
         console.print(legend_row)
     console.print()

@@ -22,11 +22,11 @@ from heimdall import _terminal_output
 
 class TestMessageType_Legend(unittest.TestCase):
 
-    def test_every_message_type_has_a_meaning(
+    def test_every_message_type_has_a_description(
         self,
     ) -> None:
         for message_type in _terminal_output.MessageType:
-            self.assertNotEqual(message_type.value.meaning, "")
+            self.assertNotEqual(message_type.value.description, "")
 
     def test_declaration_order_is_the_legend_order(
         self,
