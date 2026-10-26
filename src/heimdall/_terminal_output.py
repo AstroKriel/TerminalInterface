@@ -49,37 +49,37 @@ class MessageType(Enum):
     STEP = MessageParams(
         color=Color.WHITE,
         marker=Marker.CIRCLE_OPEN,
-        meaning="action starting",
+        meaning="start of a step",
     )
     SUCCESS = MessageParams(
         color=Color.GREEN,
         marker=Marker.CIRCLE_CLOSED,
-        meaning="action outcome, or a result on stdout",
+        meaning="outcome of a step or result of the tool",
     )
     ERROR = MessageParams(
         color=Color.RED,
         marker=Marker.CIRCLE_CLOSED,
-        meaning="error",
+        meaning="error that stops the tool",
     )
     ACTION = MessageParams(
         color=Color.BLUE,
         marker=Marker.ARROW,
-        meaning="command being run",
+        meaning="command that changes the system",
     )
     SKIPPED = MessageParams(
         color=Color.ORANGE,
         marker=Marker.ARROW,
-        meaning="skipped command (dry-run)",
+        meaning="command skipped in dry-run",
     )
     QUERY = MessageParams(
         color=Color.GRAY,
         marker=Marker.ARROW,
-        meaning="read-only lookup command",
+        meaning="command that only reads",
     )
     CONTEXT = MessageParams(
         color=Color.GRAY,
         marker=Marker.DOT,
-        meaning="resolved value / context",
+        meaning="value that a name resolved to",
     )
 
 

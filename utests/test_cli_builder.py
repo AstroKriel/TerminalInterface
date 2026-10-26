@@ -283,9 +283,10 @@ class TestHelp_Output(unittest.TestCase):
         help_lines = _get_help(self._make_syncing_tool()).splitlines()
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
         dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
-        legend_line = next(_line for _line in help_lines if "action starting" in _line)
+        step_meaning = _terminal_output.MessageType.STEP.value.meaning
+        legend_line = next(_line for _line in help_lines if step_meaning in _line)
         self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index("print commands"))
-        self.assertEqual(alpha_line.index("does alpha"), legend_line.index("action starting"))
+        self.assertEqual(alpha_line.index("does alpha"), legend_line.index(step_meaning))
 
     def test_longest_label_sets_the_column(
         self,
