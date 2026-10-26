@@ -20,28 +20,29 @@ from rich.text import Text as rich_Text
 ##
 
 
-class Color(str, Enum):
+class Colour(str, Enum):
     WHITE = "#FFFFFF"
     GREEN = "#32CD32"
     YELLOW = "#FFE600"
     BLUE = "#2A71F6"
     ORANGE = "#E48500"
     RED = "#FF4500"
-    GRAY = "#818181"
+    GREY = "#818181"
 
 
-class Marker(str, Enum):
-    CIRCLE_OPEN = "○"
-    CIRCLE_CLOSED = "●"
-    ARROW = "→"
-    DOT = "·"
+class Symbol(str, Enum):
+    OPEN_CIRCLE = "○"
+    CLOSED_CIRCLE = "●"
+    RIGHT_ARROW = "→"
+    HOOKED_ARROW = "↪"
+    MIDDLE_DOT = "·"
 
 
 @dataclass(frozen=True)
 class MessageStyle:
-    """Colour, marker, and legend description for one kind of line; a line with neither prints as plain text."""
-    color: Color | None
-    marker: Marker | None
+    """Colour, icon, and legend description for one kind of line; a line with neither prints as plain text."""
+    colour: Colour | None
+    icon: Symbol | None
     description: str
 
 
@@ -51,9 +52,20 @@ class MessageStyle:
 ##
 
 TASK_STYLE = MessageStyle(
-    color=Color.WHITE,
-    marker=Marker.CIRCLE_OPEN,
+    colour=Colour.WHITE,
+    icon=Symbol.OPEN_CIRCLE,
     description="start of a task",
+)
+
+##
+## === NOTES
+## a note is narration that is neither a task nor an outcome.
+##
+
+NOTE_STYLE = MessageStyle(
+    colour=Colour.WHITE,
+    icon=Symbol.HOOKED_ARROW,
+    description="note about the work",
 )
 
 ##
@@ -62,16 +74,16 @@ TASK_STYLE = MessageStyle(
 ##
 
 
-class ActionKind(Enum):
+class ActionType(Enum):
     """A change is skipped in dry-run; an inspection always runs."""
     CHANGE = MessageStyle(
-        color=Color.BLUE,
-        marker=Marker.ARROW,
+        colour=Colour.BLUE,
+        icon=Symbol.RIGHT_ARROW,
         description="change to the system",
     )
     INSPECTION = MessageStyle(
-        color=Color.GRAY,
-        marker=Marker.ARROW,
+        colour=Colour.GREY,
+        icon=Symbol.RIGHT_ARROW,
         description="inspection of the system",
     )
 
@@ -84,46 +96,51 @@ class ActionKind(Enum):
 
 class OutcomeStatus(Enum):
     SUCCESS = MessageStyle(
-        color=Color.GREEN,
-        marker=Marker.CIRCLE_CLOSED,
+        colour=Colour.GREEN,
+        icon=Symbol.CLOSED_CIRCLE,
         description="success",
     )
     WARNING = MessageStyle(
-        color=Color.YELLOW,
-        marker=Marker.CIRCLE_CLOSED,
+        colour=Colour.YELLOW,
+        icon=Symbol.CLOSED_CIRCLE,
         description="warning",
     )
     SKIPPED = MessageStyle(
-        color=Color.ORANGE,
-        marker=Marker.CIRCLE_CLOSED,
+        colour=Colour.ORANGE,
+        icon=Symbol.CLOSED_CIRCLE,
         description="skipped",
     )
     FAILURE = MessageStyle(
-        color=Color.RED,
-        marker=Marker.CIRCLE_CLOSED,
-        description="failure",
+        colour=Colour.RED,
+        icon=Symbol.CLOSED_CIRCLE,
+        description="failure that does not end the run",
+    )
+    ERROR = MessageStyle(
+        colour=Colour.RED,
+        icon=Symbol.CLOSED_CIRCLE,
+        description="error that ends the run",
     )
 
 
 class OutcomeContent(Enum):
     """What an outcome carries: a value for the narration, or a result for the user or a pipe."""
     VALUE = MessageStyle(
-        color=Color.GRAY,
-        marker=Marker.DOT,
+        colour=Colour.GREY,
+        icon=Symbol.MIDDLE_DOT,
         description="value that an action produced",
     )
     RESULT = MessageStyle(
-        color=None,
-        marker=None,
+        colour=None,
+        icon=None,
         description="result, printed plain on stdout",
     )
 
 
 def get_skipped_change_style() -> MessageStyle:
-    """A change that dry-run skipped: the marker of a change in the colour of the skipped status."""
+    """A change that dry-run skipped: the icon of a change in the colour of the skipped status."""
     return MessageStyle(
-        color=OutcomeStatus.SKIPPED.value.color,
-        marker=ActionKind.CHANGE.value.marker,
+        colour=OutcomeStatus.SKIPPED.value.colour,
+        icon=ActionType.CHANGE.value.icon,
         description="change skipped in dry-run",
     )
 
@@ -146,8 +163,12 @@ LEGEND_GROUPS: list[LegendGroup] = [
         grouped_message_styles=(TASK_STYLE,),
     ),
     LegendGroup(
+        title="Notes",
+        grouped_message_styles=(NOTE_STYLE,),
+    ),
+    LegendGroup(
         title="Actions",
-        grouped_message_styles=(*[_action_kind.value for _action_kind in ActionKind], get_skipped_change_style()),
+        grouped_message_styles=(*[_action_type.value for _action_type in ActionType], get_skipped_change_style()),
     ),
     LegendGroup(
         title="Outcomes",
@@ -218,7 +239,7 @@ def reset_output_params() -> None:
 
 
 ##
-## === EMIT
+## === RENDERING
 ##
 
 
@@ -252,12 +273,12 @@ def _append_record(
         record_stream.write(record_entry)
 
 
-def emit(
+def write_line(
     line_markup: str,
     *,
     is_result: bool = False,
 ) -> None:
-    """Print one line: narration goes to the stream set in the output params; a result goes to stdout as is.
+    """Write one finished line: narration goes to the stream set in the output params; a result goes to stdout as is.
 
     A result is data for the user or a pipe, so it never gets a timestamp and is never wrapped at the terminal width.
     """
@@ -271,7 +292,7 @@ def emit(
         console_line = line_markup
         if _OUTPUT_PARAMS.show_timestamps:
             timestamp_text = escape_markup(f"[{timestamp}]")
-            console_line = f"[{Color.GRAY.value}]{timestamp_text}[/] {line_markup}"
+            console_line = f"[{Colour.GREY.value}]{timestamp_text}[/] {line_markup}"
         if _OUTPUT_PARAMS.narration_stream == OutputStream.STDOUT:
             _CONSOLE_STDOUT.print(console_line)
         else:
@@ -285,27 +306,27 @@ def emit(
     )
 
 
-def emit_message(
+def render_line(
     *,
     message_style: MessageStyle,
     text_markup: str,
-    color_whole_line: bool,
+    colour_whole_line: bool,
     is_result: bool = False,
 ) -> None:
-    """Print a line in the marker and colour of its message style; either the whole line or only the marker is coloured.
+    """Render a line in the icon and colour of its message style; either the whole line or only the icon is coloured.
 
-    A style without a marker or colour prints the text plain.
+    A style without an icon or colour renders the text plain.
     """
-    marker_text = ""
-    if message_style.marker is not None:
-        marker_text = f"{message_style.marker.value} "
-    if message_style.color is None:
-        line_markup = f"{marker_text}{text_markup}"
-    elif color_whole_line:
-        line_markup = f"[{message_style.color.value}]{marker_text}{text_markup}[/]"
+    icon_text = ""
+    if message_style.icon is not None:
+        icon_text = f"{message_style.icon.value} "
+    if message_style.colour is None:
+        line_markup = f"{icon_text}{text_markup}"
+    elif colour_whole_line:
+        line_markup = f"[{message_style.colour.value}]{icon_text}{text_markup}[/]"
     else:
-        line_markup = f"[{message_style.color.value}]{marker_text.strip()}[/] {text_markup}"
-    emit(
+        line_markup = f"[{message_style.colour.value}]{icon_text.strip()}[/] {text_markup}"
+    write_line(
         line_markup,
         is_result=is_result,
     )

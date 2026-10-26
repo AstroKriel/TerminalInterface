@@ -22,21 +22,22 @@ from heimdall import _terminal_output
 
 class TestLegend_Groups(unittest.TestCase):
 
-    def test_groups_follow_the_three_concepts(
+    def test_groups_follow_the_concepts(
         self,
     ) -> None:
         self.assertEqual(
             [_legend_group.title for _legend_group in _terminal_output.LEGEND_GROUPS],
-            ["Tasks", "Actions", "Outcomes"],
+            ["Tasks", "Notes", "Actions", "Outcomes"],
         )
 
-    def test_every_kind_status_and_content_is_in_its_group(
+    def test_every_type_status_and_content_is_in_its_group(
         self,
     ) -> None:
-        tasks_group, actions_group, outcomes_group = _terminal_output.LEGEND_GROUPS
+        tasks_group, notes_group, actions_group, outcomes_group = _terminal_output.LEGEND_GROUPS
         self.assertEqual(tasks_group.grouped_message_styles, (_terminal_output.TASK_STYLE,))
-        for action_kind in _terminal_output.ActionKind:
-            self.assertIn(action_kind.value, actions_group.grouped_message_styles)
+        self.assertEqual(notes_group.grouped_message_styles, (_terminal_output.NOTE_STYLE,))
+        for action_type in _terminal_output.ActionType:
+            self.assertIn(action_type.value, actions_group.grouped_message_styles)
         self.assertIn(_terminal_output.get_skipped_change_style(), actions_group.grouped_message_styles)
         for outcome_status in _terminal_output.OutcomeStatus:
             self.assertIn(outcome_status.value, outcomes_group.grouped_message_styles)
@@ -50,28 +51,34 @@ class TestLegend_Groups(unittest.TestCase):
             for message_style in legend_group.grouped_message_styles:
                 self.assertNotEqual(message_style.description, "")
 
-    def test_skipped_change_combines_the_change_marker_and_skipped_color(
+    def test_skipped_change_combines_the_change_icon_and_skipped_colour(
         self,
     ) -> None:
         skipped_change_style = _terminal_output.get_skipped_change_style()
-        self.assertEqual(skipped_change_style.marker, _terminal_output.ActionKind.CHANGE.value.marker)
-        self.assertEqual(skipped_change_style.color, _terminal_output.OutcomeStatus.SKIPPED.value.color)
+        self.assertEqual(skipped_change_style.icon, _terminal_output.ActionType.CHANGE.value.icon)
+        self.assertEqual(skipped_change_style.colour, _terminal_output.OutcomeStatus.SKIPPED.value.colour)
 
-    def test_result_has_no_marker_or_color(
+    def test_result_has_no_icon_or_colour(
         self,
     ) -> None:
         result_style = _terminal_output.OutcomeContent.RESULT.value
-        self.assertIsNone(result_style.marker)
-        self.assertIsNone(result_style.color)
+        self.assertIsNone(result_style.icon)
+        self.assertIsNone(result_style.colour)
 
-    def test_every_status_has_its_own_color(
+    def test_only_failure_and_error_share_a_colour(
         self,
     ) -> None:
-        status_colors = [_outcome_status.value.color for _outcome_status in _terminal_output.OutcomeStatus]
-        self.assertEqual(len(set(status_colors)), len(status_colors))
+        outcome_status = _terminal_output.OutcomeStatus
+        self.assertEqual(outcome_status.FAILURE.value.colour, outcome_status.ERROR.value.colour)
+        other_colours = [
+            _outcome_status.value.colour
+            for _outcome_status in outcome_status
+            if _outcome_status is not outcome_status.ERROR
+        ]
+        self.assertEqual(len(set(other_colours)), len(other_colours))
 
 
-class TestEmit_Streams(unittest.TestCase):
+class TestWriteLine_Streams(unittest.TestCase):
 
     def setUp(
         self,
@@ -85,7 +92,7 @@ class TestEmit_Streams(unittest.TestCase):
         stdout_buffer = io.StringIO()
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
-            _terminal_output.emit("narration")
+            _terminal_output.write_line("narration")
         self.assertEqual(stdout_buffer.getvalue(), "")
         self.assertIn("narration", stderr_buffer.getvalue())
 
@@ -102,7 +109,7 @@ class TestEmit_Streams(unittest.TestCase):
         stdout_buffer = io.StringIO()
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
-            _terminal_output.emit("narration")
+            _terminal_output.write_line("narration")
         self.assertIn("narration", stdout_buffer.getvalue())
         self.assertEqual(stderr_buffer.getvalue(), "")
 
@@ -111,14 +118,14 @@ class TestEmit_Streams(unittest.TestCase):
     ) -> None:
         stdout_buffer = io.StringIO()
         with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(io.StringIO()):
-            _terminal_output.emit(
+            _terminal_output.write_line(
                 "result",
                 is_result=True,
             )
         self.assertIn("result", stdout_buffer.getvalue())
 
 
-class TestEmit_Timestamps(unittest.TestCase):
+class TestWriteLine_Timestamps(unittest.TestCase):
 
     def setUp(
         self,
@@ -131,7 +138,7 @@ class TestEmit_Timestamps(unittest.TestCase):
     ) -> None:
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
-            _terminal_output.emit("plain")
+            _terminal_output.write_line("plain")
         self.assertEqual(stderr_buffer.getvalue(), "plain\n")
 
     def test_prefix_when_enabled(
@@ -147,11 +154,11 @@ class TestEmit_Timestamps(unittest.TestCase):
         stderr_buffer = io.StringIO()
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(stderr_buffer):
-                _terminal_output.emit("stamped")
+                _terminal_output.write_line("stamped")
         self.assertEqual(stderr_buffer.getvalue(), "[2026-01-02 03:04:05] stamped\n")
 
 
-class TestEmit_Record(unittest.TestCase):
+class TestWriteLine_Record(unittest.TestCase):
 
     record_path: Path
 
@@ -183,12 +190,12 @@ class TestEmit_Record(unittest.TestCase):
         self._start_recording(dry_run=False)
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
-                _terminal_output.emit_message(
+                _terminal_output.render_line(
                     message_style=_terminal_output.TASK_STYLE,
                     text_markup="first",
-                    color_whole_line=False,
+                    colour_whole_line=False,
                 )
-                _terminal_output.emit("[bold]second[/bold]")
+                _terminal_output.write_line("[bold]second[/bold]")
         self.assertEqual(
             self.record_path.read_text().splitlines(),
             [
@@ -202,14 +209,14 @@ class TestEmit_Record(unittest.TestCase):
     ) -> None:
         self._start_recording(dry_run=True)
         with contextlib.redirect_stderr(io.StringIO()):
-            _terminal_output.emit("nothing happens")
+            _terminal_output.write_line("nothing happens")
         self.assertFalse(self.record_path.exists())
 
     def test_off_by_default(
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
-            _terminal_output.emit("nowhere")
+            _terminal_output.write_line("nowhere")
         self.assertFalse(self.record_path.exists())
 
 
@@ -220,7 +227,7 @@ class TestEscapeMarkup_Text(unittest.TestCase):
     ) -> None:
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
-            _terminal_output.emit(_terminal_output.escape_markup("[bold]x[/bold]"))
+            _terminal_output.write_line(_terminal_output.escape_markup("[bold]x[/bold]"))
         self.assertEqual(stderr_buffer.getvalue(), "[bold]x[/bold]\n")
 
 

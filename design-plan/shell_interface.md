@@ -32,19 +32,21 @@ outcome              how a task or action ended, reported afterwards
 └── content          optional: a value (what an action produced) or a result (for the user, on stdout)
 ```
 
-The marker says which concept a line is (open circle: task; arrow: action; closed circle or dot: outcome) and the colour says which kind or status. Each base concept has its facets as enums of `MessageStyle` (the name used by the log manager expected to move in) in the private core `_terminal_output`: `TASK_STYLE`; `ActionKind` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`); `OutcomeContent` (`VALUE`, `RESULT`). A change skipped in dry-run is not defined separately: `get_skipped_change_style` builds it from the change marker and the skipped colour. `LEGEND_GROUPS` lists everything under the three concepts, and the help legend is generated from it, so the legend cannot drift from the output.
+The icon says which concept a line is (open circle: task; hooked arrow: note; right arrow: action; closed circle or middle dot: outcome) and the colour says which type or status. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `icon`, `description`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private core `_terminal_output`: `TASK_STYLE`; `NOTE_STYLE`; `ActionType` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `OutcomeContent` (`VALUE`, `RESULT`). A change skipped in dry-run is not defined separately: `get_skipped_change_style` builds it from the change icon and the skipped colour. `LEGEND_GROUPS` lists everything by concept, and the help legend is generated from it, so the legend cannot drift from the output. Lines are drawn by `render_line` and written by `write_line`.
 
-| Concept | Facet | Value | Marker | Colour | State |
+| Concept | Facet | Value | Icon | Colour | State |
 |---|---|---|---|---|---|
 | task | | | open circle | white | decided |
-| action | kind | change | arrow | blue | decided |
-| action | kind | inspection | arrow | gray | decided |
-| action | kind and status | change skipped in dry-run | arrow | orange, from the skipped status | decided |
+| note | | | hooked arrow | white | decided |
+| action | type | change | right arrow | blue | decided |
+| action | type | inspection | right arrow | grey | decided |
+| action | type and status | change skipped in dry-run | right arrow | orange, from the skipped status | decided |
 | outcome | status | success | closed circle | green | decided |
 | outcome | status | warning | closed circle | yellow | decided |
 | outcome | status | skipped | closed circle | orange | decided |
-| outcome | status | failure, including the error that ends the run | closed circle | red | decided |
-| outcome | content | value an action produced | dot | gray | decided |
+| outcome | status | failure that does not end the run | closed circle | red | decided |
+| outcome | status | error that ends the run | closed circle | red | decided |
+| outcome | content | value an action produced | middle dot | grey | decided |
 | outcome | content | result | none | none: plain text on stdout, never timestamped or wrapped, so a pipe gets clean data | decided |
 
 An inspection exists to produce a value; a change exists to alter the system and may produce a value along the way, e.g. the path of a directory it created. In dry-run a change is skipped, so a value it would have produced is unknown: anything that depends on that value reports a skipped outcome instead of carrying on with a placeholder. State: decided.
@@ -57,12 +59,12 @@ An inspection exists to produce a value; a change exists to alter the system and
 
 | Function | Prints | Stream | State |
 |---|---|---|---|
-| `log_message(message)` | a plain message | narration | decided |
+| `log_note(message)` | a note about the work, neither a task nor an outcome | narration | decided |
 | `log_task(message)` | a task starting | narration | decided |
 | `log_outcome(message, *, status)` | how a task or action ended; `status` is required, never assumed | narration | decided |
 | `log_value(*, name, value)` | a value an action produced, as `name = value` | narration | decided |
 | `log_result(message)` | a result for the user or a pipe | stdout | decided |
-| `exit_with_error(message)` | a failure that ends the run, then exits with status 1 | narration | decided |
+| `exit_with_error(message)` | an error outcome, then exits with status 1 | narration | decided |
 | `escape_markup(text)` | nothing; returns text that prints exactly as written | N/A | decided |
 
 `OutcomeStatus` is available as `shell_interface.OutcomeStatus`.

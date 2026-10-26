@@ -219,18 +219,18 @@ def _get_legend_styles() -> list[_terminal_output.MessageStyle]:
 def _get_legend_label(
     message_style: _terminal_output.MessageStyle,
 ) -> str:
-    """The marker and colour name, e.g. `● green`; `plain` for a line with neither."""
-    if message_style.marker is None or message_style.color is None:
+    """The icon and colour name, e.g. `● green`; `plain` for a line with neither."""
+    if message_style.icon is None or message_style.colour is None:
         return "plain"
-    return f"{message_style.marker.value} {message_style.color.name.lower()}"
+    return f"{message_style.icon.value} {message_style.colour.name.lower()}"
 
 
-def _get_legend_color(
+def _get_legend_colour(
     message_style: _terminal_output.MessageStyle,
 ) -> str | None:
-    if message_style.color is None:
+    if message_style.colour is None:
         return None
-    return message_style.color.value
+    return message_style.colour.value
 
 
 def _print_tool_help(
@@ -290,7 +290,7 @@ def _print_tool_help(
         for message_style in legend_group.grouped_message_styles:
             legend_row = _format_help_row(
                 label=_get_legend_label(message_style),
-                label_style=_get_legend_color(message_style),
+                label_style=_get_legend_colour(message_style),
                 column_width=column_width,
                 description=message_style.description,
             )

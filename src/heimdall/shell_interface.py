@@ -40,21 +40,25 @@ def escape_markup(
     return _terminal_output.escape_markup(text)
 
 
-def log_message(
+def log_note(
     message: str,
 ) -> None:
-    """Print message as narration, with no marker."""
-    _terminal_output.emit(message)
+    """Note something about the work that is neither a task nor an outcome."""
+    _terminal_output.render_line(
+        message_style=_terminal_output.NOTE_STYLE,
+        text_markup=message,
+        colour_whole_line=False,
+    )
 
 
 def log_task(
     message: str,
 ) -> None:
     """Announce a task that is starting."""
-    _terminal_output.emit_message(
+    _terminal_output.render_line(
         message_style=_terminal_output.TASK_STYLE,
         text_markup=message,
-        color_whole_line=False,
+        colour_whole_line=False,
     )
 
 
@@ -64,10 +68,10 @@ def log_outcome(
     status: OutcomeStatus,
 ) -> None:
     """Report how a task or action ended; the status sets the colour and is never assumed."""
-    _terminal_output.emit_message(
+    _terminal_output.render_line(
         message_style=status.value,
         text_markup=message,
-        color_whole_line=True,
+        colour_whole_line=True,
     )
 
 
@@ -77,21 +81,21 @@ def log_value(
     value: str,
 ) -> None:
     """Report a value that an action produced, by inspecting or by changing the system; the value prints exactly as written."""
-    _terminal_output.emit_message(
+    _terminal_output.render_line(
         message_style=_terminal_output.OutcomeContent.VALUE.value,
         text_markup=escape_markup(f"{name} = {value}"),
-        color_whole_line=True,
+        colour_whole_line=True,
     )
 
 
 def log_result(
     message: str,
 ) -> None:
-    """Print a result for the user or a pipe: plain text on stdout, with no marker, colour, timestamp, or wrapping."""
-    _terminal_output.emit_message(
+    """Print a result for the user or a pipe: plain text on stdout, with no icon, colour, timestamp, or wrapping."""
+    _terminal_output.render_line(
         message_style=_terminal_output.OutcomeContent.RESULT.value,
         text_markup=message,
-        color_whole_line=True,
+        colour_whole_line=True,
         is_result=True,
     )
 
@@ -100,10 +104,10 @@ def exit_with_error(
     message: str,
 ) -> NoReturn:
     """Report a failure that ends the run, then exit the process with status 1."""
-    _terminal_output.emit_message(
-        message_style=OutcomeStatus.FAILURE.value,
+    _terminal_output.render_line(
+        message_style=OutcomeStatus.ERROR.value,
         text_markup=f"error: {message}",
-        color_whole_line=False,
+        colour_whole_line=False,
     )
     sys.exit(1)
 
@@ -138,10 +142,10 @@ def _print_cmd(
     cmd: list[str],
     cmd_prefix: str = "",
 ) -> None:
-    _terminal_output.emit_message(
+    _terminal_output.render_line(
         message_style=message_style,
         text_markup=f"{cmd_prefix}{escape_markup(shlex.join(cmd))}",
-        color_whole_line=True,
+        colour_whole_line=True,
     )
 
 
@@ -164,7 +168,7 @@ def run_cmd_and_show_output(
         )
         return True
     _print_cmd(
-        message_style=_terminal_output.ActionKind.CHANGE.value,
+        message_style=_terminal_output.ActionType.CHANGE.value,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -199,7 +203,7 @@ def run_cmd_and_capture_output(
         )
         return ""
     _print_cmd(
-        message_style=_terminal_output.ActionKind.CHANGE.value,
+        message_style=_terminal_output.ActionType.CHANGE.value,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -223,7 +227,7 @@ def query_cmd_and_capture_output(
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _print_cmd(
-        message_style=_terminal_output.ActionKind.INSPECTION.value,
+        message_style=_terminal_output.ActionType.INSPECTION.value,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -252,7 +256,7 @@ def query_cmd_and_capture_outcome(
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _print_cmd(
-        message_style=_terminal_output.ActionKind.INSPECTION.value,
+        message_style=_terminal_output.ActionType.INSPECTION.value,
         cmd=cmd,
     )
     try:

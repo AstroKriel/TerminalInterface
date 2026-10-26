@@ -61,14 +61,14 @@ class TestLogFunctions_Output(unittest.TestCase):
             log_call()
         return (stdout_buffer.getvalue(), stderr_buffer.getvalue())
 
-    def test_log_message_writes_to_stderr(
+    def test_log_note_writes_to_stderr_with_its_icon(
         self,
     ) -> None:
-        stdout_text, stderr_text = self._capture(lambda: shell_interface.log_message("hello"))
+        stdout_text, stderr_text = self._capture(lambda: shell_interface.log_note("this rewrites history"))
         self.assertEqual(stdout_text, "")
-        self.assertIn("hello", stderr_text)
+        self.assertEqual(stderr_text, "↪ this rewrites history\n")
 
-    def test_log_task_includes_marker_and_message(
+    def test_log_task_includes_icon_and_message(
         self,
     ) -> None:
         _, stderr_text = self._capture(lambda: shell_interface.log_task("doing something"))
