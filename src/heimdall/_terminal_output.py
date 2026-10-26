@@ -64,17 +64,17 @@ class MessageType(Enum):
     ACTION = MessageParams(
         color=Color.BLUE,
         marker=Marker.ARROW,
-        description="command that changes the system",
+        description="action that changes the system",
     )
     SKIPPED = MessageParams(
         color=Color.ORANGE,
         marker=Marker.ARROW,
-        description="command skipped in dry-run",
+        description="action skipped in dry-run",
     )
     QUERY = MessageParams(
         color=Color.GRAY,
         marker=Marker.ARROW,
-        description="command that only reads",
+        description="query that only reads the system",
     )
     CONTEXT = MessageParams(
         color=Color.GRAY,
