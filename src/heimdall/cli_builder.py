@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any, TypeAlias, final
 
 ## third-party
 from rich.console import Console as rich_Console
@@ -197,19 +197,6 @@ def _get_section_text(
     return section_title
 
 
-def _format_help_row(
-    *,
-    label: str,
-    label_style: str | None,
-    column_width: int,
-    description: str,
-) -> str:
-    padding = " " * (column_width - len(label))
-    if label_style is None:
-        return f"{_HELP_INDENT}{label}{padding}{description}"
-    return f"{_HELP_INDENT}[{label_style}]{label}[/]{padding}{description}"
-
-
 def _get_legend_label(
     message_style: _terminal_output.MessageStyle,
 ) -> str:
@@ -219,78 +206,115 @@ def _get_legend_label(
     return f"{message_style.symbol.value} {message_style.colour.name.lower()}"
 
 
-def _print_tool_help(
-    tool: Tool,
-) -> None:
-    """Print the commands by section, the flags, and the output legend; every row shares one column width."""
-    console = rich_Console(highlight=False)
-    all_flags = [_DRY_RUN_FLAG, *tool.flags]
-    visible_rows: list[tuple[str, str, str]] = []
-    for command_name, command_details in tool.commands:
-        if command_details.is_hidden:
-            continue
-        assert command_details.section_title is not None
-        visible_row = (command_details.section_title, command_name, command_details.help)
-        visible_rows.append(visible_row)
-    legend_labels = [
-        _get_legend_label(_message_style)
-        for _message_group in _terminal_output.MESSAGE_GROUPS
-        for _message_style in _message_group.grouped_message_styles
-    ]
-    all_labels = [
-        *[_command_name for _, _command_name, _ in visible_rows],
-        *[_flag.arg_name for _flag in all_flags],
-        *legend_labels,
-    ]
-    column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
-    usage_flags = " ".join(f"[{_flag.arg_name}]" for _flag in all_flags)
-    usage_text = shell_interface.escape_markup(f"{tool.name} {usage_flags} <command> [args]")
-    console.print()
-    console.print(f"[bold]{tool.name}[/bold]: {tool.description}")
-    console.print()
-    console.print(f"[dim]usage:[/dim] {usage_text}")
-    current_section = None
-    for section_title, command_name, command_help in visible_rows:
-        if section_title != current_section:
-            console.print()
-            console.print(f"[bold]{_get_section_text(section_title)}[/bold]")
-            current_section = section_title
-        command_row = _format_help_row(
-            label=command_name,
-            label_style=_terminal_output.Colour.CYAN.value,
-            column_width=column_width,
-            description=command_help,
-        )
-        console.print(command_row)
-    console.print()
-    console.print("[bold]Flags[/bold]")
-    for flag in all_flags:
-        flag_help = flag.help
-        if flag_help is None:
-            flag_help = ""
-        flag_row = _format_help_row(
-            label=flag.arg_name,
-            label_style=_terminal_output.Colour.CYAN.value,
-            column_width=column_width,
-            description=flag_help,
-        )
-        console.print(flag_row)
-    console.print()
-    console.print("[bold]Output legend[/bold]")
-    for message_group in _terminal_output.MESSAGE_GROUPS:
-        console.print(f"{_MESSAGE_GROUP_INDENT}[dim]{message_group.title}[/dim]")
-        for message_style in message_group.grouped_message_styles:
-            legend_colour = None
-            if message_style.colour is not None:
-                legend_colour = message_style.colour.value
-            legend_row = _format_help_row(
-                label=_get_legend_label(message_style),
-                label_style=legend_colour,
-                column_width=column_width,
-                description=message_style.description,
+@final
+class _ToolHelp:
+    """The help screen of one tool; every row shares one column width."""
+
+    def __init__(
+        self,
+        tool: Tool,
+    ) -> None:
+        self.tool = tool
+        self.console = rich_Console(highlight=False)
+        self.all_flags = [_DRY_RUN_FLAG, *tool.flags]
+        self.visible_commands = [
+            (_command_name, _command_details)
+            for _command_name, _command_details in tool.commands
+            if not _command_details.is_hidden
+        ]
+        legend_labels = [
+            _get_legend_label(_message_style)
+            for _message_group in _terminal_output.MESSAGE_GROUPS
+            for _message_style in _message_group.grouped_message_styles
+        ]
+        all_labels = [
+            *[_command_name for _command_name, _ in self.visible_commands],
+            *[_flag.arg_name for _flag in self.all_flags],
+            *legend_labels,
+        ]
+        self.column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
+
+    def _print_row(
+        self,
+        *,
+        label: str,
+        label_style: str | None,
+        description: str,
+    ) -> None:
+        padding = " " * (self.column_width - len(label))
+        styled_label = label
+        if label_style is not None:
+            styled_label = f"[{label_style}]{label}[/]"
+        self.console.print(f"{_HELP_INDENT}{styled_label}{padding}{description}")
+
+    def _print_header(
+        self,
+    ) -> None:
+        usage_flags = " ".join(f"[{_flag.arg_name}]" for _flag in self.all_flags)
+        usage_text = shell_interface.escape_markup(f"{self.tool.name} {usage_flags} <command> [args]")
+        self.console.print()
+        self.console.print(f"[bold]{self.tool.name}[/bold]: {self.tool.description}")
+        self.console.print()
+        self.console.print(f"[dim]usage:[/dim] {usage_text}")
+
+    def _print_commands(
+        self,
+    ) -> None:
+        current_section = None
+        for command_name, command_details in self.visible_commands:
+            section_title = command_details.section_title
+            assert section_title is not None
+            if section_title != current_section:
+                self.console.print()
+                self.console.print(f"[bold]{_get_section_text(section_title)}[/bold]")
+                current_section = section_title
+            self._print_row(
+                label=command_name,
+                label_style=_terminal_output.Colour.CYAN.value,
+                description=command_details.help,
             )
-            console.print(legend_row)
-    console.print()
+
+    def _print_flags(
+        self,
+    ) -> None:
+        self.console.print()
+        self.console.print("[bold]Flags[/bold]")
+        for flag in self.all_flags:
+            flag_help = flag.help
+            if flag_help is None:
+                flag_help = ""
+            self._print_row(
+                label=flag.arg_name,
+                label_style=_terminal_output.Colour.CYAN.value,
+                description=flag_help,
+            )
+
+    def _print_legend(
+        self,
+    ) -> None:
+        self.console.print()
+        self.console.print("[bold]Output legend[/bold]")
+        for message_group in _terminal_output.MESSAGE_GROUPS:
+            self.console.print(f"{_MESSAGE_GROUP_INDENT}[dim]{message_group.title}[/dim]")
+            for message_style in message_group.grouped_message_styles:
+                legend_colour = None
+                if message_style.colour is not None:
+                    legend_colour = message_style.colour.value
+                self._print_row(
+                    label=_get_legend_label(message_style),
+                    label_style=legend_colour,
+                    description=message_style.description,
+                )
+        self.console.print()
+
+    def print_help(
+        self,
+    ) -> None:
+        """Print the header, the commands by section, the flags, and the output legend."""
+        self._print_header()
+        self._print_commands()
+        self._print_flags()
+        self._print_legend()
 
 
 ##
@@ -342,7 +366,8 @@ def run_cli(
     _ensure_visible_commands_grouped(tool)
     parsed_args = _build_parser(tool).parse_args(argv)
     if parsed_args.help or parsed_args.command is None:
-        _print_tool_help(tool)
+        tool_help = _ToolHelp(tool)
+        tool_help.print_help()
         return
     run_params = tool.make_run_params(parsed_args)
     _terminal_output.set_output_params(
