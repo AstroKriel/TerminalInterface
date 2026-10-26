@@ -204,7 +204,10 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     def test_dry_run_line_uses_the_change_symbol_in_the_skipped_colour(
         self,
     ) -> None:
-        with mock.patch.object(_terminal_output, "render_line") as mock_render_line:
+        with (
+            mock.patch.object(_terminal_output, "render_line", wraps=_terminal_output.render_line) as mock_render_line,
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
             shell_interface.run_command_and_show_output(
                 run_params=shell_interface.RunParams(dry_run=True),
                 command=["git", "push"],

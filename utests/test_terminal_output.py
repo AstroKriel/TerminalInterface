@@ -70,6 +70,42 @@ class TestLegend_Groups(unittest.TestCase):
         self.assertEqual(len(set(other_colours)), len(other_colours))
 
 
+class TestRenderLine_Markup(unittest.TestCase):
+
+    def test_colours_only_the_symbol(
+        self,
+    ) -> None:
+        line_markup = _terminal_output.render_line(
+            symbol=_terminal_output.Symbol.OPEN_CIRCLE,
+            colour=_terminal_output.Colour.WHITE,
+            text_markup="task",
+            colour_whole_line=False,
+        )
+        self.assertEqual(line_markup, "[#FFFFFF]○[/] task")
+
+    def test_colours_the_whole_line(
+        self,
+    ) -> None:
+        line_markup = _terminal_output.render_line(
+            symbol=_terminal_output.Symbol.CLOSED_CIRCLE,
+            colour=_terminal_output.Colour.GREEN,
+            text_markup="done",
+            colour_whole_line=True,
+        )
+        self.assertEqual(line_markup, "[#32CD32]● done[/]")
+
+    def test_renders_plain_without_symbol_or_colour(
+        self,
+    ) -> None:
+        line_markup = _terminal_output.render_line(
+            symbol=None,
+            colour=None,
+            text_markup="plain",
+            colour_whole_line=True,
+        )
+        self.assertEqual(line_markup, "plain")
+
+
 class TestWriteLine_Streams(unittest.TestCase):
 
     def setUp(
@@ -161,12 +197,7 @@ class TestWriteLine_Record(unittest.TestCase):
         self._start_recording(dry_run=False)
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
-                _terminal_output.render_line(
-                    symbol=_terminal_output.TASK_STYLE.symbol,
-                    colour=_terminal_output.TASK_STYLE.colour,
-                    text_markup="first",
-                    colour_whole_line=False,
-                )
+                _terminal_output.write_line("[#FFFFFF]○[/] first")
                 _terminal_output.write_line("[bold]second[/bold]")
         self.assertEqual(
             self.record_path.read_text().splitlines(),

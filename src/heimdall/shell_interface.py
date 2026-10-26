@@ -34,27 +34,26 @@ class RunParams:
 ##
 
 
-def _render_message(
+def _write_message(
     *,
     message_style: _terminal_output.MessageStyle,
     text_markup: str,
     colour_whole_line: bool,
-    is_result: bool = False,
 ) -> None:
-    _terminal_output.render_line(
+    line_markup = _terminal_output.render_line(
         symbol=message_style.symbol,
         colour=message_style.colour,
         text_markup=text_markup,
         colour_whole_line=colour_whole_line,
-        is_result=is_result,
     )
+    _terminal_output.write_line(line_markup)
 
 
 def log_note(
     message: str,
 ) -> None:
     """Note something about the work that is neither a task nor an outcome."""
-    _render_message(
+    _write_message(
         message_style=_terminal_output.NOTE_STYLE,
         text_markup=message,
         colour_whole_line=False,
@@ -65,7 +64,7 @@ def log_task(
     message: str,
 ) -> None:
     """Announce a task that is starting."""
-    _render_message(
+    _write_message(
         message_style=_terminal_output.TASK_STYLE,
         text_markup=message,
         colour_whole_line=False,
@@ -78,7 +77,7 @@ def log_outcome(
     status: OutcomeStatus,
 ) -> None:
     """Report how a task or action ended; the status sets the colour and is never assumed."""
-    _render_message(
+    _write_message(
         message_style=status.value,
         text_markup=message,
         colour_whole_line=True,
@@ -91,7 +90,7 @@ def log_value(
     value: str,
 ) -> None:
     """Report a value that an action produced, by inspecting or by changing the system; the value prints exactly as written."""
-    _render_message(
+    _write_message(
         message_style=_terminal_output.OutcomeContent.VALUE.value,
         text_markup=escape_markup(f"{name} = {value}"),
         colour_whole_line=True,
@@ -102,10 +101,8 @@ def log_result(
     message: str,
 ) -> None:
     """Print a result for the user or a pipe: plain text on stdout, with no symbol, colour, timestamp, or wrapping."""
-    _render_message(
-        message_style=_terminal_output.OutcomeContent.RESULT.value,
-        text_markup=message,
-        colour_whole_line=True,
+    _terminal_output.write_line(
+        message,
         is_result=True,
     )
 
@@ -116,7 +113,7 @@ def exit_with_error(
     exit_code: int = 1,
 ) -> NoReturn:
     """Report an error that ends the run, then exit the process with `exit_code`."""
-    _render_message(
+    _write_message(
         message_style=OutcomeStatus.ERROR.value,
         text_markup=f"error: {message}",
         colour_whole_line=True,
@@ -159,12 +156,13 @@ def _print_command(
     colour = action.value.colour
     if outcome_status is not None:
         colour = outcome_status.value.colour
-    _terminal_output.render_line(
+    line_markup = _terminal_output.render_line(
         symbol=action.value.symbol,
         colour=colour,
         text_markup=f"{command_prefix}{escape_markup(shlex.join(command))}",
         colour_whole_line=True,
     )
+    _terminal_output.write_line(line_markup)
 
 
 def run_command_and_show_output(

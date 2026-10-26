@@ -289,10 +289,9 @@ def render_line(
     colour: Colour | None,
     text_markup: str,
     colour_whole_line: bool,
-    is_result: bool = False,
-) -> None:
+) -> str:
     """
-    Render a line with a symbol and a colour; either the whole line or only the symbol is coloured.
+    Return the markup for a line with a symbol and a colour; either the whole line or only the symbol is coloured.
 
     The symbol and colour are passed separately so a line can take them from different facets, e.g. the symbol of a
     change in the colour of the skipped status. Without a symbol or colour the text renders plain.
@@ -301,15 +300,10 @@ def render_line(
     if symbol is not None:
         symbol_text = f"{symbol.value} "
     if colour is None:
-        line_markup = f"{symbol_text}{text_markup}"
-    elif colour_whole_line:
-        line_markup = f"[{colour.value}]{symbol_text}{text_markup}[/]"
-    else:
-        line_markup = f"[{colour.value}]{symbol_text.strip()}[/] {text_markup}"
-    write_line(
-        line_markup,
-        is_result=is_result,
-    )
+        return f"{symbol_text}{text_markup}"
+    if colour_whole_line:
+        return f"[{colour.value}]{symbol_text}{text_markup}[/]"
+    return f"[{colour.value}]{symbol_text.strip()}[/] {text_markup}"
 
 
 ## } MODULE
