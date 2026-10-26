@@ -38,11 +38,11 @@ class _ToolRunParams(shell_interface.RunParams):
 
 
 def _make_tool_run_params(
-    parsed_args: argparse.Namespace,
+    parsed_arguments: argparse.Namespace,
 ) -> _ToolRunParams:
     return _ToolRunParams(
-        dry_run=parsed_args.dry_run,
-        allow_dirty=parsed_args.allow_dirty,
+        dry_run=parsed_arguments.dry_run,
+        allow_dirty=parsed_arguments.allow_dirty,
     )
 
 
@@ -58,12 +58,12 @@ def _get_help(
 def _make_go_command(
     command_fn: Callable[..., None],
     *,
-    command_args: list[cli_builder.CommandArg] | None = None,
+    command_arguments: list[cli_builder.CommandArgument] | None = None,
 ) -> list[cli_builder.CommandEntry]:
     go_command = cli_builder.make_command(
         command_name="go",
         command_fn=command_fn,
-        command_args=command_args,
+        command_arguments=command_arguments,
     )
     return cli_builder.make_command_group(
         section_title="Commands",
@@ -74,7 +74,7 @@ def _make_go_command(
 def _make_tool(
     *,
     commands: list[cli_builder.CommandEntry],
-    flags: list[cli_builder.CommandArg] | None = None,
+    flags: list[cli_builder.CommandArgument] | None = None,
 ) -> cli_builder.Tool:
     if flags is None:
         flags = []
@@ -91,39 +91,39 @@ def _make_tool(
 ##
 
 
-class TestCommandDetails_ArgMapping(unittest.TestCase):
+class TestCommandDetails_ArgumentMapping(unittest.TestCase):
 
     def _call_with(
         self,
         *,
-        command_args: list[cli_builder.CommandArg],
+        command_arguments: list[cli_builder.CommandArgument],
         parsed_values: dict[str, str | None],
     ) -> dict[str, str | None]:
         received: dict[str, str | None] = {}
 
-        def record_args(
+        def record_arguments(
             *,
             run_params: shell_interface.RunParams,
-            **command_arg_values: str | None,
+            **command_argument_values: str | None,
         ) -> None:
-            received.update(command_arg_values)
+            received.update(command_argument_values)
 
         _, command_details = cli_builder.make_command(
             command_name="test-command",
-            command_fn=record_args,
-            command_args=command_args,
+            command_fn=record_arguments,
+            command_arguments=command_arguments,
         )
         command_details.call(
             run_params=shell_interface.RunParams(),
-            parsed_args=argparse.Namespace(dry_run=False, **parsed_values),
+            parsed_arguments=argparse.Namespace(dry_run=False, **parsed_values),
         )
         return received
 
-    def test_positional_arg_is_passed_by_name(
+    def test_positional_argument_is_passed_by_name(
         self,
     ) -> None:
         received = self._call_with(
-            command_args=[cli_builder.CommandArg(arg_name="branch_name")],
+            command_arguments=[cli_builder.CommandArgument(argument_name="branch_name")],
             parsed_values={"branch_name": "feature"},
         )
         self.assertEqual(received, {"branch_name": "feature"})
@@ -132,7 +132,7 @@ class TestCommandDetails_ArgMapping(unittest.TestCase):
         self,
     ) -> None:
         received = self._call_with(
-            command_args=[cli_builder.CommandArg(arg_name="--base-ref")],
+            command_arguments=[cli_builder.CommandArgument(argument_name="--base-ref")],
             parsed_values={"base_ref": "development"},
         )
         self.assertEqual(received, {"base_ref": "development"})
@@ -141,7 +141,7 @@ class TestCommandDetails_ArgMapping(unittest.TestCase):
         self,
     ) -> None:
         received = self._call_with(
-            command_args=[cli_builder.CommandArg(arg_name="--base")],
+            command_arguments=[cli_builder.CommandArgument(argument_name="--base")],
             parsed_values={"base": None},
         )
         self.assertEqual(received, {"base": None})
@@ -161,11 +161,36 @@ class TestCommandDetails_ArgMapping(unittest.TestCase):
         tool = _make_tool(
             commands=_make_go_command(
                 record_base,
-                command_args=[cli_builder.CommandArg(arg_name="--base")],
+                command_arguments=[cli_builder.CommandArgument(argument_name="--base")],
             ),
         )
         cli_builder.run_cli(tool=tool, argv=["go"])
         self.assertEqual(received, [None])
+
+    def test_value_count_collects_every_value(
+        self,
+    ) -> None:
+        received: list[list[str]] = []
+
+        def record_paths(
+            *,
+            run_params: shell_interface.RunParams,
+            paths: list[str],
+        ) -> None:
+            received.append(paths)
+
+        paths_argument = cli_builder.CommandArgument(
+            argument_name="paths",
+            value_count=cli_builder.ValueCount.AT_LEAST_ONE,
+        )
+        tool = _make_tool(
+            commands=_make_go_command(
+                record_paths,
+                command_arguments=[paths_argument],
+            ),
+        )
+        cli_builder.run_cli(tool=tool, argv=["go", "a", "b"])
+        self.assertEqual(received, [["a", "b"]])
 
 
 class TestCommandGroup_SectionStamping(unittest.TestCase):
@@ -222,7 +247,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
             name="tool",
             description="a tool",
             commands=_make_go_command(record_run_params),
-            flags=[cli_builder.CommandArg(arg_name="--allow-dirty", store_true=True)],
+            flags=[cli_builder.CommandArgument(argument_name="--allow-dirty", is_switch=True)],
             make_run_params=_make_tool_run_params,
         )
         cli_builder.run_cli(tool=tool, argv=["--allow-dirty", "go"])
@@ -357,7 +382,7 @@ class TestHelp_Output(unittest.TestCase):
     ) -> None:
         tool = _make_tool(
             commands=[],
-            flags=[cli_builder.CommandArg(arg_name="--allow-dirty", store_true=True, help="skip the check")],
+            flags=[cli_builder.CommandArgument(argument_name="--allow-dirty", is_switch=True, argument_help="skip the check")],
         )
         help_text = _get_help(tool)
         self.assertIn("usage: tool [--dry-run] [--allow-dirty] <command> [args]", help_text)

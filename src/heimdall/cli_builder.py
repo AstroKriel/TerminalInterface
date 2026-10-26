@@ -25,58 +25,65 @@ from heimdall import _terminal_output, shell_interface
 ##
 
 
+class ValueCount(str, Enum):
+    """How many values an argument takes, as the symbol argparse expects."""
+    OPTIONAL = "?"
+    ANY = "*"
+    AT_LEAST_ONE = "+"
+
+
 @dataclass(frozen=True)
-class CommandArg:
+class CommandArgument:
     """One argparse argument for a subcommand: a bare positional, or a `--flag`."""
-    arg_name: str
+    argument_name: str
     value_type: type = str
-    default: Any = None
-    metavar: str | None = None
-    help: str | None = None
-    store_true: bool = False
-    required: bool = False
-    nargs: str | None = None
+    default_value: Any = None
+    value_placeholder: str | None = None
+    argument_help: str | None = None
+    is_switch: bool = False
+    is_required: bool = False
+    value_count: ValueCount | None = None
 
     @property
-    def dest(
+    def destination(
         self,
     ) -> str:
-        """The `argparse.Namespace` attribute this arg lands on, e.g. `--word-diff` -> `word_diff`."""
-        return self.arg_name.lstrip("-").replace("-", "_")
+        """The `argparse.Namespace` attribute this argument lands on, e.g. `--word-diff` -> `word_diff`."""
+        return self.argument_name.lstrip("-").replace("-", "_")
 
     @property
-    def argparse_kwargs(
+    def argparse_keyword_arguments(
         self,
     ) -> dict[str, Any]:
-        """Build the kwargs for `add_argument`; flags with no explicit help get a default-value hint."""
-        if self.store_true:
-            kwargs: dict[str, Any] = {
+        """Build the keyword arguments for `add_argument`; flags with no explicit help get a default-value hint."""
+        if self.is_switch:
+            keyword_arguments: dict[str, Any] = {
                 "action": "store_true",
                 "default": False,
             }
         else:
-            kwargs = {"type": self.value_type}
-            if self.nargs is not None:
-                kwargs["nargs"] = self.nargs
-            if self.metavar is not None:
-                kwargs["metavar"] = self.metavar
-            if self.required:
-                kwargs["required"] = True
+            keyword_arguments = {"type": self.value_type}
+            if self.value_count is not None:
+                keyword_arguments["nargs"] = self.value_count.value
+            if self.value_placeholder is not None:
+                keyword_arguments["metavar"] = self.value_placeholder
+            if self.is_required:
+                keyword_arguments["required"] = True
             else:
-                kwargs["default"] = self.default
-        if self.help is not None:
-            kwargs["help"] = self.help
-        elif self.arg_name.startswith("--") and not self.required:
-            kwargs["help"] = "(default: %(default)s)"
-        return kwargs
+                keyword_arguments["default"] = self.default_value
+        if self.argument_help is not None:
+            keyword_arguments["help"] = self.argument_help
+        elif self.argument_name.startswith("--") and not self.is_required:
+            keyword_arguments["help"] = "(default: %(default)s)"
+        return keyword_arguments
 
 
 @dataclass(frozen=True)
 class CommandDetails:
     """One subcommand: its help, its arguments, and the function it calls."""
-    help: str
+    command_help: str
     command_fn: Callable[..., None]
-    command_args: list[CommandArg]
+    command_arguments: list[CommandArgument]
     section_title: str | None
     is_hidden: bool
 
@@ -84,13 +91,16 @@ class CommandDetails:
         self,
         *,
         run_params: shell_interface.RunParams,
-        parsed_args: argparse.Namespace,
+        parsed_arguments: argparse.Namespace,
     ) -> None:
-        """Call command_fn with `run_params` and each argument by its argparse name, all as keywords."""
-        command_arg_values = {_command_arg.dest: getattr(parsed_args, _command_arg.dest) for _command_arg in self.command_args}
+        """Call `command_fn` with `run_params` and each argument by its argparse name, all as keywords."""
+        command_argument_values = {
+            _command_argument.destination: getattr(parsed_arguments, _command_argument.destination)
+            for _command_argument in self.command_arguments
+        }
         self.command_fn(
             run_params=run_params,
-            **command_arg_values,
+            **command_argument_values,
         )
 
 
@@ -106,9 +116,9 @@ CommandEntry: TypeAlias = tuple[str, CommandDetails]
 
 
 def _make_default_run_params(
-    parsed_args: argparse.Namespace,
+    parsed_arguments: argparse.Namespace,
 ) -> shell_interface.RunParams:
-    return shell_interface.RunParams(dry_run=parsed_args.dry_run)
+    return shell_interface.RunParams(dry_run=parsed_arguments.dry_run)
 
 
 @dataclass(frozen=True)
@@ -130,16 +140,16 @@ class Tool:
     name: str
     description: str
     commands: list[CommandEntry]
-    flags: list[CommandArg] = field(default_factory=list)
+    flags: list[CommandArgument] = field(default_factory=list)
     make_run_params: Callable[[argparse.Namespace], shell_interface.RunParams] = _make_default_run_params
     show_timestamps: bool = False
     record_path: Path | None = None
 
 
-_DRY_RUN_FLAG = CommandArg(
-    arg_name="--dry-run",
-    store_true=True,
-    help="print commands without executing them",
+_DRY_RUN_FLAG = CommandArgument(
+    argument_name="--dry-run",
+    is_switch=True,
+    argument_help="print commands without executing them",
 )
 
 ##
@@ -152,16 +162,16 @@ def make_command(
     command_name: str,
     command_fn: Callable[..., None],
     command_help: str = "",
-    command_args: list[CommandArg] | None = None,
+    command_arguments: list[CommandArgument] | None = None,
     is_hidden: bool = False,
 ) -> CommandEntry:
     """Build a (name, details) entry for the command table; `make_command_group` stamps its section."""
-    if command_args is None:
-        command_args = []
+    if command_arguments is None:
+        command_arguments = []
     command_details = CommandDetails(
-        help=command_help,
+        command_help=command_help,
         command_fn=command_fn,
-        command_args=command_args,
+        command_arguments=command_arguments,
         section_title=None,
         is_hidden=is_hidden,
     )
@@ -212,7 +222,7 @@ class _ToolHelp:
         ]
         all_labels = [
             *[_command_name for _command_name, _ in self.visible_commands],
-            *[_flag.arg_name for _flag in self.all_flags],
+            *[_flag.argument_name for _flag in self.all_flags],
             *legend_labels,
         ]
         self.column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
@@ -250,7 +260,7 @@ class _ToolHelp:
     def _print_header(
         self,
     ) -> None:
-        usage_flags = " ".join(f"[{_flag.arg_name}]" for _flag in self.all_flags)
+        usage_flags = " ".join(f"[{_flag.argument_name}]" for _flag in self.all_flags)
         usage_text = shell_interface.escape_markup(f"{self.tool.name} {usage_flags} <command> [args]")
         self.console.print()
         self.console.print(f"[bold]{self.tool.name}[/bold]: {self.tool.description}")
@@ -271,7 +281,7 @@ class _ToolHelp:
             self._print_row(
                 label=command_name,
                 label_style=_terminal_output.Colour.CYAN.value,
-                description=command_details.help,
+                description=command_details.command_help,
             )
 
     def _print_flags(
@@ -280,11 +290,11 @@ class _ToolHelp:
         self.console.print()
         self.console.print("[bold]Flags[/bold]")
         for flag in self.all_flags:
-            flag_help = flag.help
+            flag_help = flag.argument_help
             if flag_help is None:
                 flag_help = ""
             self._print_row(
-                label=flag.arg_name,
+                label=flag.argument_name,
                 label_style=_terminal_output.Colour.CYAN.value,
                 description=flag_help,
             )
@@ -325,28 +335,28 @@ class _ToolHelp:
 def _build_parser(
     tool: Tool,
 ) -> argparse.ArgumentParser:
-    arg_parser = argparse.ArgumentParser(
+    argument_parser = argparse.ArgumentParser(
         prog=tool.name,
         description=tool.description,
         add_help=False,
     )
-    arg_parser.add_argument(
+    argument_parser.add_argument(
         "-h",
         "--help",
         action="store_true",
     )
     for flag in [_DRY_RUN_FLAG, *tool.flags]:
-        arg_parser.add_argument(flag.arg_name, **flag.argparse_kwargs)
-    subparsers = arg_parser.add_subparsers(
+        argument_parser.add_argument(flag.argument_name, **flag.argparse_keyword_arguments)
+    subparsers = argument_parser.add_subparsers(
         dest="command",
         required=False,
         metavar="<command>",
     )
     for command_name, command_details in dict(tool.commands).items():
-        subparser = subparsers.add_parser(command_name, help=command_details.help)
-        for command_arg in command_details.command_args:
-            subparser.add_argument(command_arg.arg_name, **command_arg.argparse_kwargs)
-    return arg_parser
+        subparser = subparsers.add_parser(command_name, help=command_details.command_help)
+        for command_argument in command_details.command_arguments:
+            subparser.add_argument(command_argument.argument_name, **command_argument.argparse_keyword_arguments)
+    return argument_parser
 
 
 def _ensure_visible_commands_grouped(
@@ -364,22 +374,22 @@ def run_cli(
 ) -> None:
     """Parse argv (default: `sys.argv`), build the run params, start output for the run, and dispatch one subcommand."""
     _ensure_visible_commands_grouped(tool)
-    parsed_args = _build_parser(tool).parse_args(argv)
-    if parsed_args.help or parsed_args.command is None:
+    parsed_arguments = _build_parser(tool).parse_args(argv)
+    if parsed_arguments.help or parsed_arguments.command is None:
         tool_help = _ToolHelp(tool)
         tool_help.print_help()
         return
-    run_params = tool.make_run_params(parsed_args)
+    run_params = tool.make_run_params(parsed_arguments)
     _terminal_output.set_output_params(
         show_timestamps=tool.show_timestamps,
         record_path=tool.record_path,
         dry_run=run_params.dry_run,
     )
-    selected_command_details = dict(tool.commands)[parsed_args.command]
+    selected_command_details = dict(tool.commands)[parsed_arguments.command]
     try:
         selected_command_details.call(
             run_params=run_params,
-            parsed_args=parsed_args,
+            parsed_arguments=parsed_arguments,
         )
     except subprocess.CalledProcessError as process_error:
         failed_command = shlex.join(process_error.cmd)

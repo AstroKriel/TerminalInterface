@@ -8,8 +8,9 @@ Design notes for `heimdall.cli_builder`: describing a tool and its subcommands o
 
 | Part | Detail | State |
 |---|---|---|
-| `CommandArg` | one argument: a bare positional or a `--flag`, with type, default, metavar, help, `store_true`, `required`, and `nargs` | decided |
-| `make_command(command_name=..., command_fn=..., command_help=..., command_args=..., is_hidden=...)` | one entry in the command table | decided |
+| `CommandArgument` | one argument: a bare positional or a `--flag`, with `argument_name`, `value_type`, `default_value`, `value_placeholder`, `argument_help`, `is_switch`, `is_required`, and `value_count` | decided |
+| `ValueCount` | how many values an argument takes: `OPTIONAL`, `ANY`, or `AT_LEAST_ONE`, each holding the argparse symbol (`?`, `*`, `+`) | decided |
+| `make_command(command_name=..., command_fn=..., command_help=..., command_arguments=..., is_hidden=...)` | one entry in the command table | decided |
 | `make_command_group(section_title=..., commands=[...])` | stamps a section title onto a list of entries, so each group names its section once | decided |
 | Ungrouped commands | a visible command must be in a group; `run_cli` rejects one that is not, so a command never drops out of help silently | decided |
 | Section titles | plain strings, so a tool does not need its own enum type; a `str` enum still works, since its values are strings | decided |
@@ -17,7 +18,7 @@ Design notes for `heimdall.cli_builder`: describing a tool and its subcommands o
 | Failed command | `run_cli` reports an error outcome naming the command that failed, then exits with its exit status | decided |
 | How a command function is called | `command_fn(run_params=..., <arg_1>=..., <arg_2>=...)`, every argument by keyword, named after its argparse destination (`--base-ref` becomes `base_ref`) | decided |
 
-`CommandArg` is public here; in the existing layer it was private to one tool. Calling by keyword means a command function declares its parameters keyword-only and names them after the arguments they receive, so a mismatch fails loudly instead of passing a value to the wrong parameter.
+`CommandArgument` is public here; in the existing layer it was private to one tool. Calling by keyword means a command function declares its parameters keyword-only and names them after the arguments they receive, so a mismatch fails loudly instead of passing a value to the wrong parameter.
 
 ---
 
@@ -30,7 +31,7 @@ The second generalisation: the existing entry point hardcoded the name, usage li
 | `name` | the command typed, e.g. `<tool_name>`; shown in help and usage | decided |
 | `description` | one line, shown at the top of help | decided |
 | `commands` | the command table: groups and hidden commands, in help order | decided |
-| `flags` | flags beyond `--dry-run`, which every tool has, as `CommandArg`s | decided |
+| `flags` | flags beyond `--dry-run`, which every tool has, as `CommandArgument`s | decided |
 | `make_run_params` | builds the `RunParams` of the tool (or a subclass) from the parsed flags | decided |
 | `show_timestamps` | whether terminal lines carry a timestamp; off by default | decided |
 | `record_path` | where the persistent record is appended; `None` (the default) writes no record | decided |
