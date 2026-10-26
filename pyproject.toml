@@ -42,3 +42,4 @@ reportImplicitOverride = "none"  # `typing.override` needs Python 3.12; heimdall
 reportUnusedCallResult = "none"  # `subprocess.run`, `add_argument`, and `unittest.main` are called for their side effects
 reportUnusedParameter = "none"  # command functions take `run_params` by contract even when they do not use it
 reportUninitializedInstanceVariable = "none"  # false positive: test attributes are set in `setUp`
+reportPrivateUsage = "none"  # tests check private helpers directly, e.g. how a legend label is built

@@ -332,6 +332,15 @@ class TestHelp_Output(unittest.TestCase):
         self.assertIn("usage: tool [--dry-run] [--allow-dirty] <command> [args]", help_text)
         self.assertIn("    --allow-dirty  skip the check", help_text.splitlines())
 
+    def test_legend_labels_a_plain_result_as_plain(
+        self,
+    ) -> None:
+        result_description = _terminal_output.OutcomeContent.RESULT.value.description
+        self.assertRegex(
+            _get_help(_make_tool(commands=[])),
+            re.compile(rf"^ {{4}}plain +{re.escape(result_description)}$", flags=re.MULTILINE),
+        )
+
     def test_legend_lists_each_group_under_its_title(
         self,
     ) -> None:
@@ -339,7 +348,7 @@ class TestHelp_Output(unittest.TestCase):
         for legend_group in _terminal_output.LEGEND_GROUPS:
             title_index = help_lines.index(f"  {legend_group.title}")
             for line_offset, message_params in enumerate(legend_group.grouped_message_params, start=1):
-                legend_label = f"{message_params.marker.value} {message_params.color.name.lower()}"
+                legend_label = cli_builder._get_legend_label(message_params)
                 legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_params.description)}$"
                 self.assertRegex(help_lines[title_index + line_offset], re.compile(legend_pattern))
 

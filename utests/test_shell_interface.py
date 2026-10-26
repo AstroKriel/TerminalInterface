@@ -97,12 +97,32 @@ class TestLogFunctions_Output(unittest.TestCase):
         )
         self.assertEqual(stderr_text, "· pattern = [bold]x\n")
 
-    def test_log_result_writes_to_stdout(
+    def test_log_result_writes_plain_text_to_stdout(
         self,
     ) -> None:
-        stdout_text, stderr_text = self._capture(lambda: shell_interface.log_result("all good"))
+        stdout_text, stderr_text = self._capture(lambda: shell_interface.log_result("ahead: 2; behind: 0"))
         self.assertEqual(stderr_text, "")
-        self.assertEqual(stdout_text, "● all good\n")
+        self.assertEqual(stdout_text, "ahead: 2; behind: 0\n")
+
+    def test_log_result_is_never_wrapped(
+        self,
+    ) -> None:
+        long_result = " ".join(f"word{_word_index}" for _word_index in range(40))
+        stdout_text, _ = self._capture(lambda: shell_interface.log_result(long_result))
+        self.assertEqual(stdout_text, f"{long_result}\n")
+
+    def test_log_result_has_no_timestamp(
+        self,
+    ) -> None:
+        _terminal_output.set_output_params(
+            tool_name="tool",
+            show_timestamps=True,
+            record_path=None,
+            narration_stream=_terminal_output.OutputStream.STDERR,
+            dry_run=False,
+        )
+        stdout_text, _ = self._capture(lambda: shell_interface.log_result("data"))
+        self.assertEqual(stdout_text, "data\n")
 
     def test_escape_markup_keeps_brackets(
         self,
@@ -110,7 +130,7 @@ class TestLogFunctions_Output(unittest.TestCase):
         stdout_text, _ = self._capture(
             lambda: shell_interface.log_result(shell_interface.escape_markup("[News] title")),
         )
-        self.assertEqual(stdout_text, "● [News] title\n")
+        self.assertEqual(stdout_text, "[News] title\n")
 
     def test_exit_with_error_exits_with_status_one(
         self,

@@ -197,11 +197,13 @@ def _get_section_text(
 def _format_help_row(
     *,
     label: str,
-    label_style: str,
+    label_style: str | None,
     column_width: int,
     description: str,
 ) -> str:
     padding = " " * (column_width - len(label))
+    if label_style is None:
+        return f"{_HELP_INDENT}{label}{padding}{description}"
     return f"{_HELP_INDENT}[{label_style}]{label}[/]{padding}{description}"
 
 
@@ -217,7 +219,18 @@ def _get_legend_params() -> list[_terminal_output.MessageParams]:
 def _get_legend_label(
     message_params: _terminal_output.MessageParams,
 ) -> str:
+    """The marker and colour name, e.g. `● green`; `plain` for a line with neither."""
+    if message_params.marker is None or message_params.color is None:
+        return "plain"
     return f"{message_params.marker.value} {message_params.color.name.lower()}"
+
+
+def _get_legend_style(
+    message_params: _terminal_output.MessageParams,
+) -> str | None:
+    if message_params.color is None:
+        return None
+    return message_params.color.value
 
 
 def _print_tool_help(
@@ -277,7 +290,7 @@ def _print_tool_help(
         for message_params in legend_group.grouped_message_params:
             legend_row = _format_help_row(
                 label=_get_legend_label(message_params),
-                label_style=message_params.color.value,
+                label_style=_get_legend_style(message_params),
                 column_width=column_width,
                 description=message_params.description,
             )

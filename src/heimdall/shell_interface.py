@@ -78,7 +78,7 @@ def log_value(
 ) -> None:
     """Report a value that an action produced, by inspecting or by changing the system; the value prints exactly as written."""
     _terminal_output.emit_message(
-        message_params=_terminal_output.VALUE_PARAMS,
+        message_params=_terminal_output.OutcomeContent.VALUE.value,
         text_markup=escape_markup(f"{name} = {value}"),
         color_whole_line=True,
     )
@@ -87,9 +87,9 @@ def log_value(
 def log_result(
     message: str,
 ) -> None:
-    """Print a result for the user or a pipe; always on stdout."""
+    """Print a result for the user or a pipe: plain text on stdout, with no marker, colour, timestamp, or wrapping."""
     _terminal_output.emit_message(
-        message_params=OutcomeStatus.SUCCESS.value,
+        message_params=_terminal_output.OutcomeContent.RESULT.value,
         text_markup=message,
         color_whole_line=True,
         is_result=True,
@@ -158,7 +158,7 @@ def run_cmd_and_show_output(
     """
     if run_params.dry_run:
         _print_cmd(
-            message_params=_terminal_output.SKIPPED_CHANGE_PARAMS,
+            message_params=_terminal_output.get_skipped_change_params(),
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )
@@ -193,7 +193,7 @@ def run_cmd_and_capture_output(
     """
     if run_params.dry_run:
         _print_cmd(
-            message_params=_terminal_output.SKIPPED_CHANGE_PARAMS,
+            message_params=_terminal_output.get_skipped_change_params(),
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )

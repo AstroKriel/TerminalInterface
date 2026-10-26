@@ -39,9 +39,9 @@ class Marker(str, Enum):
 
 @dataclass(frozen=True)
 class MessageParams:
-    """Colour, marker, and legend description for one kind of line."""
-    color: Color
-    marker: Marker
+    """Colour, marker, and legend description for one kind of line; a line with neither prints as plain text."""
+    color: Color | None
+    marker: Marker | None
     description: str
 
 
@@ -76,15 +76,9 @@ class ActionKind(Enum):
     )
 
 
-SKIPPED_CHANGE_PARAMS = MessageParams(
-    color=Color.ORANGE,
-    marker=Marker.ARROW,
-    description="change skipped in dry-run",
-)
-
 ##
 ## === OUTCOMES
-## an outcome is how a task or action ended, reported afterwards; it may carry a value or a result.
+## an outcome is how a task or action ended, reported afterwards: a status, and optionally some content.
 ##
 
 
@@ -92,7 +86,7 @@ class OutcomeStatus(Enum):
     SUCCESS = MessageParams(
         color=Color.GREEN,
         marker=Marker.CIRCLE_CLOSED,
-        description="success or a result",
+        description="success",
     )
     WARNING = MessageParams(
         color=Color.YELLOW,
@@ -111,15 +105,33 @@ class OutcomeStatus(Enum):
     )
 
 
-VALUE_PARAMS = MessageParams(
-    color=Color.GRAY,
-    marker=Marker.DOT,
-    description="value that an action produced",
-)
+class OutcomeContent(Enum):
+    """What an outcome carries: a value for the narration, or a result for the user or a pipe."""
+    VALUE = MessageParams(
+        color=Color.GRAY,
+        marker=Marker.DOT,
+        description="value that an action produced",
+    )
+    RESULT = MessageParams(
+        color=None,
+        marker=None,
+        description="result, printed plain on stdout",
+    )
+
+
+def get_skipped_change_params() -> MessageParams:
+    """A change that dry-run skipped: the marker of a change in the colour of the skipped status."""
+    return MessageParams(
+        color=OutcomeStatus.SKIPPED.value.color,
+        marker=ActionKind.CHANGE.value.marker,
+        description="change skipped in dry-run",
+    )
+
 
 ##
 ## === LEGEND
 ##
+
 
 @dataclass(frozen=True)
 class LegendGroup:
@@ -135,11 +147,14 @@ LEGEND_GROUPS: list[LegendGroup] = [
     ),
     LegendGroup(
         title="Actions",
-        grouped_message_params=(*[_action_kind.value for _action_kind in ActionKind], SKIPPED_CHANGE_PARAMS),
+        grouped_message_params=(*[_action_kind.value for _action_kind in ActionKind], get_skipped_change_params()),
     ),
     LegendGroup(
         title="Outcomes",
-        grouped_message_params=(*[_outcome_status.value for _outcome_status in OutcomeStatus], VALUE_PARAMS),
+        grouped_message_params=(
+            *[_outcome_status.value for _outcome_status in OutcomeStatus],
+            *[_outcome_content.value for _outcome_content in OutcomeContent],
+        ),
     ),
 ]
 
@@ -242,16 +257,25 @@ def emit(
     *,
     is_result: bool = False,
 ) -> None:
-    """Print one line: results always go to stdout, narration to the stream set in the output params."""
+    """Print one line: narration goes to the stream set in the output params; a result goes to stdout as is.
+
+    A result is data for the user or a pipe, so it never gets a timestamp and is never wrapped at the terminal width.
+    """
     timestamp = get_timestamp()
-    console_line = line_markup
-    if _OUTPUT_PARAMS.show_timestamps:
-        timestamp_text = escape_markup(f"[{timestamp}]")
-        console_line = f"[{Color.GRAY.value}]{timestamp_text}[/] {line_markup}"
-    if is_result or _OUTPUT_PARAMS.narration_stream == OutputStream.STDOUT:
-        _CONSOLE_STDOUT.print(console_line)
+    if is_result:
+        _CONSOLE_STDOUT.print(
+            line_markup,
+            soft_wrap=True,
+        )
     else:
-        _CONSOLE_STDERR.print(console_line)
+        console_line = line_markup
+        if _OUTPUT_PARAMS.show_timestamps:
+            timestamp_text = escape_markup(f"[{timestamp}]")
+            console_line = f"[{Color.GRAY.value}]{timestamp_text}[/] {line_markup}"
+        if _OUTPUT_PARAMS.narration_stream == OutputStream.STDOUT:
+            _CONSOLE_STDOUT.print(console_line)
+        else:
+            _CONSOLE_STDERR.print(console_line)
     if _OUTPUT_PARAMS.record_path is None:
         return
     _append_record(
@@ -268,11 +292,19 @@ def emit_message(
     color_whole_line: bool,
     is_result: bool = False,
 ) -> None:
-    """Print a marker and text in the colour of a message type or outcome status; either the whole line or only the marker is coloured."""
-    if color_whole_line:
-        line_markup = f"[{message_params.color.value}]{message_params.marker.value} {text_markup}[/]"
+    """Print a line in the marker and colour of its message params; either the whole line or only the marker is coloured.
+
+    Params without a marker or colour print the text plain.
+    """
+    marker_text = ""
+    if message_params.marker is not None:
+        marker_text = f"{message_params.marker.value} "
+    if message_params.color is None:
+        line_markup = f"{marker_text}{text_markup}"
+    elif color_whole_line:
+        line_markup = f"[{message_params.color.value}]{marker_text}{text_markup}[/]"
     else:
-        line_markup = f"[{message_params.color.value}]{message_params.marker.value}[/] {text_markup}"
+        line_markup = f"[{message_params.color.value}]{marker_text.strip()}[/] {text_markup}"
     emit(
         line_markup,
         is_result=is_result,
