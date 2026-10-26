@@ -64,7 +64,7 @@ TerminalInterface/
 ├── design-plan/  # these notes
 ├── src/
 │   └── heimdall/
-│       ├── _terminal_output.py  # private core: palette, message types, consoles, the active run, timestamps, emit and record
+│       ├── _terminal_output.py  # private core: palette, message types, consoles, the output params, timestamps, emit and record
 │       ├── shell_interface.py  # run params, output functions, command runners
 │       └── cli_builder.py  # subcommand interface and grouped help
 └── utests/

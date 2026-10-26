@@ -48,8 +48,8 @@ class TestLogFunctions_Output(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _terminal_output.reset_run()
-        self.addCleanup(_terminal_output.reset_run)
+        _terminal_output.reset_output_params()
+        self.addCleanup(_terminal_output.reset_output_params)
 
     def _capture(
         self,
@@ -118,8 +118,8 @@ class TestPrintedCommands_Quoting(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _terminal_output.reset_run()
-        self.addCleanup(_terminal_output.reset_run)
+        _terminal_output.reset_output_params()
+        self.addCleanup(_terminal_output.reset_output_params)
 
     def _print_query(
         self,
@@ -158,8 +158,8 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _terminal_output.reset_run()
-        self.addCleanup(_terminal_output.reset_run)
+        _terminal_output.reset_output_params()
+        self.addCleanup(_terminal_output.reset_output_params)
 
     def test_dry_run_skips_logs_and_counts_as_success(
         self,

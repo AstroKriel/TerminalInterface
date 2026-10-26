@@ -175,8 +175,8 @@ class TestRunCli_Dispatch(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _terminal_output.reset_run()
-        self.addCleanup(_terminal_output.reset_run)
+        _terminal_output.reset_output_params()
+        self.addCleanup(_terminal_output.reset_output_params)
 
     def test_dispatches_with_default_run_params(
         self,

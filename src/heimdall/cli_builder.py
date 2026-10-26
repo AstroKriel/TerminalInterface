@@ -349,7 +349,7 @@ def run_cli(
     """Parse argv (default: `sys.argv`), build the run params, start output for the run, and dispatch one subcommand."""
     parsed_args = _build_parser(tool).parse_args(argv)
     run_params = tool.make_run_params(parsed_args)
-    _terminal_output.start_run(
+    _terminal_output.set_output_params(
         tool_name=tool.name,
         show_timestamps=tool.show_timestamps,
         record_path=tool.record_path,

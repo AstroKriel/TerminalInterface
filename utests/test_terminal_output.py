@@ -42,8 +42,8 @@ class TestEmit_Streams(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _terminal_output.reset_run()
-        self.addCleanup(_terminal_output.reset_run)
+        _terminal_output.reset_output_params()
+        self.addCleanup(_terminal_output.reset_output_params)
 
     def test_narration_goes_to_stderr_by_default(
         self,
@@ -58,7 +58,7 @@ class TestEmit_Streams(unittest.TestCase):
     def test_narration_can_go_to_stdout(
         self,
     ) -> None:
-        _terminal_output.start_run(
+        _terminal_output.set_output_params(
             tool_name="tool",
             show_timestamps=False,
             record_path=None,
@@ -89,8 +89,8 @@ class TestEmit_Timestamps(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _terminal_output.reset_run()
-        self.addCleanup(_terminal_output.reset_run)
+        _terminal_output.reset_output_params()
+        self.addCleanup(_terminal_output.reset_output_params)
 
     def test_off_by_default(
         self,
@@ -103,7 +103,7 @@ class TestEmit_Timestamps(unittest.TestCase):
     def test_prefix_when_enabled(
         self,
     ) -> None:
-        _terminal_output.start_run(
+        _terminal_output.set_output_params(
             tool_name="tool",
             show_timestamps=True,
             record_path=None,
@@ -124,8 +124,8 @@ class TestEmit_Record(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _terminal_output.reset_run()
-        self.addCleanup(_terminal_output.reset_run)
+        _terminal_output.reset_output_params()
+        self.addCleanup(_terminal_output.reset_output_params)
         temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(temporary_directory.cleanup)
         self.record_path = Path(temporary_directory.name) / "logs" / "record.log"
@@ -135,7 +135,7 @@ class TestEmit_Record(unittest.TestCase):
         *,
         dry_run: bool,
     ) -> None:
-        _terminal_output.start_run(
+        _terminal_output.set_output_params(
             tool_name="tool",
             show_timestamps=False,
             record_path=self.record_path,

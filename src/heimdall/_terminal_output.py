@@ -84,7 +84,7 @@ class MessageType(Enum):
 
 
 ##
-## === ACTIVE RUN
+## === OUTPUT PARAMS
 ##
 
 
@@ -94,14 +94,14 @@ class OutputStream(str, Enum):
 
 
 @dataclass
-class _ActiveRun:
+class _OutputParams:
     tool_name: str = ""
     show_timestamps: bool = False
     record_path: Path | None = None
     narration_stream: OutputStream = OutputStream.STDERR
 
 
-_ACTIVE_RUN = _ActiveRun()
+_OUTPUT_PARAMS = _OutputParams()
 _CONSOLE_STDERR = rich_Console(
     highlight=False,
     stderr=True,
@@ -112,7 +112,7 @@ _CONSOLE_STDOUT = rich_Console(
 )
 
 
-def start_run(
+def set_output_params(
     *,
     tool_name: str,
     show_timestamps: bool,
@@ -121,18 +121,18 @@ def start_run(
     dry_run: bool,
 ) -> None:
     """Set how output behaves for the rest of the process; the record is never written in dry-run."""
-    _ACTIVE_RUN.tool_name = tool_name
-    _ACTIVE_RUN.show_timestamps = show_timestamps
-    _ACTIVE_RUN.narration_stream = narration_stream
+    _OUTPUT_PARAMS.tool_name = tool_name
+    _OUTPUT_PARAMS.show_timestamps = show_timestamps
+    _OUTPUT_PARAMS.narration_stream = narration_stream
     if dry_run:
-        _ACTIVE_RUN.record_path = None
+        _OUTPUT_PARAMS.record_path = None
     else:
-        _ACTIVE_RUN.record_path = record_path
+        _OUTPUT_PARAMS.record_path = record_path
 
 
-def reset_run() -> None:
+def reset_output_params() -> None:
     """Return to the defaults: no tool name, no timestamps, no record, narration on stderr."""
-    start_run(
+    set_output_params(
         tool_name="",
         show_timestamps=False,
         record_path=None,
@@ -167,7 +167,7 @@ def _append_record(
     line_markup: str,
 ) -> None:
     plain_line = rich_Text.from_markup(line_markup).plain
-    record_entry = f"[{timestamp}] ({_ACTIVE_RUN.tool_name}): {plain_line}\n"
+    record_entry = f"[{timestamp}] ({_OUTPUT_PARAMS.tool_name}): {plain_line}\n"
     record_path.parent.mkdir(
         parents=True,
         exist_ok=True,
@@ -181,20 +181,20 @@ def emit(
     *,
     is_result: bool = False,
 ) -> None:
-    """Print one line: results always go to stdout, narration to the stream of the active run."""
+    """Print one line: results always go to stdout, narration to the stream set in the output params."""
     timestamp = get_timestamp()
     console_line = line_markup
-    if _ACTIVE_RUN.show_timestamps:
+    if _OUTPUT_PARAMS.show_timestamps:
         timestamp_text = escape_markup(f"[{timestamp}]")
         console_line = f"[{Color.GRAY.value}]{timestamp_text}[/] {line_markup}"
-    if is_result or _ACTIVE_RUN.narration_stream == OutputStream.STDOUT:
+    if is_result or _OUTPUT_PARAMS.narration_stream == OutputStream.STDOUT:
         _CONSOLE_STDOUT.print(console_line)
     else:
         _CONSOLE_STDERR.print(console_line)
-    if _ACTIVE_RUN.record_path is None:
+    if _OUTPUT_PARAMS.record_path is None:
         return
     _append_record(
-        record_path=_ACTIVE_RUN.record_path,
+        record_path=_OUTPUT_PARAMS.record_path,
         timestamp=timestamp,
         line_markup=line_markup,
     )
