@@ -189,23 +189,6 @@ _MESSAGE_GROUP_INDENT = "  "
 _HELP_GAP_WIDTH = 2
 
 
-def _get_section_text(
-    section_title: str,
-) -> str:
-    if isinstance(section_title, Enum):
-        return str(section_title.value)
-    return section_title
-
-
-def _get_legend_label(
-    message_style: _terminal_output.MessageStyle,
-) -> str:
-    """The symbol and colour name, e.g. `● green`; `plain` for a line with neither."""
-    if message_style.symbol is None or message_style.colour is None:
-        return "plain"
-    return f"{message_style.symbol.value} {message_style.colour.name.lower()}"
-
-
 @final
 class _ToolHelp:
     """The help screen of one tool; every row shares one column width."""
@@ -223,7 +206,7 @@ class _ToolHelp:
             if not _command_details.is_hidden
         ]
         legend_labels = [
-            _get_legend_label(_message_style)
+            self._get_legend_label(_message_style)
             for _message_group in _terminal_output.MESSAGE_GROUPS
             for _message_style in _message_group.grouped_message_styles
         ]
@@ -233,6 +216,23 @@ class _ToolHelp:
             *legend_labels,
         ]
         self.column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
+
+    @staticmethod
+    def _get_section_text(
+        section_title: str,
+    ) -> str:
+        if isinstance(section_title, Enum):
+            return str(section_title.value)
+        return section_title
+
+    @staticmethod
+    def _get_legend_label(
+        message_style: _terminal_output.MessageStyle,
+    ) -> str:
+        """The symbol and colour name, e.g. `● green`; `plain` for a line with neither."""
+        if message_style.symbol is None or message_style.colour is None:
+            return "plain"
+        return f"{message_style.symbol.value} {message_style.colour.name.lower()}"
 
     def _print_row(
         self,
@@ -266,7 +266,7 @@ class _ToolHelp:
             assert section_title is not None
             if section_title != current_section:
                 self.console.print()
-                self.console.print(f"[bold]{_get_section_text(section_title)}[/bold]")
+                self.console.print(f"[bold]{self._get_section_text(section_title)}[/bold]")
                 current_section = section_title
             self._print_row(
                 label=command_name,
@@ -301,7 +301,7 @@ class _ToolHelp:
                 if message_style.colour is not None:
                     legend_colour = message_style.colour.value
                 self._print_row(
-                    label=_get_legend_label(message_style),
+                    label=self._get_legend_label(message_style),
                     label_style=legend_colour,
                     description=message_style.description,
                 )
