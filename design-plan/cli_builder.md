@@ -51,11 +51,11 @@ run_cli(tool=tool)
 | Usage | `<tool_name> [--dry-run] [<extra-flags>] <command> [args]`, built from `flags` | decided |
 | Command groups | one heading per section, each command with its help, in table order | decided |
 | Flags | `--dry-run` and each extra flag with its help | decided |
-| Output legend | one line per theme, generated from the theme table | decided |
+| Output legend | one line per message type, generated from the message types | decided |
 | Indent | four spaces before every row | decided |
 | Separator | spaces only, never tabs, so the layout is the same width on every machine | decided |
 | Column width | computed per help screen: the longest label on the screen (command, flag, or legend label) plus two spaces; every section shares it, so descriptions line up across the whole screen | decided |
 
 The column width is never hardcoded, so a long command name widens the column instead of breaking the alignment.
 
-The third generalisation: generating the legend from the themes removes the second copy of the colour values that the existing help kept.
+The third generalisation: generating the legend from the message types removes the second copy of the colour values that the existing help kept.

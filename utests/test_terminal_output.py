@@ -20,19 +20,19 @@ from heimdall import _terminal_output
 ##
 
 
-class TestTheme_Legend(unittest.TestCase):
+class TestMessageType_Legend(unittest.TestCase):
 
-    def test_every_theme_has_a_meaning(
+    def test_every_message_type_has_a_meaning(
         self,
     ) -> None:
-        for theme in _terminal_output.Theme:
-            self.assertNotEqual(theme.value.meaning, "")
+        for message_type in _terminal_output.MessageType:
+            self.assertNotEqual(message_type.value.meaning, "")
 
     def test_declaration_order_is_the_legend_order(
         self,
     ) -> None:
         self.assertEqual(
-            [_theme.name for _theme in _terminal_output.Theme],
+            [_message_type.name for _message_type in _terminal_output.MessageType],
             ["STEP", "SUCCESS", "ERROR", "ACTION", "SKIPPED", "QUERY", "CONTEXT"],
         )
 
@@ -149,8 +149,8 @@ class TestEmit_Record(unittest.TestCase):
         self._start_recording(dry_run=False)
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
-                _terminal_output.emit_themed(
-                    theme=_terminal_output.Theme.STEP,
+                _terminal_output.emit_message(
+                    message_type=_terminal_output.MessageType.STEP,
                     text_markup="first",
                     color_whole_line=False,
                 )

@@ -50,8 +50,8 @@ def log_step(
     msg: str,
 ) -> None:
     """Narrate a step that is starting."""
-    _terminal_output.emit_themed(
-        theme=_terminal_output.Theme.STEP,
+    _terminal_output.emit_message(
+        message_type=_terminal_output.MessageType.STEP,
         text_markup=msg,
         color_whole_line=False,
     )
@@ -61,8 +61,8 @@ def log_outcome(
     msg: str,
 ) -> None:
     """Narrate which way a step went."""
-    _terminal_output.emit_themed(
-        theme=_terminal_output.Theme.SUCCESS,
+    _terminal_output.emit_message(
+        message_type=_terminal_output.MessageType.SUCCESS,
         text_markup=msg,
         color_whole_line=True,
     )
@@ -74,8 +74,8 @@ def bind_var(
     var_value: str,
 ) -> None:
     """Narrate a name and the value it resolved to; the value prints exactly as written."""
-    _terminal_output.emit_themed(
-        theme=_terminal_output.Theme.CONTEXT,
+    _terminal_output.emit_message(
+        message_type=_terminal_output.MessageType.CONTEXT,
         text_markup=escape_markup(f"{var_name} = {var_value}"),
         color_whole_line=True,
     )
@@ -85,8 +85,8 @@ def log_result(
     msg: str,
 ) -> None:
     """Print a result for the user or a pipe; always on stdout."""
-    _terminal_output.emit_themed(
-        theme=_terminal_output.Theme.SUCCESS,
+    _terminal_output.emit_message(
+        message_type=_terminal_output.MessageType.SUCCESS,
         text_markup=msg,
         color_whole_line=True,
         is_result=True,
@@ -97,8 +97,11 @@ def kill(
     msg: str,
 ) -> NoReturn:
     """Print an error and exit the process with status 1."""
-    style = _terminal_output.Theme.ERROR.value
-    _terminal_output.emit(f"[{style.color.value}]{style.marker.value}[/] error: {msg}")
+    _terminal_output.emit_message(
+        message_type=_terminal_output.MessageType.ERROR,
+        text_markup=f"error: {msg}",
+        color_whole_line=False,
+    )
     sys.exit(1)
 
 
@@ -128,12 +131,12 @@ class CommandOutcome:
 
 def _print_cmd(
     *,
-    theme: _terminal_output.Theme,
+    message_type: _terminal_output.MessageType,
     cmd: list[str],
     cmd_prefix: str = "",
 ) -> None:
-    _terminal_output.emit_themed(
-        theme=theme,
+    _terminal_output.emit_message(
+        message_type=message_type,
         text_markup=f"{cmd_prefix}{escape_markup(shlex.join(cmd))}",
         color_whole_line=True,
     )
@@ -152,13 +155,13 @@ def run_cmd_and_show_output(
     """
     if run_params.dry_run:
         _print_cmd(
-            theme=_terminal_output.Theme.SKIPPED,
+            message_type=_terminal_output.MessageType.SKIPPED,
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )
         return True
     _print_cmd(
-        theme=_terminal_output.Theme.ACTION,
+        message_type=_terminal_output.MessageType.ACTION,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -185,13 +188,13 @@ def run_cmd_and_capture_output(
     """
     if run_params.dry_run:
         _print_cmd(
-            theme=_terminal_output.Theme.SKIPPED,
+            message_type=_terminal_output.MessageType.SKIPPED,
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )
         return ""
     _print_cmd(
-        theme=_terminal_output.Theme.ACTION,
+        message_type=_terminal_output.MessageType.ACTION,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -215,7 +218,7 @@ def query_cmd_and_capture_output(
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _print_cmd(
-        theme=_terminal_output.Theme.QUERY,
+        message_type=_terminal_output.MessageType.QUERY,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -244,7 +247,7 @@ def query_cmd_and_capture_outcome(
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _print_cmd(
-        theme=_terminal_output.Theme.QUERY,
+        message_type=_terminal_output.MessageType.QUERY,
         cmd=cmd,
     )
     try:

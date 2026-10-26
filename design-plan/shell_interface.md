@@ -1,6 +1,6 @@
 # shell_interface
 
-Design notes for `heimdall.shell_interface`: the run params, the output functions, their themes, and the command runners.
+Design notes for `heimdall.shell_interface`: the run params, the output functions, their message types, and the command runners.
 
 ---
 
@@ -16,11 +16,11 @@ This is the first generalisation: the existing layer carried a tool-specific fla
 
 ---
 
-## Themes
+## Message Types
 
-Each kind of output has a fixed colour, marker, and legend meaning, held together on one enum member in the private core `_terminal_output`, so a theme cannot exist without a meaning. The help legend is generated from these members, in declaration order, so the legend cannot drift from the output.
+Each kind of message has a fixed colour, marker, and legend meaning: a `MessageParams` held as the value of one `MessageType` member in the private core `_terminal_output`, so a message type cannot exist without a meaning. The names match those of the log manager expected to move in, and avoid the figure `Theme` used for light and dark plots. The help legend is generated from these members, in declaration order, so the legend cannot drift from the output.
 
-| Theme | Marker | Colour | Used for | State |
+| Message type | Marker | Colour | Used for | State |
 |---|---|---|---|---|
 | `STEP` | open circle | white | a step starting | decided |
 | `SUCCESS` | closed circle | green | the outcome of a step; a result | decided |

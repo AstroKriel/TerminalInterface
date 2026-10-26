@@ -10,7 +10,7 @@ Each entry in a design note carries one of three states: **decided** (agreed and
 
 `TerminalInterface` is the layer between a command line tool and the terminal. It has three jobs:
 
-1. Output: every message a tool prints goes through one set of themed functions, so all tools look and read the same.
+1. Output: every message a tool prints goes through one set of functions, one per message type, so all tools look and read the same.
 2. Running commands: every command a tool runs is announced in full before it runs, so the user always sees what happens underneath and can rerun or inspect it.
 3. Building the interface: a tool describes its subcommands once, and gets argument parsing, grouped help, flags, and dry-run support from that description.
 
@@ -49,7 +49,7 @@ A feature belongs here only if it is about the terminal and at least two tools n
 
 | Note | Covers |
 |---|---|
-| [`<terminal-interface>/design-plan/shell_interface.md`](shell_interface.md) | run params, output functions, themes, command runners, timestamps, and the persistent record |
+| [`<terminal-interface>/design-plan/shell_interface.md`](shell_interface.md) | run params, output functions, message types, command runners, timestamps, and the persistent record |
 | [`<terminal-interface>/design-plan/cli_builder.md`](cli_builder.md) | subcommand descriptions, the tool, flags, grouped help, and the entry point |
 | [`<terminal-interface>/design-plan/adopting.md`](adopting.md) | how an existing tool moves onto this package, and how it pins a version |
 
@@ -64,7 +64,7 @@ TerminalInterface/
 ├── design-plan/  # these notes
 ├── src/
 │   └── heimdall/
-│       ├── _terminal_output.py  # private core: palette, themes, consoles, the active run, timestamps, emit and record
+│       ├── _terminal_output.py  # private core: palette, message types, consoles, the active run, timestamps, emit and record
 │       ├── shell_interface.py  # run params, output functions, command runners
 │       └── cli_builder.py  # subcommand interface and grouped help
 └── utests/

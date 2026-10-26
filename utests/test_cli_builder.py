@@ -331,13 +331,13 @@ class TestHelp_Output(unittest.TestCase):
         self.assertIn("usage: tool [--dry-run] [--allow-dirty] <command> [args]", help_text)
         self.assertIn("    --allow-dirty  skip the check", help_text.splitlines())
 
-    def test_legend_comes_from_the_themes(
+    def test_legend_comes_from_the_message_types(
         self,
     ) -> None:
         help_text = _get_help(_make_tool(commands=[]))
-        for theme in _terminal_output.Theme:
-            legend_label = f"{theme.value.marker.value} {theme.value.color.name.lower()}"
-            legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(theme.value.meaning)}$"
+        for message_type in _terminal_output.MessageType:
+            legend_label = f"{message_type.value.marker.value} {message_type.value.color.name.lower()}"
+            legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_type.value.meaning)}$"
             self.assertRegex(help_text, re.compile(legend_pattern, flags=re.MULTILINE))
 
     def test_str_enum_section_titles_print_their_value(

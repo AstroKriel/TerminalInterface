@@ -37,46 +37,46 @@ class Marker(str, Enum):
 
 
 @dataclass(frozen=True)
-class ThemeStyle:
-    """Colour, marker, and legend meaning for one kind of output."""
+class MessageParams:
+    """Colour, marker, and legend meaning for one message type."""
     color: Color
     marker: Marker
     meaning: str
 
 
-class Theme(Enum):
-    """Every kind of output; declaration order is the order of the help legend."""
-    STEP = ThemeStyle(
+class MessageType(Enum):
+    """Every kind of message a tool prints; declaration order is the order of the help legend."""
+    STEP = MessageParams(
         color=Color.WHITE,
         marker=Marker.CIRCLE_OPEN,
         meaning="action starting",
     )
-    SUCCESS = ThemeStyle(
+    SUCCESS = MessageParams(
         color=Color.GREEN,
         marker=Marker.CIRCLE_CLOSED,
         meaning="action outcome, or a result on stdout",
     )
-    ERROR = ThemeStyle(
+    ERROR = MessageParams(
         color=Color.RED,
         marker=Marker.CIRCLE_CLOSED,
         meaning="error",
     )
-    ACTION = ThemeStyle(
+    ACTION = MessageParams(
         color=Color.BLUE,
         marker=Marker.ARROW,
         meaning="command being run",
     )
-    SKIPPED = ThemeStyle(
+    SKIPPED = MessageParams(
         color=Color.ORANGE,
         marker=Marker.ARROW,
         meaning="skipped command (dry-run)",
     )
-    QUERY = ThemeStyle(
+    QUERY = MessageParams(
         color=Color.GRAY,
         marker=Marker.ARROW,
         meaning="read-only lookup command",
     )
-    CONTEXT = ThemeStyle(
+    CONTEXT = MessageParams(
         color=Color.GRAY,
         marker=Marker.DOT,
         meaning="resolved value / context",
@@ -200,19 +200,19 @@ def emit(
     )
 
 
-def emit_themed(
+def emit_message(
     *,
-    theme: Theme,
+    message_type: MessageType,
     text_markup: str,
     color_whole_line: bool,
     is_result: bool = False,
 ) -> None:
-    """Print a marker and text in the theme colour; either the whole line or only the marker is coloured."""
-    style = theme.value
+    """Print the marker of the message type and text in its colour; either the whole line or only the marker is coloured."""
+    message_params = message_type.value
     if color_whole_line:
-        line_markup = f"[{style.color.value}]{style.marker.value} {text_markup}[/]"
+        line_markup = f"[{message_params.color.value}]{message_params.marker.value} {text_markup}[/]"
     else:
-        line_markup = f"[{style.color.value}]{style.marker.value}[/] {text_markup}"
+        line_markup = f"[{message_params.color.value}]{message_params.marker.value}[/] {text_markup}"
     emit(
         line_markup,
         is_result=is_result,

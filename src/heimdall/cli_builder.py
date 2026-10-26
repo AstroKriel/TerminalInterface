@@ -205,9 +205,9 @@ def _format_help_row(
 
 
 def _get_legend_label(
-    theme: _terminal_output.Theme,
+    message_type: _terminal_output.MessageType,
 ) -> str:
-    return f"{theme.value.marker.value} {theme.value.color.name.lower()}"
+    return f"{message_type.value.marker.value} {message_type.value.color.name.lower()}"
 
 
 def _print_tool_help(
@@ -225,7 +225,7 @@ def _print_tool_help(
     all_labels = [
         *[_cmd_name for _, _cmd_name, _ in visible_rows],
         *[_flag.arg_name for _flag in all_flags],
-        *[_get_legend_label(_theme) for _theme in _terminal_output.Theme],
+        *[_get_legend_label(_message_type) for _message_type in _terminal_output.MessageType],
     ]
     column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
     usage_flags = " ".join(f"[{_flag.arg_name}]" for _flag in all_flags)
@@ -262,12 +262,12 @@ def _print_tool_help(
         console.print(flag_row)
     console.print()
     console.print("[bold]Output legend[/bold]")
-    for theme in _terminal_output.Theme:
+    for message_type in _terminal_output.MessageType:
         legend_row = _format_help_row(
-            label=_get_legend_label(theme),
-            label_style=theme.value.color.value,
+            label=_get_legend_label(message_type),
+            label_style=message_type.value.color.value,
             column_width=column_width,
-            description=theme.value.meaning,
+            description=message_type.value.meaning,
         )
         console.print(legend_row)
     console.print()
