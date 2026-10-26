@@ -18,19 +18,26 @@ This is the first generalisation: the existing layer carried a tool-specific fla
 
 ## Message Types
 
-Each kind of message has a fixed colour, marker, and legend description: a `MessageParams` held as the value of one `MessageType` member in the private core `_terminal_output`, so a message type cannot exist without a meaning. The names match those of the log manager expected to move in, and avoid the figure `Theme` used for light and dark plots. The help legend is generated from these members, in declaration order, so the legend cannot drift from the output.
+The model has three concepts: a task (a stage of the work, announced in words before it starts), an action (something done to the system, either changing it or only inspecting it, shown before it happens), and an outcome (how a task or action ended, with a status, optionally carrying a value or a result).
+
+Each kind of line has a fixed colour, marker, and legend description: a `MessageParams` held as the value of one member of `MessageType` or `OutcomeStatus` in the private core `_terminal_output`. The names match those of the log manager expected to move in, and avoid the figure `Theme` used for light and dark plots. The help legend is generated from these members, message types first, so the legend cannot drift from the output.
 
 | Message type | Marker | Colour | Used for | State |
 |---|---|---|---|---|
-| `STEP` | open circle | white | a step starting | decided |
-| `SUCCESS` | closed circle | green | the outcome of a step; a result | decided |
-| `ERROR` | closed circle | red | an error, before exiting | decided |
-| `ACTION` | arrow | blue | a mutating command being run | decided |
-| `SKIPPED` | arrow | orange | a mutating command skipped in dry-run | decided |
-| `QUERY` | arrow | gray | a read-only command being run | decided |
-| `CONTEXT` | dot | gray | a resolved value | decided |
+| `TASK` | open circle | white | a task starting | decided |
+| `ACTION` | arrow | blue | an action that changes the system | decided |
+| `SKIPPED` | arrow | orange | a changing action skipped in dry-run | decided |
+| `QUERY` | arrow | gray | an action that only inspects the system | decided |
+| `VALUE` | dot | gray | a value an inspection found | decided |
 
-> **Note:** a richer message layer, with typed messages, action outcomes, and boxed panels, is expected to move into this package later. These themes are its first layer, not a closed set: new message kinds are added alongside them, and the existing functions keep their output.
+| Outcome status | Marker | Colour | Used for | State |
+|---|---|---|---|---|
+| `SUCCESS` | closed circle | green | a task or action that succeeded; also a result | decided |
+| `WARNING` | closed circle | yellow | a task or action worth noticing, e.g. done despite a dirty worktree | decided |
+| `SKIPPED` | closed circle | orange | a task or action that was skipped | decided |
+| `FAILURE` | closed circle | red | a task or action that failed; also the error that ends the run | decided |
+
+> **Note:** a richer message layer, with titled blocks and notes, is expected to move into this package later. These message types and statuses are its first layer, not a closed set.
 
 ---
 
@@ -38,13 +45,15 @@ Each kind of message has a fixed colour, marker, and legend description: a `Mess
 
 | Function | Prints | Stream | State |
 |---|---|---|---|
-| `log_msg(msg)` | a plain message | narration | decided |
-| `log_step(msg)` | a step starting | narration | decided |
-| `log_outcome(msg)` | which path a step took | narration | decided |
-| `bind_var(var_name=..., var_value=...)` | a name and the value it resolved to | narration | decided |
-| `log_result(msg)` | a result for the user or a pipe | stdout | decided |
-| `kill(msg)` | an error, then exits with status 1 | narration | decided |
+| `log_message(message)` | a plain message | narration | decided |
+| `log_task(message)` | a task starting | narration | decided |
+| `log_outcome(message, *, status)` | how a task or action ended; `status` is required, never assumed | narration | decided |
+| `log_value(*, name, value)` | a value an inspection found, as `name = value` | narration | decided |
+| `log_result(message)` | a result for the user or a pipe | stdout | decided |
+| `exit_with_error(message)` | a failure that ends the run, then exits with status 1 | narration | decided |
 | `escape_markup(text)` | nothing; returns text that prints exactly as written | N/A | decided |
+
+`OutcomeStatus` is available as `shell_interface.OutcomeStatus`.
 
 Narration goes to stderr unless the tool sends it to stdout (see the `narration_stream` field in [`<terminal-interface>/design-plan/cli_builder.md`](cli_builder.md)). Message text is rich markup, so a caller can style it; anything a function adds itself (commands, resolved values, timestamps) is escaped. Text from outside the tool, such as a news title or a file name, goes through `escape_markup` first, so square brackets in it print as written.
 

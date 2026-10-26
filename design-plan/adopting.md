@@ -31,6 +31,17 @@ A tool that uses its own plain-text logging moves its narration onto the output 
 | `query_cmd_result(cmd)` | `query_cmd_and_capture_outcome(cmd=...)` | none beyond the rename |
 | `probe_cmd(cmd)` | `query_cmd_and_discard_output(cmd=...)` | pass `cmd` by keyword |
 
+### Output function names
+
+| Earlier name | Name here | Change at the call site |
+|---|---|---|
+| `log_msg(msg)` | `log_message(message)` | none beyond the rename |
+| `log_step(msg)` | `log_task(message)` | none beyond the rename |
+| `log_outcome(msg)` | `log_outcome(message, status=...)` | choose a status for every call: success, warning, skipped, or failure; this is the one change that needs judgement, not a rename |
+| `bind_var(var_name=..., var_value=...)` | `log_value(name=..., value=...)` | rename the keywords |
+| `log_result(msg)` | `log_result(message)` | none |
+| `kill(msg)` | `exit_with_error(message)` | none beyond the rename |
+
 ---
 
 ## Pinning

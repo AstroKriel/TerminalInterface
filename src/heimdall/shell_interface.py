@@ -14,6 +14,7 @@ from typing import NoReturn
 
 ## local
 from heimdall import _terminal_output
+from heimdall._terminal_output import OutcomeStatus as OutcomeStatus
 
 ##
 ## === PARAMS
@@ -39,67 +40,69 @@ def escape_markup(
     return _terminal_output.escape_markup(text)
 
 
-def log_msg(
-    msg: str,
+def log_message(
+    message: str,
 ) -> None:
-    """Print msg as narration, with no marker."""
-    _terminal_output.emit(msg)
+    """Print message as narration, with no marker."""
+    _terminal_output.emit(message)
 
 
-def log_step(
-    msg: str,
+def log_task(
+    message: str,
 ) -> None:
-    """Narrate a step that is starting."""
+    """Announce a task that is starting."""
     _terminal_output.emit_message(
-        message_type=_terminal_output.MessageType.STEP,
-        text_markup=msg,
+        message_params=_terminal_output.MessageType.TASK.value,
+        text_markup=message,
         color_whole_line=False,
     )
 
 
 def log_outcome(
-    msg: str,
+    message: str,
+    *,
+    status: OutcomeStatus,
 ) -> None:
-    """Narrate which way a step went."""
+    """Report how a task or action ended; the status sets the colour and is never assumed."""
     _terminal_output.emit_message(
-        message_type=_terminal_output.MessageType.SUCCESS,
-        text_markup=msg,
+        message_params=status.value,
+        text_markup=message,
         color_whole_line=True,
     )
 
 
-def bind_var(
+def log_value(
     *,
-    var_name: str,
-    var_value: str,
+    name: str,
+    value: str,
 ) -> None:
-    """Narrate a name and the value it resolved to; the value prints exactly as written."""
+    """Report a value that an inspection found; the value prints exactly as written."""
     _terminal_output.emit_message(
-        message_type=_terminal_output.MessageType.CONTEXT,
-        text_markup=escape_markup(f"{var_name} = {var_value}"),
+        message_params=_terminal_output.MessageType.VALUE.value,
+        text_markup=escape_markup(f"{name} = {value}"),
         color_whole_line=True,
     )
 
 
 def log_result(
-    msg: str,
+    message: str,
 ) -> None:
     """Print a result for the user or a pipe; always on stdout."""
     _terminal_output.emit_message(
-        message_type=_terminal_output.MessageType.SUCCESS,
-        text_markup=msg,
+        message_params=OutcomeStatus.SUCCESS.value,
+        text_markup=message,
         color_whole_line=True,
         is_result=True,
     )
 
 
-def kill(
-    msg: str,
+def exit_with_error(
+    message: str,
 ) -> NoReturn:
-    """Print an error and exit the process with status 1."""
+    """Report a failure that ends the run, then exit the process with status 1."""
     _terminal_output.emit_message(
-        message_type=_terminal_output.MessageType.ERROR,
-        text_markup=f"error: {msg}",
+        message_params=OutcomeStatus.FAILURE.value,
+        text_markup=f"error: {message}",
         color_whole_line=False,
     )
     sys.exit(1)
@@ -136,7 +139,7 @@ def _print_cmd(
     cmd_prefix: str = "",
 ) -> None:
     _terminal_output.emit_message(
-        message_type=message_type,
+        message_params=message_type.value,
         text_markup=f"{cmd_prefix}{escape_markup(shlex.join(cmd))}",
         color_whole_line=True,
     )

@@ -204,10 +204,18 @@ def _format_help_row(
     return f"{_HELP_INDENT}[{label_style}]{label}[/]{padding}{description}"
 
 
+def _get_legend_params() -> list[_terminal_output.MessageParams]:
+    """Message types first, then outcome statuses, each in declaration order."""
+    return [
+        *[_message_type.value for _message_type in _terminal_output.MessageType],
+        *[_outcome_status.value for _outcome_status in _terminal_output.OutcomeStatus],
+    ]
+
+
 def _get_legend_label(
-    message_type: _terminal_output.MessageType,
+    message_params: _terminal_output.MessageParams,
 ) -> str:
-    return f"{message_type.value.marker.value} {message_type.value.color.name.lower()}"
+    return f"{message_params.marker.value} {message_params.color.name.lower()}"
 
 
 def _print_tool_help(
@@ -225,7 +233,7 @@ def _print_tool_help(
     all_labels = [
         *[_cmd_name for _, _cmd_name, _ in visible_rows],
         *[_flag.arg_name for _flag in all_flags],
-        *[_get_legend_label(_message_type) for _message_type in _terminal_output.MessageType],
+        *[_get_legend_label(_message_params) for _message_params in _get_legend_params()],
     ]
     column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
     usage_flags = " ".join(f"[{_flag.arg_name}]" for _flag in all_flags)
@@ -262,12 +270,12 @@ def _print_tool_help(
         console.print(flag_row)
     console.print()
     console.print("[bold]Output legend[/bold]")
-    for message_type in _terminal_output.MessageType:
+    for message_params in _get_legend_params():
         legend_row = _format_help_row(
-            label=_get_legend_label(message_type),
-            label_style=message_type.value.color.value,
+            label=_get_legend_label(message_params),
+            label_style=message_params.color.value,
             column_width=column_width,
-            description=message_type.value.description,
+            description=message_params.description,
         )
         console.print(legend_row)
     console.print()

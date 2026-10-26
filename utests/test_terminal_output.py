@@ -22,19 +22,31 @@ from heimdall import _terminal_output
 
 class TestMessageType_Legend(unittest.TestCase):
 
-    def test_every_message_type_has_a_description(
+    def test_every_message_type_and_status_has_a_description(
         self,
     ) -> None:
         for message_type in _terminal_output.MessageType:
             self.assertNotEqual(message_type.value.description, "")
+        for outcome_status in _terminal_output.OutcomeStatus:
+            self.assertNotEqual(outcome_status.value.description, "")
 
     def test_declaration_order_is_the_legend_order(
         self,
     ) -> None:
         self.assertEqual(
             [_message_type.name for _message_type in _terminal_output.MessageType],
-            ["STEP", "SUCCESS", "ERROR", "ACTION", "SKIPPED", "QUERY", "CONTEXT"],
+            ["TASK", "ACTION", "SKIPPED", "QUERY", "VALUE"],
         )
+        self.assertEqual(
+            [_outcome_status.name for _outcome_status in _terminal_output.OutcomeStatus],
+            ["SUCCESS", "WARNING", "SKIPPED", "FAILURE"],
+        )
+
+    def test_every_status_has_its_own_color(
+        self,
+    ) -> None:
+        status_colors = [_outcome_status.value.color for _outcome_status in _terminal_output.OutcomeStatus]
+        self.assertEqual(len(set(status_colors)), len(status_colors))
 
 
 class TestEmit_Streams(unittest.TestCase):
@@ -150,7 +162,7 @@ class TestEmit_Record(unittest.TestCase):
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
                 _terminal_output.emit_message(
-                    message_type=_terminal_output.MessageType.STEP,
+                    message_params=_terminal_output.MessageType.TASK.value,
                     text_markup="first",
                     color_whole_line=False,
                 )

@@ -23,6 +23,7 @@ from rich.text import Text as rich_Text
 class Color(str, Enum):
     WHITE = "#FFFFFF"
     GREEN = "#32CD32"
+    YELLOW = "#FFE600"
     BLUE = "#2A71F6"
     ORANGE = "#E48500"
     RED = "#FF4500"
@@ -38,28 +39,18 @@ class Marker(str, Enum):
 
 @dataclass(frozen=True)
 class MessageParams:
-    """Colour, marker, and legend description for one message type."""
+    """Colour, marker, and legend description for one message type or outcome status."""
     color: Color
     marker: Marker
     description: str
 
 
 class MessageType(Enum):
-    """Every kind of message a tool prints; declaration order is the order of the help legend."""
-    STEP = MessageParams(
+    """Every kind of message other than an outcome; declaration order is the order of the help legend."""
+    TASK = MessageParams(
         color=Color.WHITE,
         marker=Marker.CIRCLE_OPEN,
-        description="start of a step",
-    )
-    SUCCESS = MessageParams(
-        color=Color.GREEN,
-        marker=Marker.CIRCLE_CLOSED,
-        description="outcome of a step or result of the tool",
-    )
-    ERROR = MessageParams(
-        color=Color.RED,
-        marker=Marker.CIRCLE_CLOSED,
-        description="error that stops the tool",
+        description="start of a task",
     )
     ACTION = MessageParams(
         color=Color.BLUE,
@@ -74,12 +65,36 @@ class MessageType(Enum):
     QUERY = MessageParams(
         color=Color.GRAY,
         marker=Marker.ARROW,
-        description="query that only reads the system",
+        description="action that only inspects the system",
     )
-    CONTEXT = MessageParams(
+    VALUE = MessageParams(
         color=Color.GRAY,
         marker=Marker.DOT,
-        description="value that a name resolved to",
+        description="value that an inspection found",
+    )
+
+
+class OutcomeStatus(Enum):
+    """How a task or action ended; declaration order is the order of the help legend."""
+    SUCCESS = MessageParams(
+        color=Color.GREEN,
+        marker=Marker.CIRCLE_CLOSED,
+        description="success or result of a task",
+    )
+    WARNING = MessageParams(
+        color=Color.YELLOW,
+        marker=Marker.CIRCLE_CLOSED,
+        description="warning about a task or action",
+    )
+    SKIPPED = MessageParams(
+        color=Color.ORANGE,
+        marker=Marker.CIRCLE_CLOSED,
+        description="task or action that was skipped",
+    )
+    FAILURE = MessageParams(
+        color=Color.RED,
+        marker=Marker.CIRCLE_CLOSED,
+        description="failure of a task or action",
     )
 
 
@@ -202,13 +217,12 @@ def emit(
 
 def emit_message(
     *,
-    message_type: MessageType,
+    message_params: MessageParams,
     text_markup: str,
     color_whole_line: bool,
     is_result: bool = False,
 ) -> None:
-    """Print the marker of the message type and text in its colour; either the whole line or only the marker is coloured."""
-    message_params = message_type.value
+    """Print a marker and text in the colour of a message type or outcome status; either the whole line or only the marker is coloured."""
     if color_whole_line:
         line_markup = f"[{message_params.color.value}]{message_params.marker.value} {text_markup}[/]"
     else:

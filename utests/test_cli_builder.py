@@ -239,7 +239,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
             *,
             run_params: shell_interface.RunParams,
         ) -> None:
-            shell_interface.log_step("recorded")
+            shell_interface.log_task("recorded")
 
         tool = cli_builder.Tool(
             name="tool",
@@ -283,10 +283,10 @@ class TestHelp_Output(unittest.TestCase):
         help_lines = _get_help(self._make_syncing_tool()).splitlines()
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
         dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
-        step_description = _terminal_output.MessageType.STEP.value.description
-        legend_line = next(_line for _line in help_lines if step_description in _line)
+        task_description = _terminal_output.MessageType.TASK.value.description
+        legend_line = next(_line for _line in help_lines if task_description in _line)
         self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index("print commands"))
-        self.assertEqual(alpha_line.index("does alpha"), legend_line.index(step_description))
+        self.assertEqual(alpha_line.index("does alpha"), legend_line.index(task_description))
 
     def test_longest_label_sets_the_column(
         self,
@@ -332,13 +332,17 @@ class TestHelp_Output(unittest.TestCase):
         self.assertIn("usage: tool [--dry-run] [--allow-dirty] <command> [args]", help_text)
         self.assertIn("    --allow-dirty  skip the check", help_text.splitlines())
 
-    def test_legend_comes_from_the_message_types(
+    def test_legend_comes_from_message_types_and_statuses(
         self,
     ) -> None:
         help_text = _get_help(_make_tool(commands=[]))
-        for message_type in _terminal_output.MessageType:
-            legend_label = f"{message_type.value.marker.value} {message_type.value.color.name.lower()}"
-            legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_type.value.description)}$"
+        all_message_params = [
+            *[_message_type.value for _message_type in _terminal_output.MessageType],
+            *[_outcome_status.value for _outcome_status in _terminal_output.OutcomeStatus],
+        ]
+        for message_params in all_message_params:
+            legend_label = f"{message_params.marker.value} {message_params.color.name.lower()}"
+            legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_params.description)}$"
             self.assertRegex(help_text, re.compile(legend_pattern, flags=re.MULTILINE))
 
     def test_str_enum_section_titles_print_their_value(

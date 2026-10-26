@@ -61,30 +61,39 @@ class TestLogFunctions_Output(unittest.TestCase):
             log_call()
         return (stdout_buffer.getvalue(), stderr_buffer.getvalue())
 
-    def test_log_msg_writes_to_stderr(
+    def test_log_message_writes_to_stderr(
         self,
     ) -> None:
-        stdout_text, stderr_text = self._capture(lambda: shell_interface.log_msg("hello"))
+        stdout_text, stderr_text = self._capture(lambda: shell_interface.log_message("hello"))
         self.assertEqual(stdout_text, "")
         self.assertIn("hello", stderr_text)
 
-    def test_log_step_includes_marker_and_message(
+    def test_log_task_includes_marker_and_message(
         self,
     ) -> None:
-        _, stderr_text = self._capture(lambda: shell_interface.log_step("doing something"))
+        _, stderr_text = self._capture(lambda: shell_interface.log_task("doing something"))
         self.assertEqual(stderr_text, "○ doing something\n")
 
-    def test_log_outcome_includes_marker_and_message(
+    def test_log_outcome_prints_every_status(
         self,
     ) -> None:
-        _, stderr_text = self._capture(lambda: shell_interface.log_outcome("it worked"))
-        self.assertEqual(stderr_text, "● it worked\n")
+        for outcome_status in shell_interface.OutcomeStatus:
+            _, stderr_text = self._capture(
+                lambda: shell_interface.log_outcome("it ended", status=outcome_status),
+            )
+            self.assertEqual(stderr_text, "● it ended\n")
 
-    def test_bind_var_prints_value_literally(
+    def test_log_outcome_requires_a_status(
+        self,
+    ) -> None:
+        with self.assertRaises(TypeError):
+            shell_interface.log_outcome("it ended")  # pyright: ignore[reportCallIssue]
+
+    def test_log_value_prints_value_literally(
         self,
     ) -> None:
         _, stderr_text = self._capture(
-            lambda: shell_interface.bind_var(var_name="pattern", var_value="[bold]x"),
+            lambda: shell_interface.log_value(name="pattern", value="[bold]x"),
         )
         self.assertEqual(stderr_text, "· pattern = [bold]x\n")
 
@@ -103,12 +112,12 @@ class TestLogFunctions_Output(unittest.TestCase):
         )
         self.assertEqual(stdout_text, "● [News] title\n")
 
-    def test_kill_exits_with_status_one(
+    def test_exit_with_error_exits_with_status_one(
         self,
     ) -> None:
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
-            shell_interface.kill("broken")
+            shell_interface.exit_with_error("broken")
         self.assertEqual(exit_context.exception.code, 1)
         self.assertEqual(stderr_buffer.getvalue(), "● error: broken\n")
 
