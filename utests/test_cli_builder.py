@@ -336,12 +336,12 @@ class TestHelp_Output(unittest.TestCase):
         self,
     ) -> None:
         help_lines = _get_help(_make_tool(commands=[])).splitlines()
-        for group_title, group_params in _terminal_output.LEGEND_GROUPS:
-            title_index = help_lines.index(f"  {group_title}")
-            for row_offset, message_params in enumerate(group_params, start=1):
+        for legend_group in _terminal_output.LEGEND_GROUPS:
+            title_index = help_lines.index(f"  {legend_group.title}")
+            for line_offset, message_params in enumerate(legend_group.grouped_message_params, start=1):
                 legend_label = f"{message_params.marker.value} {message_params.color.name.lower()}"
                 legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_params.description)}$"
-                self.assertRegex(help_lines[title_index + row_offset], re.compile(legend_pattern))
+                self.assertRegex(help_lines[title_index + line_offset], re.compile(legend_pattern))
 
     def test_str_enum_section_titles_print_their_value(
         self,

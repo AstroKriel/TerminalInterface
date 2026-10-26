@@ -26,26 +26,27 @@ class TestLegend_Groups(unittest.TestCase):
         self,
     ) -> None:
         self.assertEqual(
-            [_group_title for _group_title, _ in _terminal_output.LEGEND_GROUPS],
+            [_legend_group.title for _legend_group in _terminal_output.LEGEND_GROUPS],
             ["Tasks", "Actions", "Outcomes"],
         )
 
     def test_every_action_kind_and_status_is_in_its_group(
         self,
     ) -> None:
-        legend_by_group = dict(_terminal_output.LEGEND_GROUPS)
+        tasks_group, actions_group, outcomes_group = _terminal_output.LEGEND_GROUPS
+        self.assertEqual(tasks_group.grouped_message_params, (_terminal_output.TASK_PARAMS,))
         for action_kind in _terminal_output.ActionKind:
-            self.assertIn(action_kind.value, legend_by_group["Actions"])
+            self.assertIn(action_kind.value, actions_group.grouped_message_params)
         for outcome_status in _terminal_output.OutcomeStatus:
-            self.assertIn(outcome_status.value, legend_by_group["Outcomes"])
-        self.assertIn(_terminal_output.SKIPPED_CHANGE_PARAMS, legend_by_group["Actions"])
-        self.assertIn(_terminal_output.VALUE_PARAMS, legend_by_group["Outcomes"])
+            self.assertIn(outcome_status.value, outcomes_group.grouped_message_params)
+        self.assertIn(_terminal_output.SKIPPED_CHANGE_PARAMS, actions_group.grouped_message_params)
+        self.assertIn(_terminal_output.VALUE_PARAMS, outcomes_group.grouped_message_params)
 
-    def test_every_row_has_a_description(
+    def test_every_message_params_has_a_description(
         self,
     ) -> None:
-        for _, group_params in _terminal_output.LEGEND_GROUPS:
-            for message_params in group_params:
+        for legend_group in _terminal_output.LEGEND_GROUPS:
+            for message_params in legend_group.grouped_message_params:
                 self.assertNotEqual(message_params.description, "")
 
     def test_skipped_change_uses_the_skipped_status_color(

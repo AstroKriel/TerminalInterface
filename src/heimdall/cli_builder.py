@@ -206,11 +206,11 @@ def _format_help_row(
 
 
 def _get_legend_params() -> list[_terminal_output.MessageParams]:
-    """Every legend row across all groups, in legend order."""
+    """Every message params in the legend, across all groups, in legend order."""
     return [
         _message_params
-        for _, _group_params in _terminal_output.LEGEND_GROUPS
-        for _message_params in _group_params
+        for _legend_group in _terminal_output.LEGEND_GROUPS
+        for _message_params in _legend_group.grouped_message_params
     ]
 
 
@@ -272,9 +272,9 @@ def _print_tool_help(
         console.print(flag_row)
     console.print()
     console.print("[bold]Output legend[/bold]")
-    for group_title, group_params in _terminal_output.LEGEND_GROUPS:
-        console.print(f"{_LEGEND_GROUP_INDENT}[dim]{group_title}[/dim]")
-        for message_params in group_params:
+    for legend_group in _terminal_output.LEGEND_GROUPS:
+        console.print(f"{_LEGEND_GROUP_INDENT}[dim]{legend_group.title}[/dim]")
+        for message_params in legend_group.grouped_message_params:
             legend_row = _format_help_row(
                 label=_get_legend_label(message_params),
                 label_style=message_params.color.value,

@@ -121,10 +121,26 @@ VALUE_PARAMS = MessageParams(
 ## === LEGEND
 ##
 
-LEGEND_GROUPS: list[tuple[str, list[MessageParams]]] = [
-    ("Tasks", [TASK_PARAMS]),
-    ("Actions", [*[_action_kind.value for _action_kind in ActionKind], SKIPPED_CHANGE_PARAMS]),
-    ("Outcomes", [*[_outcome_status.value for _outcome_status in OutcomeStatus], VALUE_PARAMS]),
+@dataclass(frozen=True)
+class LegendGroup:
+    """One concept in the help legend, with every kind of line it covers."""
+    title: str
+    grouped_message_params: tuple[MessageParams, ...]
+
+
+LEGEND_GROUPS: list[LegendGroup] = [
+    LegendGroup(
+        title="Tasks",
+        grouped_message_params=(TASK_PARAMS,),
+    ),
+    LegendGroup(
+        title="Actions",
+        grouped_message_params=(*[_action_kind.value for _action_kind in ActionKind], SKIPPED_CHANGE_PARAMS),
+    ),
+    LegendGroup(
+        title="Outcomes",
+        grouped_message_params=(*[_outcome_status.value for _outcome_status in OutcomeStatus], VALUE_PARAMS),
+    ),
 ]
 
 
