@@ -48,7 +48,7 @@ def _render_message(
     is_result: bool = False,
 ) -> None:
     _terminal_output.render_line(
-        icon=message_style.icon,
+        symbol=message_style.symbol,
         colour=message_style.colour,
         text_markup=text_markup,
         colour_whole_line=colour_whole_line,
@@ -107,7 +107,7 @@ def log_value(
 def log_result(
     message: str,
 ) -> None:
-    """Print a result for the user or a pipe: plain text on stdout, with no icon, colour, timestamp, or wrapping."""
+    """Print a result for the user or a pipe: plain text on stdout, with no symbol, colour, timestamp, or wrapping."""
     _render_message(
         message_style=_terminal_output.OutcomeContent.RESULT.value,
         text_markup=message,
@@ -154,17 +154,17 @@ class CommandOutcome:
 
 def _print_cmd(
     *,
-    action_type: _terminal_output.ActionType,
+    action: _terminal_output.Action,
     cmd: list[str],
     outcome_status: OutcomeStatus | None = None,
     cmd_prefix: str = "",
 ) -> None:
-    """Print a command with the icon of its action type, in the colour of its outcome status when it already has one."""
-    colour = action_type.value.colour
+    """Print a command with the symbol of its action, in the colour of its outcome status when it already has one."""
+    colour = action.value.colour
     if outcome_status is not None:
         colour = outcome_status.value.colour
     _terminal_output.render_line(
-        icon=action_type.value.icon,
+        symbol=action.value.symbol,
         colour=colour,
         text_markup=f"{cmd_prefix}{escape_markup(shlex.join(cmd))}",
         colour_whole_line=True,
@@ -178,20 +178,21 @@ def run_cmd_and_show_output(
     cwd: Path | None = None,
     raise_error: bool = True,
 ) -> bool:
-    """Run a mutating command with its output shown live in the terminal; `True` iff it succeeded or was skipped in dry-run.
+    """
+    Run a mutating command with its output shown live in the terminal; `True` iff it succeeded or was skipped in dry-run.
 
     A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
     """
     if run_params.dry_run:
         _print_cmd(
-            action_type=_terminal_output.ActionType.CHANGE,
+            action=_terminal_output.Action.CHANGE,
             outcome_status=OutcomeStatus.SKIPPED,
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )
         return True
     _print_cmd(
-        action_type=_terminal_output.ActionType.CHANGE,
+        action=_terminal_output.Action.CHANGE,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -212,7 +213,8 @@ def run_cmd_and_capture_output(
     cmd: list[str],
     cwd: Path | None = None,
 ) -> str:
-    """Run a mutating command and return its stdout with surrounding whitespace stripped; empty string in dry-run.
+    """
+    Run a mutating command and return its stdout with surrounding whitespace stripped; empty string in dry-run.
 
     Output is stripped because it is a value for code to use; `query_cmd_and_capture_outcome` keeps it unstripped as a record.
     In dry-run the change never happens, so its value is unknown: the empty string is a placeholder, and anything that
@@ -220,14 +222,14 @@ def run_cmd_and_capture_output(
     """
     if run_params.dry_run:
         _print_cmd(
-            action_type=_terminal_output.ActionType.CHANGE,
+            action=_terminal_output.Action.CHANGE,
             outcome_status=OutcomeStatus.SKIPPED,
             cmd=cmd,
             cmd_prefix="(dryrun) skipped: ",
         )
         return ""
     _print_cmd(
-        action_type=_terminal_output.ActionType.CHANGE,
+        action=_terminal_output.Action.CHANGE,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -246,12 +248,13 @@ def query_cmd_and_capture_output(
     cwd: Path | None = None,
     raise_error: bool = True,
 ) -> str:
-    """Run a read-only command and return its stdout with surrounding whitespace stripped; runs even in dry-run.
+    """
+    Run a read-only command and return its stdout with surrounding whitespace stripped; runs even in dry-run.
 
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _print_cmd(
-        action_type=_terminal_output.ActionType.INSPECTION,
+        action=_terminal_output.Action.INSPECTION,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -275,12 +278,13 @@ def query_cmd_and_capture_outcome(
     cmd: list[str],
     cwd: Path | None = None,
 ) -> CommandOutcome:
-    """Run a read-only command and return its stdout, stderr, and exit code unstripped as a `CommandOutcome`; never raises.
+    """
+    Run a read-only command and return its stdout, stderr, and exit code unstripped as a `CommandOutcome`; never raises.
 
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _print_cmd(
-        action_type=_terminal_output.ActionType.INSPECTION,
+        action=_terminal_output.Action.INSPECTION,
         cmd=cmd,
     )
     try:

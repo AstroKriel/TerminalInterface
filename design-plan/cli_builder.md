@@ -32,7 +32,6 @@ The second generalisation: the existing entry point hardcoded the name, usage li
 | `make_run_params` | builds the `RunParams` of the tool (or a subclass) from the parsed flags | decided |
 | `show_timestamps` | whether terminal lines carry a timestamp; off by default | decided |
 | `record_path` | where the persistent record is appended; `None` (the default) writes no record | decided |
-| `narration_stream` | where narration goes; stderr by default | decided |
 | Type name | `Tool`; a variable holding one is named `tool` | proposed |
 
 ```text

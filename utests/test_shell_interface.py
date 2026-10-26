@@ -61,14 +61,14 @@ class TestLogFunctions_Output(unittest.TestCase):
             log_call()
         return (stdout_buffer.getvalue(), stderr_buffer.getvalue())
 
-    def test_log_note_writes_to_stderr_with_its_icon(
+    def test_log_note_writes_to_stderr_with_its_symbol(
         self,
     ) -> None:
         stdout_text, stderr_text = self._capture(lambda: shell_interface.log_note("this rewrites history"))
         self.assertEqual(stdout_text, "")
         self.assertEqual(stderr_text, "↪ this rewrites history\n")
 
-    def test_log_task_includes_icon_and_message(
+    def test_log_task_includes_symbol_and_message(
         self,
     ) -> None:
         _, stderr_text = self._capture(lambda: shell_interface.log_task("doing something"))
@@ -115,10 +115,8 @@ class TestLogFunctions_Output(unittest.TestCase):
         self,
     ) -> None:
         _terminal_output.set_output_params(
-            tool_name="tool",
             show_timestamps=True,
             record_path=None,
-            narration_stream=_terminal_output.OutputStream.STDERR,
             dry_run=False,
         )
         stdout_text, _ = self._capture(lambda: shell_interface.log_result("data"))
@@ -203,7 +201,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         self.assertTrue(command_succeeded)
         self.assertEqual(stderr_buffer.getvalue(), "→ (dryrun) skipped: git push\n")
 
-    def test_dry_run_line_uses_the_change_icon_in_the_skipped_colour(
+    def test_dry_run_line_uses_the_change_symbol_in_the_skipped_colour(
         self,
     ) -> None:
         with mock.patch.object(_terminal_output, "render_line") as mock_render_line:
@@ -212,7 +210,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
                 cmd=["git", "push"],
             )
         render_kwargs = mock_render_line.call_args.kwargs
-        self.assertEqual(render_kwargs["icon"], _terminal_output.ActionType.CHANGE.value.icon)
+        self.assertEqual(render_kwargs["symbol"], _terminal_output.Action.CHANGE.value.symbol)
         self.assertEqual(render_kwargs["colour"], _terminal_output.OutcomeStatus.SKIPPED.value.colour)
 
     def test_logs_and_executes_when_not_dry_run(

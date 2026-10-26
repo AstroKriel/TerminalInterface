@@ -40,9 +40,9 @@ class Symbol(str, Enum):
 
 @dataclass(frozen=True)
 class MessageStyle:
-    """Colour, icon, and legend description for one kind of line; a line with neither prints as plain text."""
+    """Colour, symbol, and legend description for one kind of line; a line with neither prints as plain text."""
     colour: Colour | None
-    icon: Symbol | None
+    symbol: Symbol | None
     description: str
 
 
@@ -53,7 +53,7 @@ class MessageStyle:
 
 TASK_STYLE = MessageStyle(
     colour=Colour.WHITE,
-    icon=Symbol.OPEN_CIRCLE,
+    symbol=Symbol.OPEN_CIRCLE,
     description="start of a task",
 )
 
@@ -64,7 +64,7 @@ TASK_STYLE = MessageStyle(
 
 NOTE_STYLE = MessageStyle(
     colour=Colour.WHITE,
-    icon=Symbol.HOOKED_ARROW,
+    symbol=Symbol.HOOKED_ARROW,
     description="note about the work",
 )
 
@@ -74,16 +74,16 @@ NOTE_STYLE = MessageStyle(
 ##
 
 
-class ActionType(Enum):
+class Action(Enum):
     """A change is skipped in dry-run; an inspection always runs."""
     CHANGE = MessageStyle(
         colour=Colour.BLUE,
-        icon=Symbol.RIGHT_ARROW,
+        symbol=Symbol.RIGHT_ARROW,
         description="change to the system",
     )
     INSPECTION = MessageStyle(
         colour=Colour.GREY,
-        icon=Symbol.RIGHT_ARROW,
+        symbol=Symbol.RIGHT_ARROW,
         description="inspection of the system",
     )
 
@@ -97,27 +97,27 @@ class ActionType(Enum):
 class OutcomeStatus(Enum):
     SUCCESS = MessageStyle(
         colour=Colour.GREEN,
-        icon=Symbol.CLOSED_CIRCLE,
+        symbol=Symbol.CLOSED_CIRCLE,
         description="success",
     )
     WARNING = MessageStyle(
         colour=Colour.YELLOW,
-        icon=Symbol.CLOSED_CIRCLE,
+        symbol=Symbol.CLOSED_CIRCLE,
         description="warning",
     )
     SKIPPED = MessageStyle(
         colour=Colour.ORANGE,
-        icon=Symbol.CLOSED_CIRCLE,
+        symbol=Symbol.CLOSED_CIRCLE,
         description="skipped",
     )
     FAILURE = MessageStyle(
         colour=Colour.RED,
-        icon=Symbol.CLOSED_CIRCLE,
+        symbol=Symbol.CLOSED_CIRCLE,
         description="failure that does not end the run",
     )
     ERROR = MessageStyle(
         colour=Colour.RED,
-        icon=Symbol.CLOSED_CIRCLE,
+        symbol=Symbol.CLOSED_CIRCLE,
         description="error that ends the run",
     )
 
@@ -126,42 +126,42 @@ class OutcomeContent(Enum):
     """What an outcome carries: a value for the narration, or a result for the user or a pipe."""
     VALUE = MessageStyle(
         colour=Colour.GREY,
-        icon=Symbol.MIDDLE_DOT,
+        symbol=Symbol.MIDDLE_DOT,
         description="value that an action produced",
     )
     RESULT = MessageStyle(
         colour=None,
-        icon=None,
+        symbol=None,
         description="result, printed plain on stdout",
     )
 
 
 ##
-## === LEGEND
+## === MESSAGE GROUPS
 ##
 
 
 @dataclass(frozen=True)
-class LegendGroup:
-    """One concept in the help legend, with every kind of line it covers."""
+class MessageGroup:
+    """One concept with every kind of line it covers; the help legend is built from these."""
     title: str
     grouped_message_styles: tuple[MessageStyle, ...]
 
 
-LEGEND_GROUPS: list[LegendGroup] = [
-    LegendGroup(
+MESSAGE_GROUPS: list[MessageGroup] = [
+    MessageGroup(
         title="Tasks",
         grouped_message_styles=(TASK_STYLE,),
     ),
-    LegendGroup(
+    MessageGroup(
         title="Notes",
         grouped_message_styles=(NOTE_STYLE,),
     ),
-    LegendGroup(
+    MessageGroup(
         title="Actions",
-        grouped_message_styles=tuple(_action_type.value for _action_type in ActionType),
+        grouped_message_styles=tuple(_action.value for _action in Action),
     ),
-    LegendGroup(
+    MessageGroup(
         title="Outcomes",
         grouped_message_styles=(
             *[_outcome_status.value for _outcome_status in OutcomeStatus],
@@ -176,17 +176,10 @@ LEGEND_GROUPS: list[LegendGroup] = [
 ##
 
 
-class OutputStream(str, Enum):
-    STDERR = "stderr"
-    STDOUT = "stdout"
-
-
 @dataclass
 class _OutputParams:
-    tool_name: str = ""
     show_timestamps: bool = False
     record_path: Path | None = None
-    narration_stream: OutputStream = OutputStream.STDERR
 
 
 _OUTPUT_PARAMS = _OutputParams()
@@ -202,16 +195,12 @@ _CONSOLE_STDOUT = rich_Console(
 
 def set_output_params(
     *,
-    tool_name: str,
     show_timestamps: bool,
     record_path: Path | None,
-    narration_stream: OutputStream,
     dry_run: bool,
 ) -> None:
     """Set how output behaves for the rest of the process; the record is never written in dry-run."""
-    _OUTPUT_PARAMS.tool_name = tool_name
     _OUTPUT_PARAMS.show_timestamps = show_timestamps
-    _OUTPUT_PARAMS.narration_stream = narration_stream
     if dry_run:
         _OUTPUT_PARAMS.record_path = None
     else:
@@ -219,12 +208,10 @@ def set_output_params(
 
 
 def reset_output_params() -> None:
-    """Return to the defaults: no tool name, no timestamps, no record, narration on stderr."""
+    """Return to the defaults: no timestamps, no record."""
     set_output_params(
-        tool_name="",
         show_timestamps=False,
         record_path=None,
-        narration_stream=OutputStream.STDERR,
         dry_run=False,
     )
 
@@ -255,7 +242,7 @@ def _append_record(
     line_markup: str,
 ) -> None:
     plain_line = rich_Text.from_markup(line_markup).plain
-    record_entry = f"[{timestamp}] ({_OUTPUT_PARAMS.tool_name}): {plain_line}\n"
+    record_entry = f"[{timestamp}] {plain_line}\n"
     record_path.parent.mkdir(
         parents=True,
         exist_ok=True,
@@ -269,7 +256,8 @@ def write_line(
     *,
     is_result: bool = False,
 ) -> None:
-    """Write one finished line: narration goes to the stream set in the output params; a result goes to stdout as is.
+    """
+    Write one finished line: narration goes to stderr; a result goes to stdout as is.
 
     A result is data for the user or a pipe, so it never gets a timestamp and is never wrapped at the terminal width.
     """
@@ -284,10 +272,7 @@ def write_line(
         if _OUTPUT_PARAMS.show_timestamps:
             timestamp_text = escape_markup(f"[{timestamp}]")
             console_line = f"[{Colour.GREY.value}]{timestamp_text}[/] {line_markup}"
-        if _OUTPUT_PARAMS.narration_stream == OutputStream.STDOUT:
-            _CONSOLE_STDOUT.print(console_line)
-        else:
-            _CONSOLE_STDERR.print(console_line)
+        _CONSOLE_STDERR.print(console_line)
     if _OUTPUT_PARAMS.record_path is None:
         return
     _append_record(
@@ -299,26 +284,27 @@ def write_line(
 
 def render_line(
     *,
-    icon: Symbol | None,
+    symbol: Symbol | None,
     colour: Colour | None,
     text_markup: str,
     colour_whole_line: bool,
     is_result: bool = False,
 ) -> None:
-    """Render a line with an icon and a colour; either the whole line or only the icon is coloured.
-
-    The icon and colour are passed separately so a line can take them from different facets, e.g. the icon of a
-    change in the colour of the skipped status. Without an icon or colour the text renders plain.
     """
-    icon_text = ""
-    if icon is not None:
-        icon_text = f"{icon.value} "
+    Render a line with a symbol and a colour; either the whole line or only the symbol is coloured.
+
+    The symbol and colour are passed separately so a line can take them from different facets, e.g. the symbol of a
+    change in the colour of the skipped status. Without a symbol or colour the text renders plain.
+    """
+    symbol_text = ""
+    if symbol is not None:
+        symbol_text = f"{symbol.value} "
     if colour is None:
-        line_markup = f"{icon_text}{text_markup}"
+        line_markup = f"{symbol_text}{text_markup}"
     elif colour_whole_line:
-        line_markup = f"[{colour.value}]{icon_text}{text_markup}[/]"
+        line_markup = f"[{colour.value}]{symbol_text}{text_markup}[/]"
     else:
-        line_markup = f"[{colour.value}]{icon_text.strip()}[/] {text_markup}"
+        line_markup = f"[{colour.value}]{symbol_text.strip()}[/] {text_markup}"
     write_line(
         line_markup,
         is_result=is_result,

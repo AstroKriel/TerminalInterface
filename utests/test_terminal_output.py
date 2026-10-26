@@ -26,18 +26,18 @@ class TestLegend_Groups(unittest.TestCase):
         self,
     ) -> None:
         self.assertEqual(
-            [_legend_group.title for _legend_group in _terminal_output.LEGEND_GROUPS],
+            [_message_group.title for _message_group in _terminal_output.MESSAGE_GROUPS],
             ["Tasks", "Notes", "Actions", "Outcomes"],
         )
 
     def test_every_type_status_and_content_is_in_its_group(
         self,
     ) -> None:
-        tasks_group, notes_group, actions_group, outcomes_group = _terminal_output.LEGEND_GROUPS
+        tasks_group, notes_group, actions_group, outcomes_group = _terminal_output.MESSAGE_GROUPS
         self.assertEqual(tasks_group.grouped_message_styles, (_terminal_output.TASK_STYLE,))
         self.assertEqual(notes_group.grouped_message_styles, (_terminal_output.NOTE_STYLE,))
-        for action_type in _terminal_output.ActionType:
-            self.assertIn(action_type.value, actions_group.grouped_message_styles)
+        for action in _terminal_output.Action:
+            self.assertIn(action.value, actions_group.grouped_message_styles)
         for outcome_status in _terminal_output.OutcomeStatus:
             self.assertIn(outcome_status.value, outcomes_group.grouped_message_styles)
         for outcome_content in _terminal_output.OutcomeContent:
@@ -46,15 +46,15 @@ class TestLegend_Groups(unittest.TestCase):
     def test_every_message_style_has_a_description(
         self,
     ) -> None:
-        for legend_group in _terminal_output.LEGEND_GROUPS:
-            for message_style in legend_group.grouped_message_styles:
+        for message_group in _terminal_output.MESSAGE_GROUPS:
+            for message_style in message_group.grouped_message_styles:
                 self.assertNotEqual(message_style.description, "")
 
-    def test_result_has_no_icon_or_colour(
+    def test_result_has_no_symbol_or_colour(
         self,
     ) -> None:
         result_style = _terminal_output.OutcomeContent.RESULT.value
-        self.assertIsNone(result_style.icon)
+        self.assertIsNone(result_style.symbol)
         self.assertIsNone(result_style.colour)
 
     def test_only_failure_and_error_share_a_colour(
@@ -78,7 +78,7 @@ class TestWriteLine_Streams(unittest.TestCase):
         _terminal_output.reset_output_params()
         self.addCleanup(_terminal_output.reset_output_params)
 
-    def test_narration_goes_to_stderr_by_default(
+    def test_narration_goes_to_stderr(
         self,
     ) -> None:
         stdout_buffer = io.StringIO()
@@ -87,23 +87,6 @@ class TestWriteLine_Streams(unittest.TestCase):
             _terminal_output.write_line("narration")
         self.assertEqual(stdout_buffer.getvalue(), "")
         self.assertIn("narration", stderr_buffer.getvalue())
-
-    def test_narration_can_go_to_stdout(
-        self,
-    ) -> None:
-        _terminal_output.set_output_params(
-            tool_name="tool",
-            show_timestamps=False,
-            record_path=None,
-            narration_stream=_terminal_output.OutputStream.STDOUT,
-            dry_run=False,
-        )
-        stdout_buffer = io.StringIO()
-        stderr_buffer = io.StringIO()
-        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
-            _terminal_output.write_line("narration")
-        self.assertIn("narration", stdout_buffer.getvalue())
-        self.assertEqual(stderr_buffer.getvalue(), "")
 
     def test_results_always_go_to_stdout(
         self,
@@ -137,10 +120,8 @@ class TestWriteLine_Timestamps(unittest.TestCase):
         self,
     ) -> None:
         _terminal_output.set_output_params(
-            tool_name="tool",
             show_timestamps=True,
             record_path=None,
-            narration_stream=_terminal_output.OutputStream.STDERR,
             dry_run=False,
         )
         stderr_buffer = io.StringIO()
@@ -169,10 +150,8 @@ class TestWriteLine_Record(unittest.TestCase):
         dry_run: bool,
     ) -> None:
         _terminal_output.set_output_params(
-            tool_name="tool",
             show_timestamps=False,
             record_path=self.record_path,
-            narration_stream=_terminal_output.OutputStream.STDERR,
             dry_run=dry_run,
         )
 
@@ -183,7 +162,7 @@ class TestWriteLine_Record(unittest.TestCase):
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
                 _terminal_output.render_line(
-                    icon=_terminal_output.TASK_STYLE.icon,
+                    symbol=_terminal_output.TASK_STYLE.symbol,
                     colour=_terminal_output.TASK_STYLE.colour,
                     text_markup="first",
                     colour_whole_line=False,
@@ -192,8 +171,8 @@ class TestWriteLine_Record(unittest.TestCase):
         self.assertEqual(
             self.record_path.read_text().splitlines(),
             [
-                "[2026-01-02 03:04:05] (tool): ○ first",
-                "[2026-01-02 03:04:05] (tool): second",
+                "[2026-01-02 03:04:05] ○ first",
+                "[2026-01-02 03:04:05] second",
             ],
         )
 

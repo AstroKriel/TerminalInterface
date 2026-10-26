@@ -35,7 +35,7 @@ A tool that uses its own plain-text logging moves its narration onto the output 
 
 | Earlier name | Name here | Change at the call site |
 |---|---|---|
-| `log_msg(msg)` | `log_note(message)` | none beyond the rename; the line gains the note icon |
+| `log_msg(msg)` | `log_note(message)` | none beyond the rename; the line gains the note symbol |
 | `log_step(msg)` | `log_task(message)` | none beyond the rename |
 | `log_outcome(msg)` | `log_outcome(message, status=...)` | choose a status for every call: success, warning, skipped, or failure; this is the one change that needs judgement, not a rename |
 | `bind_var(var_name=..., var_value=...)` | `log_value(name=..., value=...)` | rename the keywords |

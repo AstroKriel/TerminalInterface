@@ -130,7 +130,6 @@ class Tool:
     make_run_params: Callable[[argparse.Namespace], shell_interface.RunParams] = _make_default_run_params
     show_timestamps: bool = False
     record_path: Path | None = None
-    narration_stream: _terminal_output.OutputStream = _terminal_output.OutputStream.STDERR
 
 
 _DRY_RUN_FLAG = CommandArg(
@@ -182,7 +181,7 @@ def command_group(
 ##
 
 _HELP_INDENT = "    "
-_LEGEND_GROUP_INDENT = "  "
+_MESSAGE_GROUP_INDENT = "  "
 _HELP_GAP_WIDTH = 2
 
 
@@ -211,18 +210,18 @@ def _get_legend_styles() -> list[_terminal_output.MessageStyle]:
     """Every message style in the legend, across all groups, in legend order."""
     return [
         _message_style
-        for _legend_group in _terminal_output.LEGEND_GROUPS
-        for _message_style in _legend_group.grouped_message_styles
+        for _message_group in _terminal_output.MESSAGE_GROUPS
+        for _message_style in _message_group.grouped_message_styles
     ]
 
 
 def _get_legend_label(
     message_style: _terminal_output.MessageStyle,
 ) -> str:
-    """The icon and colour name, e.g. `● green`; `plain` for a line with neither."""
-    if message_style.icon is None or message_style.colour is None:
+    """The symbol and colour name, e.g. `● green`; `plain` for a line with neither."""
+    if message_style.symbol is None or message_style.colour is None:
         return "plain"
-    return f"{message_style.icon.value} {message_style.colour.name.lower()}"
+    return f"{message_style.symbol.value}{message_style.colour.name.lower()}"
 
 
 def _get_legend_colour(
@@ -285,9 +284,9 @@ def _print_tool_help(
         console.print(flag_row)
     console.print()
     console.print("[bold]Output legend[/bold]")
-    for legend_group in _terminal_output.LEGEND_GROUPS:
-        console.print(f"{_LEGEND_GROUP_INDENT}[dim]{legend_group.title}[/dim]")
-        for message_style in legend_group.grouped_message_styles:
+    for message_group in _terminal_output.MESSAGE_GROUPS:
+        console.print(f"{_MESSAGE_GROUP_INDENT}[dim]{message_group.title}[/dim]")
+        for message_style in message_group.grouped_message_styles:
             legend_row = _format_help_row(
                 label=_get_legend_label(message_style),
                 label_style=_get_legend_colour(message_style),
@@ -375,10 +374,8 @@ def run_cli(
     parsed_args = _build_parser(tool).parse_args(argv)
     run_params = tool.make_run_params(parsed_args)
     _terminal_output.set_output_params(
-        tool_name=tool.name,
         show_timestamps=tool.show_timestamps,
         record_path=tool.record_path,
-        narration_stream=tool.narration_stream,
         dry_run=run_params.dry_run,
     )
     selected_cmd_details = dict(tool.commands)[parsed_args.cmd]

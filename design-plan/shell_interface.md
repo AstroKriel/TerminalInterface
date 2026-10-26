@@ -32,9 +32,9 @@ outcome              how a task or action ended, reported afterwards
 └── content          optional: a value (what an action produced) or a result (for the user, on stdout)
 ```
 
-The icon says which concept a line is (open circle: task; hooked arrow: note; right arrow: action; closed circle or middle dot: outcome) and the colour says which type or status. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `icon`, `description`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private core `_terminal_output`: `TASK_STYLE`; `NOTE_STYLE`; `ActionType` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `OutcomeContent` (`VALUE`, `RESULT`). There are no named combinations: a change skipped in dry-run is drawn at render time with the change icon in the skipped colour, and the legend lists only the building blocks. `LEGEND_GROUPS` lists everything by concept, and the help legend is generated from it, so the legend cannot drift from the output. Lines are drawn by `render_line` and written by `write_line`.
+The symbol says which concept a line is (open circle: task; hooked arrow: note; right arrow: action; closed circle or middle dot: outcome) and the colour says which type or status. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `symbol`, `description`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private core `_terminal_output`: `TASK_STYLE`; `NOTE_STYLE`; `Action` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `OutcomeContent` (`VALUE`, `RESULT`). There are no named combinations: a change skipped in dry-run is drawn at render time with the change symbol in the skipped colour, and the legend lists only the building blocks. `MESSAGE_GROUPS` lists everything by concept, and the help legend is generated from it, so the legend cannot drift from the output. Lines are drawn by `render_line` and written by `write_line`.
 
-| Concept | Facet | Value | Icon | Colour | State |
+| Concept | Facet | Value | Symbol | Colour | State |
 |---|---|---|---|---|---|
 | task | | | open circle | white | decided |
 | note | | | hooked arrow | white | decided |
@@ -68,7 +68,7 @@ An inspection exists to produce a value; a change exists to alter the system and
 
 `OutcomeStatus` is available as `shell_interface.OutcomeStatus`.
 
-Narration goes to stderr unless the tool sends it to stdout (see the `narration_stream` field in [`<terminal-interface>/design-plan/cli_builder.md`](cli_builder.md)). Message text is rich markup, so a caller can style it; anything a function adds itself (commands, resolved values, timestamps) is escaped. Text from outside the tool, such as a news title or a file name, goes through `escape_markup` first, so square brackets in it print as written.
+Narration always goes to stderr; whoever runs the tool can merge the two streams, e.g. with `2>&1`. Message text is rich markup, so a caller can style it; anything a function adds itself (commands, resolved values, timestamps) is escaped. Text from outside the tool, such as a news title or a file name, goes through `escape_markup` first, so square brackets in it print as written.
 
 Names and signatures match the existing layer, so tools moving onto this package keep their output call sites.
 
@@ -109,10 +109,9 @@ The entry point sets these once per process, from the fields of the `Tool`. Time
 
 | Feature | Detail | State |
 |---|---|---|
-| Narration stream | stderr by default; a tool can send narration to stdout, e.g. where job logs capture only stdout | decided |
 | Timestamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | decided |
 | Persistent record | every line printed, steps and commands included, is also appended to a file, as plain text without colour markup | decided |
-| Record format | `[<timestamp>] (<tool_name>): <line>`, one line per entry, always timestamped whether or not the terminal shows timestamps | decided |
+| Record format | `[<timestamp>] <line>`, one line per entry, always timestamped whether or not the terminal shows timestamps | decided |
 | Record in dry-run | nothing is written: the record is a history of what was done to the machine, and a dry-run does nothing | decided |
 
-Timestamps and the record are off unless a tool turns them on, so tools that do not need them see no change. A script that never calls the entry point gets the defaults: narration on stderr, no timestamps, no record.
+Timestamps and the record are off unless a tool turns them on, so tools that do not need them see no change. A script that never calls the entry point gets the defaults: no timestamps, no record.

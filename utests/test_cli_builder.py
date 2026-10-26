@@ -249,7 +249,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         )
         with contextlib.redirect_stderr(io.StringIO()):
             cli_builder.run_cli(tool=tool, argv=["go"])
-        self.assertIn("(tool): ○ recorded", record_path.read_text())
+        self.assertIn("○ recorded", record_path.read_text())
 
 
 class TestHelp_Output(unittest.TestCase):
@@ -345,9 +345,9 @@ class TestHelp_Output(unittest.TestCase):
         self,
     ) -> None:
         help_lines = _get_help(_make_tool(commands=[])).splitlines()
-        for legend_group in _terminal_output.LEGEND_GROUPS:
-            title_index = help_lines.index(f"  {legend_group.title}")
-            for line_offset, message_style in enumerate(legend_group.grouped_message_styles, start=1):
+        for message_group in _terminal_output.MESSAGE_GROUPS:
+            title_index = help_lines.index(f"  {message_group.title}")
+            for line_offset, message_style in enumerate(message_group.grouped_message_styles, start=1):
                 legend_label = cli_builder._get_legend_label(message_style)
                 legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_style.description)}$"
                 self.assertRegex(help_lines[title_index + line_offset], re.compile(legend_pattern))
