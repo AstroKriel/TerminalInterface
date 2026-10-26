@@ -50,7 +50,10 @@ class CommandArg:
     ) -> dict[str, Any]:
         """Build the kwargs for `add_argument`; flags with no explicit help get a default-value hint."""
         if self.store_true:
-            kwargs: dict[str, Any] = {"action": "store_true", "default": False}
+            kwargs: dict[str, Any] = {
+                "action": "store_true",
+                "default": False,
+            }
         else:
             kwargs = {"type": self.value_type}
             if self.nargs is not None:
@@ -207,15 +210,6 @@ def _format_help_row(
     return f"{_HELP_INDENT}[{label_style}]{label}[/]{padding}{description}"
 
 
-def _get_legend_styles() -> list[_terminal_output.MessageStyle]:
-    """Every message style in the legend, across all groups, in legend order."""
-    return [
-        _message_style
-        for _message_group in _terminal_output.MESSAGE_GROUPS
-        for _message_style in _message_group.grouped_message_styles
-    ]
-
-
 def _get_legend_label(
     message_style: _terminal_output.MessageStyle,
 ) -> str:
@@ -223,14 +217,6 @@ def _get_legend_label(
     if message_style.symbol is None or message_style.colour is None:
         return "plain"
     return f"{message_style.symbol.value} {message_style.colour.name.lower()}"
-
-
-def _get_legend_colour(
-    message_style: _terminal_output.MessageStyle,
-) -> str | None:
-    if message_style.colour is None:
-        return None
-    return message_style.colour.value
 
 
 def _print_tool_help(
@@ -246,10 +232,15 @@ def _print_tool_help(
         assert command_details.section_title is not None
         visible_row = (command_details.section_title, command_name, command_details.help)
         visible_rows.append(visible_row)
+    legend_labels = [
+        _get_legend_label(_message_style)
+        for _message_group in _terminal_output.MESSAGE_GROUPS
+        for _message_style in _message_group.grouped_message_styles
+    ]
     all_labels = [
         *[_command_name for _, _command_name, _ in visible_rows],
         *[_flag.arg_name for _flag in all_flags],
-        *[_get_legend_label(_message_style) for _message_style in _get_legend_styles()],
+        *legend_labels,
     ]
     column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
     usage_flags = " ".join(f"[{_flag.arg_name}]" for _flag in all_flags)
@@ -289,49 +280,17 @@ def _print_tool_help(
     for message_group in _terminal_output.MESSAGE_GROUPS:
         console.print(f"{_MESSAGE_GROUP_INDENT}[dim]{message_group.title}[/dim]")
         for message_style in message_group.grouped_message_styles:
+            legend_colour = None
+            if message_style.colour is not None:
+                legend_colour = message_style.colour.value
             legend_row = _format_help_row(
                 label=_get_legend_label(message_style),
-                label_style=_get_legend_colour(message_style),
+                label_style=legend_colour,
                 column_width=column_width,
                 description=message_style.description,
             )
             console.print(legend_row)
     console.print()
-
-
-def _make_help_action(
-    tool: Tool,
-) -> type[argparse.Action]:
-
-    class _GroupedHelpAction(argparse.Action):
-        """Replace the default --help with a section-grouped command listing."""
-
-        def __init__(
-            self,
-            option_strings: list[str],
-            dest: str = argparse.SUPPRESS,
-            default: str = argparse.SUPPRESS,
-            help: str = "show this help message and exit",
-        ) -> None:
-            super().__init__(
-                option_strings=option_strings,
-                dest=dest,
-                default=default,
-                nargs=0,
-                help=help,
-            )
-
-        def __call__(
-            self,
-            parser: argparse.ArgumentParser,
-            namespace: argparse.Namespace,
-            values: str | Sequence[str] | None,
-            option_string: str | None = None,
-        ) -> None:
-            _print_tool_help(tool)
-            parser.exit()
-
-    return _GroupedHelpAction
 
 
 ##
@@ -350,14 +309,13 @@ def _build_parser(
     arg_parser.add_argument(
         "-h",
         "--help",
-        action=_make_help_action(tool),
-        default=argparse.SUPPRESS,
+        action="store_true",
     )
     for flag in [_DRY_RUN_FLAG, *tool.flags]:
         arg_parser.add_argument(flag.arg_name, **flag.argparse_kwargs)
     subparsers = arg_parser.add_subparsers(
         dest="command",
-        required=True,
+        required=False,
         metavar="<command>",
     )
     for command_name, command_details in dict(tool.commands).items():
@@ -383,6 +341,9 @@ def run_cli(
     """Parse argv (default: `sys.argv`), build the run params, start output for the run, and dispatch one subcommand."""
     _ensure_visible_commands_grouped(tool)
     parsed_args = _build_parser(tool).parse_args(argv)
+    if parsed_args.help or parsed_args.command is None:
+        _print_tool_help(tool)
+        return
     run_params = tool.make_run_params(parsed_args)
     _terminal_output.set_output_params(
         show_timestamps=tool.show_timestamps,

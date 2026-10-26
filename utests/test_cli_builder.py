@@ -295,6 +295,14 @@ class TestHelp_Output(unittest.TestCase):
         self.assertIn("usage: tool [--dry-run] <command> [args]", help_text)
         self.assertRegex(help_text, re.compile(r"^ {4}alpha +does alpha$", flags=re.MULTILINE))
 
+    def test_no_command_prints_the_help(
+        self,
+    ) -> None:
+        stdout_buffer = io.StringIO()
+        with contextlib.redirect_stdout(stdout_buffer):
+            cli_builder.run_cli(tool=self._make_syncing_tool(), argv=[])
+        self.assertIn("usage: tool [--dry-run] <command> [args]", stdout_buffer.getvalue())
+
     def test_separates_with_spaces_only(
         self,
     ) -> None:

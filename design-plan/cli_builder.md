@@ -48,6 +48,7 @@ run_cli(tool=tool)
 
 | Section | Contents | State |
 |---|---|---|
+| When shown | on `-h` or `--help`, and when no command is given | decided |
 | Header | tool name and description | decided |
 | Usage | `<tool_name> [--dry-run] [<extra-flags>] <command> [args]`, built from `flags` | decided |
 | Command groups | one heading per section, each command with its help, in table order | decided |
