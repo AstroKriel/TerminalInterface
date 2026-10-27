@@ -11,7 +11,7 @@ A tool moves over on its own branch. The goal is identical behaviour, so every s
 1. Add `heimdall` as a dependency, pinned to a commit (see [Pinning](#pinning)).
 2. Replace the import of the terminal module of the tool with `from heimdall import manage_log, manage_shell`; output calls go through `manage_log` and runner calls through `manage_shell`.
 3. If the tool has flags beyond `--dry-run`, subclass `RunParams` with them, frozen like the base.
-4. Rename mechanically: the `config` parameter of every command function becomes `run_params`, every runner call uses the new runner name (see [Runner names](#runner-names)) and passes `run_params=`, `command=`, and `working_directory=` (was `cwd=`) by keyword, `cli_command` and `command_group` become `make_command` and `make_command_group` with `command_*` keywords, the argument type becomes `CommandArgument` with the field names in [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md) (`nargs` strings become `ValueCount` members), and every command function takes its arguments keyword-only, named after their argparse destinations.
+4. Rename mechanically: the `config` parameter of every command function becomes `run_params`, every runner call uses the new runner name (see [Runner names](#runner-names)) and passes `run_params=`, `cmd=`, and `working_directory=` (was `cwd=`) by keyword, `cli_command` and `command_group` become `make_cmd` and `make_cmd_group` with `cmd_*` keywords, the argument type becomes `CommandArgument` with the field names in [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md) (`nargs` strings become `ValueCount` members), and every command function takes its arguments keyword-only, named after their argparse destinations.
 5. Replace the entry point of the tool with a `CommandLineTool` and a call to `run_cli`.
 6. Delete the copy of the terminal layer that the tool kept.
 7. Check: the tests of the tool pass after the mechanical rename, and the help output before and after lists the same commands, flags, and help text in the same order.
@@ -24,12 +24,12 @@ A tool that uses its own plain-text logging moves its narration onto the output 
 
 | Earlier name | Name here | Change at the call site |
 |---|---|---|
-| `run_cmd(config, cmd)` | `run_command_and_show_output(run_params=..., command=...)` | none beyond the rename |
-| `try_run_cmd(config, cmd)` | `run_command_and_show_output(run_params=..., command=..., raise_error=False)` | add `raise_error=False` |
-| `run_cmd_and_capture_output(config, cmd)` | `run_command_and_capture_output(run_params=..., command=...)` | none beyond the rename |
-| `query_cmd(cmd, error_on_failure=...)` | `query_command_and_capture_output(command=..., raise_error=...)` | `error_on_failure` becomes `raise_error` |
-| `query_cmd_result(cmd)` | `query_command_and_capture_outcome(command=...)` | none beyond the rename |
-| `probe_cmd(cmd)` | `query_command_and_discard_output(command=...)` | pass `command` by keyword |
+| `run_cmd(config, cmd)` | `run_cmd_and_show_output(run_params=..., cmd=...)` | none beyond the rename |
+| `try_run_cmd(config, cmd)` | `run_cmd_and_show_output(run_params=..., cmd=..., raise_error=False)` | add `raise_error=False` |
+| `run_cmd_and_capture_output(config, cmd)` | `run_cmd_and_capture_output(run_params=..., cmd=...)` | none beyond `run_params` |
+| `query_cmd(cmd, error_on_failure=...)` | `query_cmd_and_capture_output(cmd=..., raise_error=...)` | `error_on_failure` becomes `raise_error` |
+| `query_cmd_result(cmd)` | `query_cmd_and_capture_outcome(cmd=...)` | none beyond the rename |
+| `probe_cmd(cmd)` | `query_cmd_and_discard_output(cmd=...)` | pass `cmd` by keyword |
 
 ### Output function names
 
