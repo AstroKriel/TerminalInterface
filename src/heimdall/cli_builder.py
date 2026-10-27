@@ -45,10 +45,10 @@ class CommandArgument:
     value_count: ValueCount | None = None
 
     @property
-    def destination(
+    def parameter_name(
         self,
     ) -> str:
-        """The `argparse.Namespace` attribute this argument lands on, e.g. `--word-diff` -> `word_diff`."""
+        """The command function parameter this argument is passed to, e.g. `--word-diff` -> `word_diff`."""
         return self.argument_name.lstrip("-").replace("-", "_")
 
     @property
@@ -95,7 +95,7 @@ class CommandDetails:
     ) -> None:
         """Call `command_fn` with `run_params` and each argument by its argparse name, all as keywords."""
         command_argument_values = {
-            _command_argument.destination: getattr(parsed_arguments, _command_argument.destination)
+            _command_argument.parameter_name: getattr(parsed_arguments, _command_argument.parameter_name)
             for _command_argument in self.command_arguments
         }
         self.command_fn(

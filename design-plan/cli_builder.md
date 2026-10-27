@@ -16,7 +16,7 @@ Design notes for `heimdall.cli_builder`: describing a tool and its subcommands o
 | Section titles | plain strings, so a tool does not need its own enum type; a `str` enum still works, since its values are strings | decided |
 | Hidden commands | registered and callable, left out of the help listing | decided |
 | Failed command | `run_cli` reports an error outcome naming the command that failed, then exits with its exit status | decided |
-| How a command function is called | `command_fn(run_params=..., <arg_1>=..., <arg_2>=...)`, every argument by keyword, named after its argparse destination (`--base-ref` becomes `base_ref`) | decided |
+| How a command function is called | `command_fn(run_params=..., <parameter_1>=..., <parameter_2>=...)`, every argument by keyword under its `parameter_name` (`--base-ref` becomes `base_ref`) | decided |
 
 `CommandArgument` is public here; in the existing layer it was private to one tool. Calling by keyword means a command function declares its parameters keyword-only and names them after the arguments they receive, so a mismatch fails loudly instead of passing a value to the wrong parameter.
 
