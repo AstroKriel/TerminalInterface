@@ -1,6 +1,6 @@
 # manage_log
 
-Design notes for `heimdall.manage_log`: the output functions, their message types, and the output settings for one run.
+Design notes for `huginn.manage_log`: the output functions, their message types, and the output settings for one run.
 
 ---
 

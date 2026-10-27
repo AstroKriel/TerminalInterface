@@ -11,7 +11,7 @@ import unittest
 from collections.abc import Callable
 
 ## local
-from heimdall import _manage_terminal, manage_log
+from huginn import _manage_terminal, manage_log
 
 ##
 ## === TEST SUITE

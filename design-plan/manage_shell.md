@@ -1,6 +1,6 @@
 # manage_shell
 
-Design notes for `heimdall.manage_shell`: the run params and the command runners. The output functions and message types are in [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md).
+Design notes for `huginn.manage_shell`: the run params and the command runners. The output functions and message types are in [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md).
 
 ---
 

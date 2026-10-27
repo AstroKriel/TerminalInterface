@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 ## local
-from heimdall import _manage_terminal, manage_shell
+from huginn import _manage_terminal, manage_shell
 
 ##
 ## === TEST SUITE
@@ -266,10 +266,10 @@ class TestQueryCmdAndCaptureOutcome_Outcome(unittest.TestCase):
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
             cmd_outcome = manage_shell.query_cmd_and_capture_outcome(
-                cmd=["heimdall-no-such-program"],
+                cmd=["huginn-no-such-program"],
             )
         self.assertEqual(cmd_outcome.exit_code, 127)
-        self.assertEqual(cmd_outcome.stderr, "command not found: `heimdall-no-such-program`.")
+        self.assertEqual(cmd_outcome.stderr, "command not found: `huginn-no-such-program`.")
 
 
 class TestQueryCmdAndDiscardOutput_Behaviour(unittest.TestCase):

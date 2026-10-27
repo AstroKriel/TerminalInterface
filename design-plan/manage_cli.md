@@ -1,6 +1,6 @@
 # manage_cli
 
-Design notes for `heimdall.manage_cli`: describing a tool and its cmds once, and getting argument parsing, grouped help, and flags from that description.
+Design notes for `huginn.manage_cli`: describing a tool and its cmds once, and getting argument parsing, grouped help, and flags from that description.
 
 ---
 

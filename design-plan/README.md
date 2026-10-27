@@ -64,7 +64,7 @@ TerminalInterface/
 ├── README.md
 ├── design-plan/  # these notes
 ├── src/
-│   └── heimdall/
+│   └── huginn/
 │       ├── _manage_terminal.py  # private core: palette, message types, consoles, the output params, timestamps, rendering, writing, and the log
 │       ├── manage_log.py  # output functions
 │       ├── manage_shell.py  # run params and command runners
@@ -74,7 +74,7 @@ TerminalInterface/
 
 | Decision | Detail | State |
 |---|---|---|
-| Package name | `heimdall`, so imports read `from heimdall import manage_log, manage_shell` | decided |
+| Package name | `huginn`, Odin's raven who flies out and reports back, so imports read `from huginn import manage_log, manage_shell`; renamed from `heimdall` on 2026-10-27, which passes to a planned types and validation package | decided |
 | Python | `>=3.11`, the oldest version any planned user declares; tests run on 3.11 and 3.14 | decided |
 | Module names | `manage_<noun>`, matching the jormi modules expected to move in (`manage_log`, `manage_shell`), so that move merges into same-named modules; output functions and command runners are separate modules, as in jormi | decided |
 | Private core | `_manage_terminal` holds everything the public modules share, so neither public module depends on another, and a later message layer can be added on the same palette, consoles, and log | decided |

@@ -1,6 +1,6 @@
 # Adopting
 
-Design notes for moving an existing tool onto `heimdall`, and for keeping each tool on a known version.
+Design notes for moving an existing tool onto `huginn`, and for keeping each tool on a known version.
 
 ---
 
@@ -8,8 +8,8 @@ Design notes for moving an existing tool onto `heimdall`, and for keeping each t
 
 A tool moves over on its own branch. The goal is identical behaviour, so every step is checkable.
 
-1. Add `heimdall` as a dependency, pinned to a commit (see [Pinning](#pinning)).
-2. Replace the import of the terminal module of the tool with `from heimdall import manage_log, manage_shell`; output calls go through `manage_log` and runner calls through `manage_shell`.
+1. Add `huginn` as a dependency, pinned to a commit (see [Pinning](#pinning)).
+2. Replace the import of the terminal module of the tool with `from huginn import manage_log, manage_shell`; output calls go through `manage_log` and runner calls through `manage_shell`.
 3. If the tool has flags beyond `--dry-run`, subclass `RunParams` with them, frozen like the base, and override `from_parsed_arguments` to read them.
 4. Rename mechanically: the `config` parameter of every cmd function becomes `run_params`, every runner call uses the new runner name (see [Runner names](#runner-names)) and passes `run_params=`, `cmd=`, and `working_directory=` (was `cwd=`) by keyword, and every cmd function takes its arguments keyword-only, named after their argparse destinations.
 5. Replace the entry point and command table of the tool with one `CommandLineTool` and a call to `run_cli`: `cli_command` entries become `Command`s, `command_group` calls become `CommandGroup`s, hidden commands go in `hidden_cmds`, and arguments become `CommandArgument`s with the field names in [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md) (`nargs` strings become `ValueCount` members).
@@ -48,6 +48,6 @@ A tool that uses its own plain-text logging moves its narration onto the output 
 
 | Rule | Detail | State |
 |---|---|---|
-| Pin by commit | each tool pins `heimdall` to a commit under `[tool.uv.sources]`, so a change here reaches a tool only when its pin moves | decided |
+| Pin by commit | each tool pins `huginn` to a commit under `[tool.uv.sources]`, so a change here reaches a tool only when its pin moves | decided |
 | Local development | a tool can override the pin with a path to a local checkout while developing against an unreleased change | decided |
 | Changes here | additive where possible; a change that breaks a signature says so in its commit message | decided |

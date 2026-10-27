@@ -12,7 +12,7 @@ wheels = [
 ]
 
 [[package]]
-name = "heimdall"
+name = "huginn"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

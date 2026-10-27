@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Self
 
 ## local
-from heimdall import _manage_terminal, manage_cli, manage_log, manage_shell
+from huginn import _manage_terminal, manage_cli, manage_log, manage_shell
 
 ##
 ## === HELPERS
@@ -504,7 +504,7 @@ class TestHelp_Output(unittest.TestCase):
             fn=_do_nothing,
         )
         command_line_tool = _make_command_line_tool(
-            cmd_groups=[_make_cmd_group(alpha_cmd, title=GroupTitle.SYNCING)]
+            cmd_groups=[_make_cmd_group(alpha_cmd, title=GroupTitle.SYNCING)],
         )
         help_text = _get_help(command_line_tool)
         self.assertIn("Syncing with the remote", help_text)

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Self
 
 ## local
-from heimdall import _manage_terminal
+from huginn import _manage_terminal
 
 ##
 ## === PARAMS

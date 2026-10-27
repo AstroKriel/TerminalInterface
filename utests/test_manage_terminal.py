@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 ## local
-from heimdall import _manage_terminal
+from huginn import _manage_terminal
 
 ##
 ## === TEST SUITE

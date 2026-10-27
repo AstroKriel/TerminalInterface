@@ -17,7 +17,7 @@ from typing import Any, final
 from rich.console import Console as rich_Console
 
 ## local
-from heimdall import _manage_terminal, manage_log, manage_shell
+from huginn import _manage_terminal, manage_log, manage_shell
 
 ##
 ## === DATA STRUCTURES
