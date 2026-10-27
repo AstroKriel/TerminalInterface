@@ -11,6 +11,7 @@ from typing import NoReturn
 ## local
 from heimdall import _manage_terminal
 from heimdall._manage_terminal import OutcomeStatus as OutcomeStatus
+from heimdall._manage_terminal import OutputParams as OutputParams
 from heimdall._manage_terminal import escape_markup as escape_markup
 
 ##

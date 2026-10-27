@@ -93,8 +93,7 @@ class TestLogFunctions_Output(unittest.TestCase):
         self,
     ) -> None:
         _manage_terminal.set_output_params(
-            show_timestamps=True,
-            log_path=None,
+            output_params=manage_log.OutputParams(show_timestamps=True),
             dry_run=False,
         )
         stdout_text, _ = self._capture(lambda: manage_log.log_result("data"))

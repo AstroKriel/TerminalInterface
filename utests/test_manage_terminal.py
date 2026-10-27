@@ -156,8 +156,7 @@ class TestWriteLine_Timestamps(unittest.TestCase):
         self,
     ) -> None:
         _manage_terminal.set_output_params(
-            show_timestamps=True,
-            log_path=None,
+            output_params=_manage_terminal.OutputParams(show_timestamps=True),
             dry_run=False,
         )
         stderr_buffer = io.StringIO()
@@ -186,8 +185,7 @@ class TestWriteLine_Log(unittest.TestCase):
         dry_run: bool,
     ) -> None:
         _manage_terminal.set_output_params(
-            show_timestamps=False,
-            log_path=self.log_path,
+            output_params=_manage_terminal.OutputParams(log_path=self.log_path),
             dry_run=dry_run,
         )
 

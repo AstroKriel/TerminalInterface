@@ -5,10 +5,12 @@
 ##
 
 ## stdlib
+import argparse
 import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 ## local
 from heimdall import _manage_terminal
@@ -20,8 +22,15 @@ from heimdall import _manage_terminal
 
 @dataclass(frozen=True)
 class RunParams:
-    """Options for one run of a tool; tools subclass it to add their own flags."""
+    """Options for one run of a tool; a tool subclasses it to add its own flags and overrides `from_parsed_arguments`."""
     dry_run: bool = False
+
+    @classmethod
+    def from_parsed_arguments(
+        cls,
+        parsed_arguments: argparse.Namespace,
+    ) -> Self:
+        return cls(dry_run=parsed_arguments.dry_run)
 
 
 ##

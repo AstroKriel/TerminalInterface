@@ -1,47 +1,45 @@
 # manage_cli
 
-Design notes for `heimdall.manage_cli`: describing a tool and its subcommands once, and getting argument parsing, grouped help, and flags from that description.
+Design notes for `heimdall.manage_cli`: describing a tool and its cmds once, and getting argument parsing, grouped help, and flags from that description.
 
 ---
 
-## Describing a Subcommand
+## Structure
+
+A tool is described as nested frozen dataclasses, one per concept, so the structure itself enforces what used to need checks: a visible cmd cannot be ungrouped, and a group exists once instead of being stamped onto each cmd. Inside each dataclass, field names drop the owner prefix, since the type already qualifies them (`cmd.name`, not `cmd.cmd_name`). Within `manage_cli`, a cmd is a cmd of the tool: it runs as `<tool> <cmd> [arguments]`.
+
+```text
+CommandLineTool
+├── name, description
+├── flags: list[CommandArgument]
+├── cmd_groups: list[CommandGroup]
+│   └── CommandGroup(title, cmds: list[Command])
+│       └── Command(name, description, fn, arguments: list[CommandArgument])
+├── hidden_cmds: list[Command]
+├── run_params_type: type[RunParams]
+└── output_params: OutputParams(show_timestamps, log_path)
+```
 
 | Part | Detail | State |
 |---|---|---|
-| `CommandArgument` | one argument: a bare positional or a `--flag`, with `argument_name`, `value_type`, `default_value`, `value_placeholder`, `argument_help`, `is_switch`, `is_required`, and `value_count` | decided |
+| `CommandArgument` | one argument of a cmd or a tool: a bare positional or a `--flag`, with `name`, `description`, `value_type`, `default_value`, `value_placeholder`, `is_switch`, `is_required`, and `value_count` | decided |
 | `ValueCount` | how many values an argument takes: `OPTIONAL`, `ANY`, or `AT_LEAST_ONE`, each holding the argparse symbol (`?`, `*`, `+`) | decided |
-| `make_cmd(cmd_name=..., cmd_fn=..., cmd_help=..., cmd_arguments=..., is_hidden=...)` | builds one `Command`, a frozen dataclass holding the command name with everything else about it | decided |
-| `make_cmd_group(section_title=..., cmds=[...])` | stamps a section title onto a list of commands, so each group names its section once | decided |
-| Ungrouped commands | a visible command must be in a group; `run_cli` rejects one that is not, so a command never drops out of help silently | decided |
-| Section titles | plain strings, so a tool does not need its own enum type; a `str` enum still works, since its values are strings | decided |
-| Hidden commands | registered and callable, left out of the help listing | decided |
-| Failed command | `run_cli` reports an error outcome naming the command that failed, then exits with its exit status | decided |
-| How a command function is called | `cmd_fn(run_params=..., <parameter_1>=..., <parameter_2>=...)`, every argument by keyword under its `parameter_name` (`--base-ref` becomes `base_ref`) | decided |
-
-`CommandArgument` is public here; in the existing layer it was private to one tool. Calling by keyword means a command function declares its parameters keyword-only and names them after the arguments they receive, so a mismatch fails loudly instead of passing a value to the wrong parameter.
-
----
-
-## Describing a Tool
-
-The second generalisation: the existing entry point hardcoded the name, usage line, and global flags of one tool. Here a tool describes itself once and hands that description to the entry point.
-
-| Field | Holds | State |
-|---|---|---|
-| `name` | the command typed, e.g. `<tool_name>`; shown in help and usage | decided |
-| `description` | one line, shown at the top of help | decided |
-| `cmds` | the command table: groups and hidden commands, in help order | decided |
-| `flags` | flags beyond `--dry-run`, which every tool has, as `CommandArgument`s | decided |
-| `make_run_params` | builds the `RunParams` of the tool (or a subclass) from the parsed flags | decided |
-| `show_timestamps` | whether terminal lines carry a timestamp; off by default | decided |
-| `log_path` | where the log is appended; `None` (the default) writes no log | decided |
+| `Command` | one cmd: `name`, `description`, `fn`, and `arguments` | decided |
+| `CommandGroup` | cmds listed together in help under one `title`; a `str` enum title prints its value | decided |
+| Hidden cmds | `hidden_cmds` on the tool: registered and runnable, left out of help | decided |
+| Run params | `run_params_type` names `RunParams` or a subclass; `run_cli` builds it with the classmethod `from_parsed_arguments`, which a subclass overrides to read its own flags | decided |
+| Output params | `output_params` holds an `OutputParams` (`show_timestamps`, `log_path`), also available as `manage_log.OutputParams` | decided |
+| Failed cmd | `run_cli` reports an error outcome naming the shell cmd that failed, then exits with its exit status | decided |
+| How a cmd function is called | `fn(run_params=..., <parameter_1>=..., <parameter_2>=...)`, every argument by keyword under its `parameter_name` (`--base-ref` becomes `base_ref`) | decided |
 | Type name | `CommandLineTool`; a variable holding one is named `command_line_tool` | decided |
+
+Calling by keyword means a cmd function declares its parameters keyword-only and names them after the arguments they receive, so a mismatch fails loudly instead of passing a value to the wrong parameter.
 
 ```text
 run_cli(command_line_tool=command_line_tool)
 ```
 
-`run_cli` builds the parser, registers every subcommand and its arguments, parses, builds the run params through `make_run_params`, sets the output for the run, dispatches, and exits with the return code of a failed command when one raises. State: decided.
+`run_cli` builds the parser, registers every cmd and its arguments, parses, builds the run params, sets the output for the run, dispatches, and exits with the return code of a failed shell cmd when one raises. State: decided.
 
 ---
 
@@ -52,8 +50,8 @@ run_cli(command_line_tool=command_line_tool)
 | When shown | on `-h` or `--help`, and when no command is given | decided |
 | Header | tool name and description | decided |
 | Usage | `<tool_name> [--dry-run] [<extra-flags>] <command> [args]`, built from `flags` | decided |
-| Command groups | one heading per section, each command with its help, in table order | decided |
-| Flags | `--dry-run` and each extra flag with its help | decided |
+| Cmd groups | one heading per group title, each cmd with its description, in declaration order | decided |
+| Flags | `--dry-run` and each extra flag with its description | decided |
 | Output legend | one line per message type, generated from the message types | decided |
 | Indent | four spaces before every row | decided |
 | Separator | spaces only, never tabs, so the layout is the same width on every machine | decided |

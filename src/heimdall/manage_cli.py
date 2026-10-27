@@ -9,9 +9,8 @@ import argparse
 import shlex
 import subprocess
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Any, final
 
 ## third-party
@@ -22,6 +21,7 @@ from heimdall import _manage_terminal, manage_log, manage_shell
 
 ##
 ## === DATA STRUCTURES
+## a tool holds groups of cmds, and each cmd holds its arguments.
 ##
 
 
@@ -34,12 +34,12 @@ class ValueCount(str, Enum):
 
 @dataclass(frozen=True)
 class CommandArgument:
-    """One argparse argument for a subcommand: a bare positional, or a `--flag`."""
-    argument_name: str
+    """One argument of a cmd or a tool: a bare positional, or a `--flag`."""
+    name: str
+    description: str | None = None
     value_type: type = str
     default_value: Any = None
     value_placeholder: str | None = None
-    argument_help: str | None = None
     is_switch: bool = False
     is_required: bool = False
     value_count: ValueCount | None = None
@@ -48,14 +48,14 @@ class CommandArgument:
     def parameter_name(
         self,
     ) -> str:
-        """The command function parameter this argument is passed to, e.g. `--word-diff` -> `word_diff`."""
-        return self.argument_name.lstrip("-").replace("-", "_")
+        """The cmd function parameter this argument is passed to, e.g. `--word-diff` -> `word_diff`."""
+        return self.name.lstrip("-").replace("-", "_")
 
     @property
     def argparse_keyword_arguments(
         self,
     ) -> dict[str, Any]:
-        """Build the keyword arguments for `add_argument`; flags with no explicit help get a default-value hint."""
+        """Build the keyword arguments for `add_argument`; flags with no description get a default-value hint."""
         if self.is_switch:
             keyword_arguments: dict[str, Any] = {
                 "action": "store_true",
@@ -71,22 +71,20 @@ class CommandArgument:
                 keyword_arguments["required"] = True
             else:
                 keyword_arguments["default"] = self.default_value
-        if self.argument_help is not None:
-            keyword_arguments["help"] = self.argument_help
-        elif self.argument_name.startswith("--") and not self.is_required:
+        if self.description is not None:
+            keyword_arguments["help"] = self.description
+        elif self.name.startswith("--") and not self.is_required:
             keyword_arguments["help"] = "(default: %(default)s)"
         return keyword_arguments
 
 
 @dataclass(frozen=True)
 class Command:
-    """One subcommand: its name, its help, its arguments, and the function it calls."""
-    cmd_name: str
-    cmd_help: str
-    cmd_fn: Callable[..., None]
-    cmd_arguments: list[CommandArgument]
-    section_title: str | None
-    is_hidden: bool
+    """One cmd of a tool, run as `<tool> <name> [arguments]`: its description, its arguments, and the function it calls."""
+    name: str
+    description: str
+    fn: Callable[..., None]
+    arguments: list[CommandArgument] = field(default_factory=list)
 
     def call(
         self,
@@ -94,93 +92,61 @@ class Command:
         run_params: manage_shell.RunParams,
         parsed_arguments: argparse.Namespace,
     ) -> None:
-        """Call `cmd_fn` with `run_params` and each argument by its argparse name, all as keywords."""
-        cmd_argument_values = {
-            _cmd_argument.parameter_name: getattr(parsed_arguments, _cmd_argument.parameter_name)
-            for _cmd_argument in self.cmd_arguments
+        """Call `fn` with `run_params` and each argument by its parameter name, all as keywords."""
+        argument_values = {
+            _argument.parameter_name: getattr(parsed_arguments, _argument.parameter_name)
+            for _argument in self.arguments
         }
-        self.cmd_fn(
+        self.fn(
             run_params=run_params,
-            **cmd_argument_values,
+            **argument_values,
         )
 
 
-##
-## === TOOL
-##
-
-
-def _make_default_run_params(
-    parsed_arguments: argparse.Namespace,
-) -> manage_shell.RunParams:
-    return manage_shell.RunParams(dry_run=parsed_arguments.dry_run)
+@dataclass(frozen=True)
+class CommandGroup:
+    """Cmds listed together in help under one title."""
+    title: str
+    cmds: list[Command]
 
 
 @dataclass(frozen=True)
 class CommandLineTool:
     """
-    One command line tool: its name, its commands, its flags, and how its output behaves.
+    One command line tool: what it is, the cmds it offers, and how one run of it is set up.
 
     Fields
     ---
     - `flags`:
         Flags beyond `--dry-run`, which every tool has.
 
-    - `make_run_params`:
-        Builds the `RunParams` of the tool (or a subclass) from the parsed flags.
+    - `hidden_cmds`:
+        Cmds that can be run but are left out of help.
 
-    - `log_path`:
-        Where every printed line is also appended as plain text; `None` writes no log.
+    - `run_params_type`:
+        `RunParams` or a subclass; built from the parsed flags with `from_parsed_arguments`.
     """
     name: str
     description: str
-    cmds: list[Command]
+    cmd_groups: list[CommandGroup]
+    hidden_cmds: list[Command] = field(default_factory=list)
     flags: list[CommandArgument] = field(default_factory=list)
-    make_run_params: Callable[[argparse.Namespace], manage_shell.RunParams] = _make_default_run_params
-    show_timestamps: bool = False
-    log_path: Path | None = None
+    run_params_type: type[manage_shell.RunParams] = manage_shell.RunParams
+    output_params: manage_log.OutputParams = manage_log.OutputParams()
+
+    @property
+    def all_cmds(
+        self,
+    ) -> list[Command]:
+        grouped_cmds = [_cmd for _cmd_group in self.cmd_groups for _cmd in _cmd_group.cmds]
+        return [*grouped_cmds, *self.hidden_cmds]
 
 
 _DRY_RUN_FLAG = CommandArgument(
-    argument_name="--dry-run",
+    name="--dry-run",
+    description="print commands without executing them",
     is_switch=True,
-    argument_help="print commands without executing them",
 )
-
-##
-## === COMMAND TABLE
-##
-
-
-def make_cmd(
-    *,
-    cmd_name: str,
-    cmd_fn: Callable[..., None],
-    cmd_help: str = "",
-    cmd_arguments: list[CommandArgument] | None = None,
-    is_hidden: bool = False,
-) -> Command:
-    """Build one command for the command table; `make_cmd_group` stamps its section."""
-    if cmd_arguments is None:
-        cmd_arguments = []
-    return Command(
-        cmd_name=cmd_name,
-        cmd_help=cmd_help,
-        cmd_fn=cmd_fn,
-        cmd_arguments=cmd_arguments,
-        section_title=None,
-        is_hidden=is_hidden,
-    )
-
-
-def make_cmd_group(
-    *,
-    section_title: str,
-    cmds: list[Command],
-) -> list[Command]:
-    """Stamp `section_title` onto each command so a group names its section exactly once."""
-    return [replace(_cmd, section_title=section_title) for _cmd in cmds]
-
 
 ##
 ## === HELP
@@ -202,26 +168,25 @@ class _CommandLineToolHelp:
         self.command_line_tool = command_line_tool
         self.console = rich_Console(highlight=False)
         self.all_flags = [_DRY_RUN_FLAG, *command_line_tool.flags]
-        self.visible_cmds = [_cmd for _cmd in command_line_tool.cmds if not _cmd.is_hidden]
         legend_labels = [
             self._get_legend_label(_message_style)
             for _message_group in _manage_terminal.MESSAGE_GROUPS
             for _message_style in _message_group.grouped_message_styles
         ]
         all_labels = [
-            *[_cmd.cmd_name for _cmd in self.visible_cmds],
-            *[_flag.argument_name for _flag in self.all_flags],
+            *[_cmd.name for _cmd_group in command_line_tool.cmd_groups for _cmd in _cmd_group.cmds],
+            *[_flag.name for _flag in self.all_flags],
             *legend_labels,
         ]
         self.column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
 
     @staticmethod
-    def _get_section_text(
-        section_title: str,
+    def _get_title_text(
+        title: str,
     ) -> str:
-        if isinstance(section_title, Enum):
-            return str(section_title.value)
-        return section_title
+        if isinstance(title, Enum):
+            return str(title.value)
+        return title
 
     @staticmethod
     def _get_legend_label(
@@ -248,7 +213,7 @@ class _CommandLineToolHelp:
     def _print_header(
         self,
     ) -> None:
-        usage_flags = " ".join(f"[{_flag.argument_name}]" for _flag in self.all_flags)
+        usage_flags = " ".join(f"[{_flag.name}]" for _flag in self.all_flags)
         usage_text = manage_log.escape_markup(f"{self.command_line_tool.name} {usage_flags} <command> [args]")
         self.console.print()
         self.console.print(
@@ -257,22 +222,18 @@ class _CommandLineToolHelp:
         self.console.print()
         self.console.print(f"[dim]usage:[/dim] {usage_text}")
 
-    def _print_cmds(
+    def _print_cmd_groups(
         self,
     ) -> None:
-        current_section = None
-        for cmd in self.visible_cmds:
-            section_title = cmd.section_title
-            assert section_title is not None
-            if section_title != current_section:
-                self.console.print()
-                self.console.print(f"[bold]{self._get_section_text(section_title)}[/bold]")
-                current_section = section_title
-            self._print_row(
-                label=cmd.cmd_name,
-                label_style=_manage_terminal.Colour.CYAN.value,
-                description=cmd.cmd_help,
-            )
+        for cmd_group in self.command_line_tool.cmd_groups:
+            self.console.print()
+            self.console.print(f"[bold]{self._get_title_text(cmd_group.title)}[/bold]")
+            for cmd in cmd_group.cmds:
+                self._print_row(
+                    label=cmd.name,
+                    label_style=_manage_terminal.Colour.CYAN.value,
+                    description=cmd.description,
+                )
 
     def _print_flags(
         self,
@@ -280,13 +241,13 @@ class _CommandLineToolHelp:
         self.console.print()
         self.console.print("[bold]Flags[/bold]")
         for flag in self.all_flags:
-            flag_help = flag.argument_help
-            if flag_help is None:
-                flag_help = ""
+            flag_description = flag.description
+            if flag_description is None:
+                flag_description = ""
             self._print_row(
-                label=flag.argument_name,
+                label=flag.name,
                 label_style=_manage_terminal.Colour.CYAN.value,
-                description=flag_help,
+                description=flag_description,
             )
 
     def _print_legend(
@@ -310,9 +271,9 @@ class _CommandLineToolHelp:
     def print_help(
         self,
     ) -> None:
-        """Print the header, the commands by section, the flags, and the output legend."""
+        """Print the header, the cmds by group, the flags, and the output legend."""
         self._print_header()
-        self._print_cmds()
+        self._print_cmd_groups()
         self._print_flags()
         self._print_legend()
 
@@ -336,28 +297,17 @@ def _build_parser(
         action="store_true",
     )
     for flag in [_DRY_RUN_FLAG, *command_line_tool.flags]:
-        argument_parser.add_argument(flag.argument_name, **flag.argparse_keyword_arguments)
+        argument_parser.add_argument(flag.name, **flag.argparse_keyword_arguments)
     subparsers = argument_parser.add_subparsers(
         dest="cmd",
         required=False,
         metavar="<command>",
     )
-    for cmd in command_line_tool.cmds:
-        subparser = subparsers.add_parser(cmd.cmd_name, help=cmd.cmd_help)
-        for cmd_argument in cmd.cmd_arguments:
-            subparser.add_argument(
-                cmd_argument.argument_name,
-                **cmd_argument.argparse_keyword_arguments,
-            )
+    for cmd in command_line_tool.all_cmds:
+        subparser = subparsers.add_parser(cmd.name, help=cmd.description)
+        for argument in cmd.arguments:
+            subparser.add_argument(argument.name, **argument.argparse_keyword_arguments)
     return argument_parser
-
-
-def _ensure_visible_cmds_grouped(
-    command_line_tool: CommandLineTool,
-) -> None:
-    for cmd in command_line_tool.cmds:
-        if not cmd.is_hidden and cmd.section_title is None:
-            raise ValueError(f"command `{cmd.cmd_name}` must be hidden or in a command group.")
 
 
 def run_cli(
@@ -365,20 +315,18 @@ def run_cli(
     command_line_tool: CommandLineTool,
     argv: Sequence[str] | None = None,
 ) -> None:
-    """Parse argv (default: `sys.argv`), build the run params, start output for the run, and dispatch one subcmd."""
-    _ensure_visible_cmds_grouped(command_line_tool)
+    """Parse argv (default: `sys.argv`), build the run params, set up output for the run, and run one cmd."""
     parsed_arguments = _build_parser(command_line_tool).parse_args(argv)
     if parsed_arguments.help or parsed_arguments.cmd is None:
         command_line_tool_help = _CommandLineToolHelp(command_line_tool)
         command_line_tool_help.print_help()
         return
-    run_params = command_line_tool.make_run_params(parsed_arguments)
+    run_params = command_line_tool.run_params_type.from_parsed_arguments(parsed_arguments)
     _manage_terminal.set_output_params(
-        show_timestamps=command_line_tool.show_timestamps,
-        log_path=command_line_tool.log_path,
+        output_params=command_line_tool.output_params,
         dry_run=run_params.dry_run,
     )
-    cmds_by_name = {_cmd.cmd_name: _cmd for _cmd in command_line_tool.cmds}
+    cmds_by_name = {_cmd.name: _cmd for _cmd in command_line_tool.all_cmds}
     selected_cmd = cmds_by_name[parsed_arguments.cmd]
     try:
         selected_cmd.call(

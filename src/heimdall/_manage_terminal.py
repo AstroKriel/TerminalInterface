@@ -6,7 +6,7 @@
 
 ## stdlib
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 
@@ -176,13 +176,14 @@ MESSAGE_GROUPS: list[MessageGroup] = [
 ##
 
 
-@dataclass
-class _OutputParams:
+@dataclass(frozen=True)
+class OutputParams:
+    """How output behaves for one run: timestamps on terminal lines, and where every line is also logged."""
     show_timestamps: bool = False
     log_path: Path | None = None
 
 
-_OUTPUT_PARAMS = _OutputParams()
+_active_output_params = OutputParams()
 _CONSOLE_STDERR = rich_Console(
     highlight=False,
     stderr=True,
@@ -195,23 +196,20 @@ _CONSOLE_STDOUT = rich_Console(
 
 def set_output_params(
     *,
-    show_timestamps: bool,
-    log_path: Path | None,
+    output_params: OutputParams,
     dry_run: bool,
 ) -> None:
     """Set how output behaves for the rest of the process; the log is never written in dry-run."""
-    _OUTPUT_PARAMS.show_timestamps = show_timestamps
+    global _active_output_params
     if dry_run:
-        _OUTPUT_PARAMS.log_path = None
-    else:
-        _OUTPUT_PARAMS.log_path = log_path
+        output_params = replace(output_params, log_path=None)
+    _active_output_params = output_params
 
 
 def reset_output_params() -> None:
     """Return to the defaults: no timestamps, no log."""
     set_output_params(
-        show_timestamps=False,
-        log_path=None,
+        output_params=OutputParams(),
         dry_run=False,
     )
 
@@ -269,14 +267,14 @@ def write_line(
         )
     else:
         console_line = line_markup
-        if _OUTPUT_PARAMS.show_timestamps:
+        if _active_output_params.show_timestamps:
             timestamp_text = escape_markup(f"[{timestamp}]")
             console_line = f"[{Colour.GREY.value}]{timestamp_text}[/] {line_markup}"
         _CONSOLE_STDERR.print(console_line)
-    if _OUTPUT_PARAMS.log_path is None:
+    if _active_output_params.log_path is None:
         return
     _append_log(
-        log_path=_OUTPUT_PARAMS.log_path,
+        log_path=_active_output_params.log_path,
         timestamp=timestamp,
         line_markup=line_markup,
     )
