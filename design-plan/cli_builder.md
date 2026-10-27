@@ -35,10 +35,10 @@ The second generalisation: the existing entry point hardcoded the name, usage li
 | `make_run_params` | builds the `RunParams` of the tool (or a subclass) from the parsed flags | decided |
 | `show_timestamps` | whether terminal lines carry a timestamp; off by default | decided |
 | `record_path` | where the persistent record is appended; `None` (the default) writes no record | decided |
-| Type name | `Tool`; a variable holding one is named `tool` | proposed |
+| Type name | `CommandLineTool`; a variable holding one is named `command_line_tool` | decided |
 
 ```text
-run_cli(tool=tool)
+run_cli(command_line_tool=command_line_tool)
 ```
 
 `run_cli` builds the parser, registers every subcommand and its arguments, parses, builds the run params through `make_run_params`, sets the output for the run, dispatches, and exits with the return code of a failed command when one raises. State: decided.

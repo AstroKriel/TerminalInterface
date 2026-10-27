@@ -40,7 +40,7 @@ A feature belongs here only if it is about the terminal and at least two tools n
 | Diagnostics and results are separate | narration always goes to stderr; results meant for the user or a pipe always go to stdout | decided |
 | Dry-run is built in | every tool gets `--dry-run`; mutating runners print the command and skip it; read-only runners still run | decided |
 | Stable names | the functions tools already call keep their names, so adopting this package is an import change plus a mechanical rename (see [`<terminal-interface>/design-plan/adopting.md`](adopting.md)) | decided |
-| One vocabulary | params: a container of options, named by what it is for, e.g. `RunParams` for one run of a tool; a tool: one command line tool, described by `Tool` | decided |
+| One vocabulary | params: a container of options, named by what it is for, e.g. `RunParams` for one run of a tool; a tool: one command line tool, described by `CommandLineTool` | decided |
 | Light to install | one third-party dependency (`rich`), so it installs on a fresh machine through `uv` alone | decided |
 
 ---

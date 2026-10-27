@@ -37,7 +37,7 @@ class _ToolRunParams(shell_interface.RunParams):
     allow_dirty: bool = False
 
 
-def _make_tool_run_params(
+def _make_command_line_tool_run_params(
     parsed_arguments: argparse.Namespace,
 ) -> _ToolRunParams:
     return _ToolRunParams(
@@ -47,11 +47,11 @@ def _make_tool_run_params(
 
 
 def _get_help(
-    tool: cli_builder.Tool,
+    command_line_tool: cli_builder.CommandLineTool,
 ) -> str:
     stdout_buffer = io.StringIO()
     with contextlib.redirect_stdout(stdout_buffer), contextlib.suppress(SystemExit):
-        cli_builder.run_cli(tool=tool, argv=["--help"])
+        cli_builder.run_cli(command_line_tool=command_line_tool, argv=["--help"])
     return stdout_buffer.getvalue()
 
 
@@ -71,14 +71,14 @@ def _make_go_command(
     )
 
 
-def _make_tool(
+def _make_command_line_tool(
     *,
     commands: list[cli_builder.CommandEntry],
     flags: list[cli_builder.CommandArgument] | None = None,
-) -> cli_builder.Tool:
+) -> cli_builder.CommandLineTool:
     if flags is None:
         flags = []
-    return cli_builder.Tool(
+    return cli_builder.CommandLineTool(
         name="tool",
         description="a tool",
         commands=commands,
@@ -158,13 +158,13 @@ class TestCommandDetails_ArgumentMapping(unittest.TestCase):
         ) -> None:
             received.append(base)
 
-        tool = _make_tool(
+        command_line_tool =_make_command_line_tool(
             commands=_make_go_command(
                 record_base,
                 command_arguments=[cli_builder.CommandArgument(argument_name="--base")],
             ),
         )
-        cli_builder.run_cli(tool=tool, argv=["go"])
+        cli_builder.run_cli(command_line_tool=command_line_tool, argv=["go"])
         self.assertEqual(received, [None])
 
     def test_value_count_collects_every_value(
@@ -183,13 +183,13 @@ class TestCommandDetails_ArgumentMapping(unittest.TestCase):
             argument_name="paths",
             value_count=cli_builder.ValueCount.AT_LEAST_ONE,
         )
-        tool = _make_tool(
+        command_line_tool =_make_command_line_tool(
             commands=_make_go_command(
                 record_paths,
                 command_arguments=[paths_argument],
             ),
         )
-        cli_builder.run_cli(tool=tool, argv=["go", "a", "b"])
+        cli_builder.run_cli(command_line_tool=command_line_tool, argv=["go", "a", "b"])
         self.assertEqual(received, [["a", "b"]])
 
 
@@ -228,8 +228,8 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             received.append(run_params)
 
-        tool = _make_tool(commands=_make_go_command(record_run_params))
-        cli_builder.run_cli(tool=tool, argv=["--dry-run", "go"])
+        command_line_tool =_make_command_line_tool(commands=_make_go_command(record_run_params))
+        cli_builder.run_cli(command_line_tool=command_line_tool, argv=["--dry-run", "go"])
         self.assertEqual(received, [shell_interface.RunParams(dry_run=True)])
 
     def test_extra_flag_reaches_run_params(
@@ -243,14 +243,14 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             received.append(run_params)
 
-        tool = cli_builder.Tool(
+        command_line_tool =cli_builder.CommandLineTool(
             name="tool",
             description="a tool",
             commands=_make_go_command(record_run_params),
             flags=[cli_builder.CommandArgument(argument_name="--allow-dirty", is_switch=True)],
-            make_run_params=_make_tool_run_params,
+            make_run_params=_make_command_line_tool_run_params,
         )
-        cli_builder.run_cli(tool=tool, argv=["--allow-dirty", "go"])
+        cli_builder.run_cli(command_line_tool=command_line_tool, argv=["--allow-dirty", "go"])
         self.assertEqual(received, [_ToolRunParams(dry_run=False, allow_dirty=True)])
 
     def test_failed_command_exits_with_its_return_code(
@@ -262,19 +262,19 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             raise subprocess.CalledProcessError(returncode=3, cmd=["false"])
 
-        tool = _make_tool(commands=_make_go_command(fail))
+        command_line_tool =_make_command_line_tool(commands=_make_go_command(fail))
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
-            cli_builder.run_cli(tool=tool, argv=["go"])
+            cli_builder.run_cli(command_line_tool=command_line_tool, argv=["go"])
         self.assertEqual(exit_context.exception.code, 3)
         self.assertEqual(stderr_buffer.getvalue(), "● error: `false` failed with exit status 3.\n")
 
     def test_visible_command_outside_a_group_is_rejected(
         self,
     ) -> None:
-        tool = _make_tool(commands=[cli_builder.make_command(command_name="loose", command_fn=_do_nothing)])
+        command_line_tool =_make_command_line_tool(commands=[cli_builder.make_command(command_name="loose", command_fn=_do_nothing)])
         with self.assertRaises(ValueError):
-            cli_builder.run_cli(tool=tool, argv=["loose"])
+            cli_builder.run_cli(command_line_tool=command_line_tool, argv=["loose"])
 
     def test_record_is_started_from_the_tool(
         self,
@@ -289,23 +289,23 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             shell_interface.log_task("recorded")
 
-        tool = cli_builder.Tool(
+        command_line_tool =cli_builder.CommandLineTool(
             name="tool",
             description="a tool",
             commands=_make_go_command(narrate),
             record_path=record_path,
         )
         with contextlib.redirect_stderr(io.StringIO()):
-            cli_builder.run_cli(tool=tool, argv=["go"])
+            cli_builder.run_cli(command_line_tool=command_line_tool, argv=["go"])
         self.assertIn("○ recorded", record_path.read_text())
 
 
 class TestHelp_Output(unittest.TestCase):
 
-    def _make_syncing_tool(
+    def _make_syncing_command_line_tool(
         self,
-    ) -> cli_builder.Tool:
-        return _make_tool(
+    ) -> cli_builder.CommandLineTool:
+        return _make_command_line_tool(
             commands=cli_builder.make_command_group(
                 section_title="Syncing",
                 commands=[cli_builder.make_command(command_name="alpha", command_fn=_do_nothing, command_help="does alpha")],
@@ -315,7 +315,7 @@ class TestHelp_Output(unittest.TestCase):
     def test_lists_name_usage_and_sections(
         self,
     ) -> None:
-        help_text = _get_help(self._make_syncing_tool())
+        help_text = _get_help(self._make_syncing_command_line_tool())
         self.assertIn("tool: a tool", help_text)
         self.assertIn("usage: tool [--dry-run] <command> [args]", help_text)
         self.assertRegex(help_text, re.compile(r"^ {4}alpha +does alpha$", flags=re.MULTILINE))
@@ -325,18 +325,18 @@ class TestHelp_Output(unittest.TestCase):
     ) -> None:
         stdout_buffer = io.StringIO()
         with contextlib.redirect_stdout(stdout_buffer):
-            cli_builder.run_cli(tool=self._make_syncing_tool(), argv=[])
+            cli_builder.run_cli(command_line_tool=self._make_syncing_command_line_tool(), argv=[])
         self.assertIn("usage: tool [--dry-run] <command> [args]", stdout_buffer.getvalue())
 
     def test_separates_with_spaces_only(
         self,
     ) -> None:
-        self.assertNotIn("\t", _get_help(self._make_syncing_tool()))
+        self.assertNotIn("\t", _get_help(self._make_syncing_command_line_tool()))
 
     def test_descriptions_share_one_column(
         self,
     ) -> None:
-        help_lines = _get_help(self._make_syncing_tool()).splitlines()
+        help_lines = _get_help(self._make_syncing_command_line_tool()).splitlines()
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
         dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
         task_description = _terminal_output.TASK_STYLE.description
@@ -347,7 +347,7 @@ class TestHelp_Output(unittest.TestCase):
     def test_longest_label_sets_the_column(
         self,
     ) -> None:
-        tool = _make_tool(
+        command_line_tool =_make_command_line_tool(
             commands=cli_builder.make_command_group(
                 section_title="Syncing",
                 commands=[
@@ -359,12 +359,12 @@ class TestHelp_Output(unittest.TestCase):
                 ],
             ),
         )
-        self.assertIn("    a-much-longer-command-name  long one", _get_help(tool).splitlines())
+        self.assertIn("    a-much-longer-command-name  long one", _get_help(command_line_tool).splitlines())
 
     def test_omits_hidden_commands(
         self,
     ) -> None:
-        tool = _make_tool(
+        command_line_tool =_make_command_line_tool(
             commands=[
                 *cli_builder.make_command_group(
                     section_title="Shown",
@@ -373,18 +373,18 @@ class TestHelp_Output(unittest.TestCase):
                 cli_builder.make_command(command_name="secret", command_fn=_do_nothing, is_hidden=True),
             ],
         )
-        help_text = _get_help(tool)
+        help_text = _get_help(command_line_tool)
         self.assertIn("visible", help_text)
         self.assertNotIn("secret", help_text)
 
     def test_lists_extra_flags(
         self,
     ) -> None:
-        tool = _make_tool(
+        command_line_tool =_make_command_line_tool(
             commands=[],
             flags=[cli_builder.CommandArgument(argument_name="--allow-dirty", is_switch=True, argument_help="skip the check")],
         )
-        help_text = _get_help(tool)
+        help_text = _get_help(command_line_tool)
         self.assertIn("usage: tool [--dry-run] [--allow-dirty] <command> [args]", help_text)
         self.assertIn("    --allow-dirty  skip the check", help_text.splitlines())
 
@@ -393,14 +393,14 @@ class TestHelp_Output(unittest.TestCase):
     ) -> None:
         result_description = _terminal_output.OutcomeContent.RESULT.value.description
         self.assertRegex(
-            _get_help(_make_tool(commands=[])),
+            _get_help(_make_command_line_tool(commands=[])),
             re.compile(rf"^ {{4}}plain +{re.escape(result_description)}$", flags=re.MULTILINE),
         )
 
     def test_legend_lists_each_group_under_its_title(
         self,
     ) -> None:
-        help_lines = _get_help(_make_tool(commands=[])).splitlines()
+        help_lines = _get_help(_make_command_line_tool(commands=[])).splitlines()
         for message_group in _terminal_output.MESSAGE_GROUPS:
             title_index = help_lines.index(f"  {message_group.title}")
             for line_offset, message_style in enumerate(message_group.grouped_message_styles, start=1):
@@ -416,13 +416,13 @@ class TestHelp_Output(unittest.TestCase):
         class SectionTitle(str, Enum):
             SYNCING = "Syncing with the remote"
 
-        tool = _make_tool(
+        command_line_tool =_make_command_line_tool(
             commands=cli_builder.make_command_group(
                 section_title=SectionTitle.SYNCING,
                 commands=[cli_builder.make_command(command_name="alpha", command_fn=_do_nothing)],
             ),
         )
-        help_text = _get_help(tool)
+        help_text = _get_help(command_line_tool)
         self.assertIn("Syncing with the remote", help_text)
         self.assertNotIn("SectionTitle", help_text)
 

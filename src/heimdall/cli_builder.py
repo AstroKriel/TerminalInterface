@@ -122,7 +122,7 @@ def _make_default_run_params(
 
 
 @dataclass(frozen=True)
-class Tool:
+class CommandLineTool:
     """
     One command line tool: its name, its commands, its flags, and how its output behaves.
 
@@ -200,19 +200,19 @@ _HELP_GAP_WIDTH = 2
 
 
 @final
-class _ToolHelp:
+class _CommandLineToolHelp:
     """The help screen of one tool; every row shares one column width."""
 
     def __init__(
         self,
-        tool: Tool,
+        command_line_tool: CommandLineTool,
     ) -> None:
-        self.tool = tool
+        self.command_line_tool = command_line_tool
         self.console = rich_Console(highlight=False)
-        self.all_flags = [_DRY_RUN_FLAG, *tool.flags]
+        self.all_flags = [_DRY_RUN_FLAG, *command_line_tool.flags]
         self.visible_commands = [
             (_command_name, _command_details)
-            for _command_name, _command_details in tool.commands
+            for _command_name, _command_details in command_line_tool.commands
             if not _command_details.is_hidden
         ]
         legend_labels = [
@@ -261,9 +261,9 @@ class _ToolHelp:
         self,
     ) -> None:
         usage_flags = " ".join(f"[{_flag.argument_name}]" for _flag in self.all_flags)
-        usage_text = shell_interface.escape_markup(f"{self.tool.name} {usage_flags} <command> [args]")
+        usage_text = shell_interface.escape_markup(f"{self.command_line_tool.name} {usage_flags} <command> [args]")
         self.console.print()
-        self.console.print(f"[bold]{self.tool.name}[/bold]: {self.tool.description}")
+        self.console.print(f"[bold]{self.command_line_tool.name}[/bold]: {self.command_line_tool.description}")
         self.console.print()
         self.console.print(f"[dim]usage:[/dim] {usage_text}")
 
@@ -333,11 +333,11 @@ class _ToolHelp:
 
 
 def _build_parser(
-    tool: Tool,
+    command_line_tool: CommandLineTool,
 ) -> argparse.ArgumentParser:
     argument_parser = argparse.ArgumentParser(
-        prog=tool.name,
-        description=tool.description,
+        prog=command_line_tool.name,
+        description=command_line_tool.description,
         add_help=False,
     )
     argument_parser.add_argument(
@@ -345,14 +345,14 @@ def _build_parser(
         "--help",
         action="store_true",
     )
-    for flag in [_DRY_RUN_FLAG, *tool.flags]:
+    for flag in [_DRY_RUN_FLAG, *command_line_tool.flags]:
         argument_parser.add_argument(flag.argument_name, **flag.argparse_keyword_arguments)
     subparsers = argument_parser.add_subparsers(
         dest="command",
         required=False,
         metavar="<command>",
     )
-    for command_name, command_details in dict(tool.commands).items():
+    for command_name, command_details in dict(command_line_tool.commands).items():
         subparser = subparsers.add_parser(command_name, help=command_details.command_help)
         for command_argument in command_details.command_arguments:
             subparser.add_argument(command_argument.argument_name, **command_argument.argparse_keyword_arguments)
@@ -360,32 +360,32 @@ def _build_parser(
 
 
 def _ensure_visible_commands_grouped(
-    tool: Tool,
+    command_line_tool: CommandLineTool,
 ) -> None:
-    for command_name, command_details in tool.commands:
+    for command_name, command_details in command_line_tool.commands:
         if not command_details.is_hidden and command_details.section_title is None:
             raise ValueError(f"command `{command_name}` must be hidden or in a command group.")
 
 
 def run_cli(
     *,
-    tool: Tool,
+    command_line_tool: CommandLineTool,
     argv: Sequence[str] | None = None,
 ) -> None:
     """Parse argv (default: `sys.argv`), build the run params, start output for the run, and dispatch one subcommand."""
-    _ensure_visible_commands_grouped(tool)
-    parsed_arguments = _build_parser(tool).parse_args(argv)
+    _ensure_visible_commands_grouped(command_line_tool)
+    parsed_arguments = _build_parser(command_line_tool).parse_args(argv)
     if parsed_arguments.help or parsed_arguments.command is None:
-        tool_help = _ToolHelp(tool)
-        tool_help.print_help()
+        command_line_tool_help = _CommandLineToolHelp(command_line_tool)
+        command_line_tool_help.print_help()
         return
-    run_params = tool.make_run_params(parsed_arguments)
+    run_params = command_line_tool.make_run_params(parsed_arguments)
     _terminal_output.set_output_params(
-        show_timestamps=tool.show_timestamps,
-        record_path=tool.record_path,
+        show_timestamps=command_line_tool.show_timestamps,
+        record_path=command_line_tool.record_path,
         dry_run=run_params.dry_run,
     )
-    selected_command_details = dict(tool.commands)[parsed_arguments.command]
+    selected_command_details = dict(command_line_tool.commands)[parsed_arguments.command]
     try:
         selected_command_details.call(
             run_params=run_params,

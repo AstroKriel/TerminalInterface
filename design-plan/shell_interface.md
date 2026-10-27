@@ -105,7 +105,7 @@ The two `capture_output` runners strip surrounding whitespace, because their out
 
 ## Output for One Run
 
-The entry point sets these once per process, from the fields of the `Tool`. Timestamps and the record serve tools that keep a history of what they did to a machine.
+The entry point sets these once per process, from the fields of the `CommandLineTool`. Timestamps and the record serve tools that keep a history of what they did to a machine.
 
 | Feature | Detail | State |
 |---|---|---|
