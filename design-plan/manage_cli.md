@@ -1,6 +1,6 @@
-# cli_builder
+# manage_cli
 
-Design notes for `heimdall.cli_builder`: describing a tool and its subcommands once, and getting argument parsing, grouped help, and flags from that description.
+Design notes for `heimdall.manage_cli`: describing a tool and its subcommands once, and getting argument parsing, grouped help, and flags from that description.
 
 ---
 

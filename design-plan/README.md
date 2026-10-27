@@ -49,8 +49,9 @@ A feature belongs here only if it is about the terminal and at least two tools n
 
 | Note | Covers |
 |---|---|
-| [`<terminal-interface>/design-plan/shell_interface.md`](shell_interface.md) | run params, output functions, message types, command runners, timestamps, and the log |
-| [`<terminal-interface>/design-plan/cli_builder.md`](cli_builder.md) | subcommand descriptions, the tool, flags, grouped help, and the entry point |
+| [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md) | output functions, message types, timestamps, and the log |
+| [`<terminal-interface>/design-plan/manage_shell.md`](manage_shell.md) | run params and command runners |
+| [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md) | subcommand descriptions, the tool, flags, grouped help, and the entry point |
 | [`<terminal-interface>/design-plan/adopting.md`](adopting.md) | how an existing tool moves onto this package, and how it pins a version |
 
 ---
@@ -64,16 +65,17 @@ TerminalInterface/
 ├── design-plan/  # these notes
 ├── src/
 │   └── heimdall/
-│       ├── _terminal_output.py  # private core: palette, message types, consoles, the output params, timestamps, rendering, writing, and the log
-│       ├── shell_interface.py  # run params, output functions, command runners
-│       └── cli_builder.py  # subcommand interface and grouped help
+│       ├── _manage_terminal.py  # private core: palette, message types, consoles, the output params, timestamps, rendering, writing, and the log
+│       ├── manage_log.py  # output functions
+│       ├── manage_shell.py  # run params and command runners
+│       └── manage_cli.py  # subcommand interface and grouped help
 └── utests/
 ```
 
 | Decision | Detail | State |
 |---|---|---|
-| Package name | `heimdall`, so imports read `from heimdall import shell_interface` | decided |
+| Package name | `heimdall`, so imports read `from heimdall import manage_log, manage_shell` | decided |
 | Python | `>=3.11`, the oldest version any planned user declares; tests run on 3.11 and 3.14 | decided |
-| Module names | `shell_interface` keeps the name tools already import | decided |
-| Private core | `_terminal_output` holds everything both public modules share, so a later message layer can be added as its own module on the same palette, consoles, and log without touching `shell_interface` | decided |
+| Module names | `manage_<noun>`, matching the jormi modules expected to move in (`manage_log`, `manage_shell`), so that move merges into same-named modules; output functions and command runners are separate modules, as in jormi | decided |
+| Private core | `_manage_terminal` holds everything the public modules share, so neither public module depends on another, and a later message layer can be added on the same palette, consoles, and log | decided |
 | First version | the existing terminal layer, generalised in three places, plus the additions described in the module notes: runners named for what happens to their output, `working_directory` on every runner, `query_command_and_capture_outcome`, quoted command printing, timestamps, and the log | decided |

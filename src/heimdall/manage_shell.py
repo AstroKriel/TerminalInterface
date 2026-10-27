@@ -7,15 +7,11 @@
 ## stdlib
 import shlex
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import NoReturn
 
 ## local
-from heimdall import _terminal_output
-from heimdall._terminal_output import OutcomeStatus as OutcomeStatus
-from heimdall._terminal_output import escape_markup as escape_markup
+from heimdall import _manage_terminal
 
 ##
 ## === PARAMS
@@ -26,99 +22,6 @@ from heimdall._terminal_output import escape_markup as escape_markup
 class RunParams:
     """Options for one run of a tool; tools subclass it to add their own flags."""
     dry_run: bool = False
-
-
-##
-## === OUTPUT
-## message text is rich markup; anything added here (commands, resolved values) is escaped.
-##
-
-
-def _write_message(
-    *,
-    message_style: _terminal_output.MessageStyle,
-    text_markup: str,
-    colour_whole_line: bool,
-) -> None:
-    line_markup = _terminal_output.render_line(
-        symbol=message_style.symbol,
-        colour=message_style.colour,
-        text_markup=text_markup,
-        colour_whole_line=colour_whole_line,
-    )
-    _terminal_output.write_line(line_markup)
-
-
-def log_note(
-    text: str,
-) -> None:
-    """Note something about the work that is neither a task nor an outcome."""
-    _write_message(
-        message_style=_terminal_output.NOTE_STYLE,
-        text_markup=text,
-        colour_whole_line=False,
-    )
-
-
-def log_task(
-    text: str,
-) -> None:
-    """Announce a task that is starting."""
-    _write_message(
-        message_style=_terminal_output.TASK_STYLE,
-        text_markup=text,
-        colour_whole_line=False,
-    )
-
-
-def log_outcome(
-    text: str,
-    *,
-    status: OutcomeStatus,
-) -> None:
-    """Report how a task or action ended; the status sets the colour and is never assumed."""
-    _write_message(
-        message_style=status.value,
-        text_markup=text,
-        colour_whole_line=True,
-    )
-
-
-def log_value(
-    *,
-    name: str,
-    value: str,
-) -> None:
-    """Report a value that an action produced, by inspecting or by changing the system; the value prints exactly as written."""
-    _write_message(
-        message_style=_terminal_output.OutcomeContent.VALUE.value,
-        text_markup=escape_markup(f"{name} = {value}"),
-        colour_whole_line=True,
-    )
-
-
-def log_result(
-    text: str,
-) -> None:
-    """Print a result for the user or a pipe: plain text on stdout, with no symbol, colour, timestamp, or wrapping."""
-    _terminal_output.write_line(
-        text,
-        is_result=True,
-    )
-
-
-def exit_with_error(
-    text: str,
-    *,
-    exit_code: int = 1,
-) -> NoReturn:
-    """Report an error that ends the run, then exit the process with `exit_code`."""
-    _write_message(
-        message_style=OutcomeStatus.ERROR.value,
-        text_markup=f"error: {text}",
-        colour_whole_line=True,
-    )
-    sys.exit(exit_code)
 
 
 ##
@@ -147,23 +50,23 @@ class CommandOutcome:
 
 def _write_command(
     *,
-    action: _terminal_output.Action,
+    action: _manage_terminal.Action,
     command: list[str],
     is_skipped: bool = False,
 ) -> None:
     """Write a command with the symbol of its action; a command skipped in dry-run takes the colour of the skipped status."""
     colour = action.value.colour
-    command_markup = escape_markup(shlex.join(command))
+    command_markup = _manage_terminal.escape_markup(shlex.join(command))
     if is_skipped:
-        colour = OutcomeStatus.SKIPPED.value.colour
+        colour = _manage_terminal.OutcomeStatus.SKIPPED.value.colour
         command_markup = f"(dry-run) skipped: {command_markup}"
-    line_markup = _terminal_output.render_line(
+    line_markup = _manage_terminal.render_line(
         symbol=action.value.symbol,
         colour=colour,
         text_markup=command_markup,
         colour_whole_line=True,
     )
-    _terminal_output.write_line(line_markup)
+    _manage_terminal.write_line(line_markup)
 
 
 def run_command_and_show_output(
@@ -180,13 +83,13 @@ def run_command_and_show_output(
     """
     if run_params.dry_run:
         _write_command(
-            action=_terminal_output.Action.CHANGE,
+            action=_manage_terminal.Action.CHANGE,
             command=command,
             is_skipped=True,
         )
         return True
     _write_command(
-        action=_terminal_output.Action.CHANGE,
+        action=_manage_terminal.Action.CHANGE,
         command=command,
     )
     result = subprocess.run(
@@ -215,13 +118,13 @@ def run_command_and_capture_output(
     """
     if run_params.dry_run:
         _write_command(
-            action=_terminal_output.Action.CHANGE,
+            action=_manage_terminal.Action.CHANGE,
             command=command,
             is_skipped=True,
         )
         return ""
     _write_command(
-        action=_terminal_output.Action.CHANGE,
+        action=_manage_terminal.Action.CHANGE,
         command=command,
     )
     result = subprocess.run(
@@ -246,7 +149,7 @@ def query_command_and_capture_output(
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _write_command(
-        action=_terminal_output.Action.INSPECTION,
+        action=_manage_terminal.Action.INSPECTION,
         command=command,
     )
     result = subprocess.run(
@@ -276,7 +179,7 @@ def query_command_and_capture_outcome(
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _write_command(
-        action=_terminal_output.Action.INSPECTION,
+        action=_manage_terminal.Action.INSPECTION,
         command=command,
     )
     try:

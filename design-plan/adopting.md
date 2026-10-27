@@ -9,9 +9,9 @@ Design notes for moving an existing tool onto `heimdall`, and for keeping each t
 A tool moves over on its own branch. The goal is identical behaviour, so every step is checkable.
 
 1. Add `heimdall` as a dependency, pinned to a commit (see [Pinning](#pinning)).
-2. Replace the import of the terminal module of the tool with `from heimdall import shell_interface`; output call sites stay unchanged.
+2. Replace the import of the terminal module of the tool with `from heimdall import manage_log, manage_shell`; output calls go through `manage_log` and runner calls through `manage_shell`.
 3. If the tool has flags beyond `--dry-run`, subclass `RunParams` with them, frozen like the base.
-4. Rename mechanically: the `config` parameter of every command function becomes `run_params`, every runner call uses the new runner name (see [Runner names](#runner-names)) and passes `run_params=`, `command=`, and `working_directory=` (was `cwd=`) by keyword, `cli_command` and `command_group` become `make_command` and `make_command_group` with `command_*` keywords, the argument type becomes `CommandArgument` with the field names in [`<terminal-interface>/design-plan/cli_builder.md`](cli_builder.md) (`nargs` strings become `ValueCount` members), and every command function takes its arguments keyword-only, named after their argparse destinations.
+4. Rename mechanically: the `config` parameter of every command function becomes `run_params`, every runner call uses the new runner name (see [Runner names](#runner-names)) and passes `run_params=`, `command=`, and `working_directory=` (was `cwd=`) by keyword, `cli_command` and `command_group` become `make_command` and `make_command_group` with `command_*` keywords, the argument type becomes `CommandArgument` with the field names in [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md) (`nargs` strings become `ValueCount` members), and every command function takes its arguments keyword-only, named after their argparse destinations.
 5. Replace the entry point of the tool with a `CommandLineTool` and a call to `run_cli`.
 6. Delete the copy of the terminal layer that the tool kept.
 7. Check: the tests of the tool pass after the mechanical rename, and the help output before and after lists the same commands, flags, and help text in the same order.

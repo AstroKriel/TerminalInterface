@@ -18,7 +18,7 @@ from typing import Any, final
 from rich.console import Console as rich_Console
 
 ## local
-from heimdall import _terminal_output, shell_interface
+from heimdall import _manage_terminal, manage_log, manage_shell
 
 ##
 ## === DATA STRUCTURES
@@ -91,7 +91,7 @@ class Command:
     def call(
         self,
         *,
-        run_params: shell_interface.RunParams,
+        run_params: manage_shell.RunParams,
         parsed_arguments: argparse.Namespace,
     ) -> None:
         """Call `command_fn` with `run_params` and each argument by its argparse name, all as keywords."""
@@ -112,8 +112,8 @@ class Command:
 
 def _make_default_run_params(
     parsed_arguments: argparse.Namespace,
-) -> shell_interface.RunParams:
-    return shell_interface.RunParams(dry_run=parsed_arguments.dry_run)
+) -> manage_shell.RunParams:
+    return manage_shell.RunParams(dry_run=parsed_arguments.dry_run)
 
 
 @dataclass(frozen=True)
@@ -136,7 +136,7 @@ class CommandLineTool:
     description: str
     commands: list[Command]
     flags: list[CommandArgument] = field(default_factory=list)
-    make_run_params: Callable[[argparse.Namespace], shell_interface.RunParams] = _make_default_run_params
+    make_run_params: Callable[[argparse.Namespace], manage_shell.RunParams] = _make_default_run_params
     show_timestamps: bool = False
     log_path: Path | None = None
 
@@ -205,7 +205,7 @@ class _CommandLineToolHelp:
         self.visible_commands = [_command for _command in command_line_tool.commands if not _command.is_hidden]
         legend_labels = [
             self._get_legend_label(_message_style)
-            for _message_group in _terminal_output.MESSAGE_GROUPS
+            for _message_group in _manage_terminal.MESSAGE_GROUPS
             for _message_style in _message_group.grouped_message_styles
         ]
         all_labels = [
@@ -225,7 +225,7 @@ class _CommandLineToolHelp:
 
     @staticmethod
     def _get_legend_label(
-        message_style: _terminal_output.MessageStyle,
+        message_style: _manage_terminal.MessageStyle,
     ) -> str:
         """The symbol and colour name, e.g. `● green`; `plain` for a line with neither."""
         if message_style.symbol is None or message_style.colour is None:
@@ -249,7 +249,7 @@ class _CommandLineToolHelp:
         self,
     ) -> None:
         usage_flags = " ".join(f"[{_flag.argument_name}]" for _flag in self.all_flags)
-        usage_text = shell_interface.escape_markup(f"{self.command_line_tool.name} {usage_flags} <command> [args]")
+        usage_text = manage_log.escape_markup(f"{self.command_line_tool.name} {usage_flags} <command> [args]")
         self.console.print()
         self.console.print(f"[bold]{self.command_line_tool.name}[/bold]: {self.command_line_tool.description}")
         self.console.print()
@@ -268,7 +268,7 @@ class _CommandLineToolHelp:
                 current_section = section_title
             self._print_row(
                 label=command.command_name,
-                label_style=_terminal_output.Colour.CYAN.value,
+                label_style=_manage_terminal.Colour.CYAN.value,
                 description=command.command_help,
             )
 
@@ -283,7 +283,7 @@ class _CommandLineToolHelp:
                 flag_help = ""
             self._print_row(
                 label=flag.argument_name,
-                label_style=_terminal_output.Colour.CYAN.value,
+                label_style=_manage_terminal.Colour.CYAN.value,
                 description=flag_help,
             )
 
@@ -292,7 +292,7 @@ class _CommandLineToolHelp:
     ) -> None:
         self.console.print()
         self.console.print("[bold]Output legend[/bold]")
-        for message_group in _terminal_output.MESSAGE_GROUPS:
+        for message_group in _manage_terminal.MESSAGE_GROUPS:
             self.console.print(f"{_MESSAGE_GROUP_INDENT}[dim]{message_group.title}[/dim]")
             for message_style in message_group.grouped_message_styles:
                 legend_colour = None
@@ -368,7 +368,7 @@ def run_cli(
         command_line_tool_help.print_help()
         return
     run_params = command_line_tool.make_run_params(parsed_arguments)
-    _terminal_output.set_output_params(
+    _manage_terminal.set_output_params(
         show_timestamps=command_line_tool.show_timestamps,
         log_path=command_line_tool.log_path,
         dry_run=run_params.dry_run,
@@ -382,8 +382,8 @@ def run_cli(
         )
     except subprocess.CalledProcessError as process_error:
         failed_command = shlex.join(process_error.cmd)
-        shell_interface.exit_with_error(
-            shell_interface.escape_markup(f"`{failed_command}` failed with exit status {process_error.returncode}."),
+        manage_log.exit_with_error(
+            manage_log.escape_markup(f"`{failed_command}` failed with exit status {process_error.returncode}."),
             exit_code=process_error.returncode,
         )
 
