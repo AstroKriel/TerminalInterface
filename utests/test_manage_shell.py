@@ -32,13 +32,20 @@ class TestRunParams_Defaults(unittest.TestCase):
     def test_subclass_passes_through_runners(
         self,
     ) -> None:
+
         @dataclasses.dataclass(frozen=True)
         class ToolRunParams(manage_shell.RunParams):
             allow_dirty: bool = False
 
-        tool_run_params = ToolRunParams(dry_run=True, allow_dirty=True)
+        tool_run_params = ToolRunParams(
+            dry_run=True,
+            allow_dirty=True,
+        )
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
-            manage_shell.run_command_and_show_output(run_params=tool_run_params, command=["git", "push"])
+            manage_shell.run_command_and_show_output(
+                run_params=tool_run_params,
+                command=["git", "push"],
+            )
         mock_run.assert_not_called()
 
 
@@ -56,14 +63,20 @@ class TestPrintedCommands_Quoting(unittest.TestCase):
     ) -> str:
         stderr_buffer = io.StringIO()
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
-            mock_run.return_value = mock.MagicMock(stdout="", returncode=0)
+            mock_run.return_value = mock.MagicMock(
+                stdout="",
+                returncode=0,
+            )
             manage_shell.query_command_and_capture_output(command=command)
         return stderr_buffer.getvalue()
 
     def test_argument_with_spaces_is_quoted(
         self,
     ) -> None:
-        self.assertEqual(self._print_query(["git", "commit", "-m", "a message"]), "→ git commit -m 'a message'\n")
+        self.assertEqual(
+            self._print_query(["git", "commit", "-m", "a message"]),
+            "→ git commit -m 'a message'\n",
+        )
 
     def test_brackets_in_arguments_print_literally(
         self,
@@ -107,8 +120,9 @@ class TestRunCommandAndShowOutput_Behaviour(unittest.TestCase):
         self,
     ) -> None:
         with (
-            mock.patch.object(_manage_terminal, "render_line", wraps=_manage_terminal.render_line) as mock_render_line,
-            contextlib.redirect_stderr(io.StringIO()),
+                mock.patch.object(_manage_terminal, "render_line", wraps=_manage_terminal.render_line) as
+                mock_render_line,
+                contextlib.redirect_stderr(io.StringIO()),
         ):
             manage_shell.run_command_and_show_output(
                 run_params=manage_shell.RunParams(dry_run=True),
@@ -136,7 +150,10 @@ class TestRunCommandAndShowOutput_Behaviour(unittest.TestCase):
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
-            manage_shell.run_command_and_show_output(run_params=manage_shell.RunParams(), command=["false"])
+            manage_shell.run_command_and_show_output(
+                run_params=manage_shell.RunParams(),
+                command=["false"],
+            )
 
     def test_failure_returns_false_when_not_raising(
         self,
@@ -167,7 +184,10 @@ class TestRunCommandAndCaptureOutput_Behaviour(unittest.TestCase):
         self,
     ) -> None:
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
-            mock_run.return_value = mock.MagicMock(stdout="3\n", returncode=0)
+            mock_run.return_value = mock.MagicMock(
+                stdout="3\n",
+                returncode=0,
+            )
             captured_output = manage_shell.run_command_and_capture_output(
                 run_params=manage_shell.RunParams(),
                 command=["git", "rev-list", "--count", "HEAD"],
@@ -189,15 +209,24 @@ class TestQueryCommandAndCaptureOutput_Behaviour(unittest.TestCase):
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
-            query_output = manage_shell.query_command_and_capture_output(command=["false"], raise_error=False)
+            query_output = manage_shell.query_command_and_capture_output(
+                command=["false"],
+                raise_error=False,
+            )
         self.assertEqual(query_output, "")
 
     def test_passes_working_directory(
         self,
     ) -> None:
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
-            mock_run.return_value = mock.MagicMock(stdout="main\n", returncode=0)
-            manage_shell.query_command_and_capture_output(command=["git", "branch", "--show-current"], working_directory=Path("/tmp"))
+            mock_run.return_value = mock.MagicMock(
+                stdout="main\n",
+                returncode=0,
+            )
+            manage_shell.query_command_and_capture_output(
+                command=["git", "branch", "--show-current"],
+                working_directory=Path("/tmp"),
+            )
         self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))
 
 
@@ -216,7 +245,10 @@ class TestQueryCommandAndCaptureOutcome_Outcome(unittest.TestCase):
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
-            command_outcome = manage_shell.query_command_and_capture_outcome(command=["echo", "a b"], working_directory=self.working_directory)
+            command_outcome = manage_shell.query_command_and_capture_outcome(
+                command=["echo", "a b"],
+                working_directory=self.working_directory,
+            )
         self.assertEqual(command_outcome.command, "echo 'a b'")
         self.assertEqual(command_outcome.working_directory, self.working_directory)
         self.assertEqual(command_outcome.stdout, "a b\n")
@@ -233,7 +265,9 @@ class TestQueryCommandAndCaptureOutcome_Outcome(unittest.TestCase):
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
-            command_outcome = manage_shell.query_command_and_capture_outcome(command=["heimdall-no-such-program"])
+            command_outcome = manage_shell.query_command_and_capture_outcome(
+                command=["heimdall-no-such-program"],
+            )
         self.assertEqual(command_outcome.exit_code, 127)
         self.assertEqual(command_outcome.stderr, "command not found: `heimdall-no-such-program`.")
 
@@ -254,7 +288,10 @@ class TestQueryCommandAndDiscardOutput_Behaviour(unittest.TestCase):
     ) -> None:
         with mock.patch("subprocess.run") as mock_run:
             mock_run.return_value = mock.MagicMock(returncode=0)
-            manage_shell.query_command_and_discard_output(command=["true"], working_directory=Path("/tmp"))
+            manage_shell.query_command_and_discard_output(
+                command=["true"],
+                working_directory=Path("/tmp"),
+            )
         self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))
 
 

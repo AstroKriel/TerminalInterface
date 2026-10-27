@@ -202,7 +202,9 @@ class _CommandLineToolHelp:
         self.command_line_tool = command_line_tool
         self.console = rich_Console(highlight=False)
         self.all_flags = [_DRY_RUN_FLAG, *command_line_tool.flags]
-        self.visible_commands = [_command for _command in command_line_tool.commands if not _command.is_hidden]
+        self.visible_commands = [
+            _command for _command in command_line_tool.commands if not _command.is_hidden
+        ]
         legend_labels = [
             self._get_legend_label(_message_style)
             for _message_group in _manage_terminal.MESSAGE_GROUPS
@@ -251,7 +253,9 @@ class _CommandLineToolHelp:
         usage_flags = " ".join(f"[{_flag.argument_name}]" for _flag in self.all_flags)
         usage_text = manage_log.escape_markup(f"{self.command_line_tool.name} {usage_flags} <command> [args]")
         self.console.print()
-        self.console.print(f"[bold]{self.command_line_tool.name}[/bold]: {self.command_line_tool.description}")
+        self.console.print(
+            f"[bold]{self.command_line_tool.name}[/bold]: {self.command_line_tool.description}",
+        )
         self.console.print()
         self.console.print(f"[dim]usage:[/dim] {usage_text}")
 
@@ -343,7 +347,10 @@ def _build_parser(
     for command in command_line_tool.commands:
         subparser = subparsers.add_parser(command.command_name, help=command.command_help)
         for command_argument in command.command_arguments:
-            subparser.add_argument(command_argument.argument_name, **command_argument.argparse_keyword_arguments)
+            subparser.add_argument(
+                command_argument.argument_name,
+                **command_argument.argparse_keyword_arguments,
+            )
     return argument_parser
 
 
@@ -382,8 +389,11 @@ def run_cli(
         )
     except subprocess.CalledProcessError as process_error:
         failed_command = shlex.join(process_error.cmd)
+        failure_text = manage_log.escape_markup(
+            f"`{failed_command}` failed with exit status {process_error.returncode}.",
+        )
         manage_log.exit_with_error(
-            manage_log.escape_markup(f"`{failed_command}` failed with exit status {process_error.returncode}."),
+            failure_text,
             exit_code=process_error.returncode,
         )
 

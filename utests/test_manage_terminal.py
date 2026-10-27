@@ -34,8 +34,8 @@ class TestLegend_Groups(unittest.TestCase):
         self,
     ) -> None:
         tasks_group, notes_group, actions_group, outcomes_group = _manage_terminal.MESSAGE_GROUPS
-        self.assertEqual(tasks_group.grouped_message_styles, (_manage_terminal.TASK_STYLE,))
-        self.assertEqual(notes_group.grouped_message_styles, (_manage_terminal.NOTE_STYLE,))
+        self.assertEqual(tasks_group.grouped_message_styles, (_manage_terminal.TASK_STYLE, ))
+        self.assertEqual(notes_group.grouped_message_styles, (_manage_terminal.NOTE_STYLE, ))
         for action in _manage_terminal.Action:
             self.assertIn(action.value, actions_group.grouped_message_styles)
         for outcome_status in _manage_terminal.OutcomeStatus:

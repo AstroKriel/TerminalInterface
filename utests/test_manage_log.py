@@ -68,7 +68,10 @@ class TestLogFunctions_Output(unittest.TestCase):
         self,
     ) -> None:
         _, stderr_text = self._capture(
-            lambda: manage_log.log_value(name="pattern", value="[bold]x"),
+            lambda: manage_log.log_value(
+                name="pattern",
+                value="[bold]x",
+            ),
         )
         self.assertEqual(stderr_text, "· pattern = [bold]x\n")
 

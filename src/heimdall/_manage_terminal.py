@@ -152,11 +152,11 @@ class MessageGroup:
 MESSAGE_GROUPS: list[MessageGroup] = [
     MessageGroup(
         title="Tasks",
-        grouped_message_styles=(TASK_STYLE,),
+        grouped_message_styles=(TASK_STYLE, ),
     ),
     MessageGroup(
         title="Notes",
-        grouped_message_styles=(NOTE_STYLE,),
+        grouped_message_styles=(NOTE_STYLE, ),
     ),
     MessageGroup(
         title="Actions",
@@ -170,7 +170,6 @@ MESSAGE_GROUPS: list[MessageGroup] = [
         ),
     ),
 ]
-
 
 ##
 ## === OUTPUT PARAMS

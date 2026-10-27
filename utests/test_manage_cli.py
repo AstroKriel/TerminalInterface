@@ -51,7 +51,10 @@ def _get_help(
 ) -> str:
     stdout_buffer = io.StringIO()
     with contextlib.redirect_stdout(stdout_buffer), contextlib.suppress(SystemExit):
-        manage_cli.run_cli(command_line_tool=command_line_tool, argv=["--help"])
+        manage_cli.run_cli(
+            command_line_tool=command_line_tool,
+            argv=["--help"],
+        )
     return stdout_buffer.getvalue()
 
 
@@ -164,7 +167,10 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
                 command_arguments=[manage_cli.CommandArgument(argument_name="--base")],
             ),
         )
-        manage_cli.run_cli(command_line_tool=command_line_tool, argv=["go"])
+        manage_cli.run_cli(
+            command_line_tool=command_line_tool,
+            argv=["go"],
+        )
         self.assertEqual(received, [None])
 
     def test_value_count_collects_every_value(
@@ -189,7 +195,10 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
                 command_arguments=[paths_argument],
             ),
         )
-        manage_cli.run_cli(command_line_tool=command_line_tool, argv=["go", "a", "b"])
+        manage_cli.run_cli(
+            command_line_tool=command_line_tool,
+            argv=["go", "a", "b"],
+        )
         self.assertEqual(received, [["a", "b"]])
 
 
@@ -201,8 +210,14 @@ class TestCommandGroup_SectionStamping(unittest.TestCase):
         commands = manage_cli.make_command_group(
             section_title="Syncing",
             commands=[
-                manage_cli.make_command(command_name="alpha", command_fn=_do_nothing),
-                manage_cli.make_command(command_name="beta", command_fn=_do_nothing),
+                manage_cli.make_command(
+                    command_name="alpha",
+                    command_fn=_do_nothing,
+                ),
+                manage_cli.make_command(
+                    command_name="beta",
+                    command_fn=_do_nothing,
+                ),
             ],
         )
         self.assertEqual([_command.command_name for _command in commands], ["alpha", "beta"])
@@ -229,7 +244,10 @@ class TestRunCli_Dispatch(unittest.TestCase):
             received.append(run_params)
 
         command_line_tool = _make_command_line_tool(commands=_make_go_command(record_run_params))
-        manage_cli.run_cli(command_line_tool=command_line_tool, argv=["--dry-run", "go"])
+        manage_cli.run_cli(
+            command_line_tool=command_line_tool,
+            argv=["--dry-run", "go"],
+        )
         self.assertEqual(received, [manage_shell.RunParams(dry_run=True)])
 
     def test_extra_flag_reaches_run_params(
@@ -247,34 +265,67 @@ class TestRunCli_Dispatch(unittest.TestCase):
             name="tool",
             description="a tool",
             commands=_make_go_command(record_run_params),
-            flags=[manage_cli.CommandArgument(argument_name="--allow-dirty", is_switch=True)],
+            flags=[
+                manage_cli.CommandArgument(
+                    argument_name="--allow-dirty",
+                    is_switch=True,
+                ),
+            ],
             make_run_params=_make_command_line_tool_run_params,
         )
-        manage_cli.run_cli(command_line_tool=command_line_tool, argv=["--allow-dirty", "go"])
-        self.assertEqual(received, [_ToolRunParams(dry_run=False, allow_dirty=True)])
+        manage_cli.run_cli(
+            command_line_tool=command_line_tool,
+            argv=["--allow-dirty", "go"],
+        )
+        self.assertEqual(
+            received,
+            [
+                _ToolRunParams(
+                    dry_run=False,
+                    allow_dirty=True,
+                ),
+            ],
+        )
 
     def test_failed_command_exits_with_its_return_code(
         self,
     ) -> None:
+
         def fail(
             *,
             run_params: manage_shell.RunParams,
         ) -> None:
-            raise subprocess.CalledProcessError(returncode=3, cmd=["false"])
+            raise subprocess.CalledProcessError(
+                returncode=3,
+                cmd=["false"],
+            )
 
         command_line_tool = _make_command_line_tool(commands=_make_go_command(fail))
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
-            manage_cli.run_cli(command_line_tool=command_line_tool, argv=["go"])
+            manage_cli.run_cli(
+                command_line_tool=command_line_tool,
+                argv=["go"],
+            )
         self.assertEqual(exit_context.exception.code, 3)
         self.assertEqual(stderr_buffer.getvalue(), "● error: `false` failed with exit status 3.\n")
 
     def test_visible_command_outside_a_group_is_rejected(
         self,
     ) -> None:
-        command_line_tool = _make_command_line_tool(commands=[manage_cli.make_command(command_name="loose", command_fn=_do_nothing)])
+        command_line_tool = _make_command_line_tool(
+            commands=[
+                manage_cli.make_command(
+                    command_name="loose",
+                    command_fn=_do_nothing,
+                ),
+            ],
+        )
         with self.assertRaises(ValueError):
-            manage_cli.run_cli(command_line_tool=command_line_tool, argv=["loose"])
+            manage_cli.run_cli(
+                command_line_tool=command_line_tool,
+                argv=["loose"],
+            )
 
     def test_log_is_started_from_the_tool(
         self,
@@ -296,7 +347,10 @@ class TestRunCli_Dispatch(unittest.TestCase):
             log_path=log_path,
         )
         with contextlib.redirect_stderr(io.StringIO()):
-            manage_cli.run_cli(command_line_tool=command_line_tool, argv=["go"])
+            manage_cli.run_cli(
+                command_line_tool=command_line_tool,
+                argv=["go"],
+            )
         self.assertIn("○ logged", log_path.read_text())
 
 
@@ -308,7 +362,13 @@ class TestHelp_Output(unittest.TestCase):
         return _make_command_line_tool(
             commands=manage_cli.make_command_group(
                 section_title="Syncing",
-                commands=[manage_cli.make_command(command_name="alpha", command_fn=_do_nothing, command_help="does alpha")],
+                commands=[
+                    manage_cli.make_command(
+                        command_name="alpha",
+                        command_fn=_do_nothing,
+                        command_help="does alpha",
+                    ),
+                ],
             ),
         )
 
@@ -325,7 +385,10 @@ class TestHelp_Output(unittest.TestCase):
     ) -> None:
         stdout_buffer = io.StringIO()
         with contextlib.redirect_stdout(stdout_buffer):
-            manage_cli.run_cli(command_line_tool=self._make_syncing_command_line_tool(), argv=[])
+            manage_cli.run_cli(
+                command_line_tool=self._make_syncing_command_line_tool(),
+                argv=[],
+            )
         self.assertIn("usage: tool [--dry-run] <command> [args]", stdout_buffer.getvalue())
 
     def test_separates_with_spaces_only(
@@ -368,9 +431,18 @@ class TestHelp_Output(unittest.TestCase):
             commands=[
                 *manage_cli.make_command_group(
                     section_title="Shown",
-                    commands=[manage_cli.make_command(command_name="visible", command_fn=_do_nothing)],
+                    commands=[
+                        manage_cli.make_command(
+                            command_name="visible",
+                            command_fn=_do_nothing,
+                        ),
+                    ],
                 ),
-                manage_cli.make_command(command_name="secret", command_fn=_do_nothing, is_hidden=True),
+                manage_cli.make_command(
+                    command_name="secret",
+                    command_fn=_do_nothing,
+                    is_hidden=True,
+                ),
             ],
         )
         help_text = _get_help(command_line_tool)
@@ -382,7 +454,13 @@ class TestHelp_Output(unittest.TestCase):
     ) -> None:
         command_line_tool = _make_command_line_tool(
             commands=[],
-            flags=[manage_cli.CommandArgument(argument_name="--allow-dirty", is_switch=True, argument_help="skip the check")],
+            flags=[
+                manage_cli.CommandArgument(
+                    argument_name="--allow-dirty",
+                    is_switch=True,
+                    argument_help="skip the check",
+                ),
+            ],
         )
         help_text = _get_help(command_line_tool)
         self.assertIn("usage: tool [--dry-run] [--allow-dirty] <command> [args]", help_text)
@@ -413,13 +491,19 @@ class TestHelp_Output(unittest.TestCase):
     def test_str_enum_section_titles_print_their_value(
         self,
     ) -> None:
+
         class SectionTitle(str, Enum):
             SYNCING = "Syncing with the remote"
 
         command_line_tool = _make_command_line_tool(
             commands=manage_cli.make_command_group(
                 section_title=SectionTitle.SYNCING,
-                commands=[manage_cli.make_command(command_name="alpha", command_fn=_do_nothing)],
+                commands=[
+                    manage_cli.make_command(
+                        command_name="alpha",
+                        command_fn=_do_nothing,
+                    ),
+                ],
             ),
         )
         help_text = _get_help(command_line_tool)
