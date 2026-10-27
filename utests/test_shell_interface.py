@@ -199,7 +199,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
             )
         mock_run.assert_not_called()
         self.assertTrue(command_succeeded)
-        self.assertEqual(stderr_buffer.getvalue(), "→ (dryrun) skipped: git push\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ (dry-run) skipped: git push\n")
 
     def test_dry_run_line_uses_the_change_symbol_in_the_skipped_colour(
         self,

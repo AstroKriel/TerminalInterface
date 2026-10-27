@@ -58,12 +58,12 @@ An inspection exists to produce a value; a change exists to alter the system and
 
 | Function | Prints | Stream | State |
 |---|---|---|---|
-| `log_note(message)` | a note about the work, neither a task nor an outcome | narration | decided |
-| `log_task(message)` | a task starting | narration | decided |
-| `log_outcome(message, *, status)` | how a task or action ended; `status` is required, never assumed | narration | decided |
+| `log_note(text)` | a note about the work, neither a task nor an outcome | narration | decided |
+| `log_task(text)` | a task starting | narration | decided |
+| `log_outcome(text, *, status)` | how a task or action ended; `status` is required, never assumed | narration | decided |
 | `log_value(*, name, value)` | a value an action produced, as `name = value` | narration | decided |
-| `log_result(message)` | a result for the user or a pipe | stdout | decided |
-| `exit_with_error(message, *, exit_code=1)` | an error outcome, then exits with `exit_code` | narration | decided |
+| `log_result(text)` | a result for the user or a pipe | stdout | decided |
+| `exit_with_error(text, *, exit_code=1)` | an error outcome, then exits with `exit_code` | narration | decided |
 | `escape_markup(text)` | nothing; returns text that prints exactly as written | N/A | decided |
 
 `OutcomeStatus` is available as `shell_interface.OutcomeStatus`.

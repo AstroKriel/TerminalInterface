@@ -10,8 +10,8 @@ Design notes for `heimdall.cli_builder`: describing a tool and its subcommands o
 |---|---|---|
 | `CommandArgument` | one argument: a bare positional or a `--flag`, with `argument_name`, `value_type`, `default_value`, `value_placeholder`, `argument_help`, `is_switch`, `is_required`, and `value_count` | decided |
 | `ValueCount` | how many values an argument takes: `OPTIONAL`, `ANY`, or `AT_LEAST_ONE`, each holding the argparse symbol (`?`, `*`, `+`) | decided |
-| `make_command(command_name=..., command_fn=..., command_help=..., command_arguments=..., is_hidden=...)` | one entry in the command table | decided |
-| `make_command_group(section_title=..., commands=[...])` | stamps a section title onto a list of entries, so each group names its section once | decided |
+| `make_command(command_name=..., command_fn=..., command_help=..., command_arguments=..., is_hidden=...)` | builds one `Command`, a frozen dataclass holding the command name with everything else about it | decided |
+| `make_command_group(section_title=..., commands=[...])` | stamps a section title onto a list of commands, so each group names its section once | decided |
 | Ungrouped commands | a visible command must be in a group; `run_cli` rejects one that is not, so a command never drops out of help silently | decided |
 | Section titles | plain strings, so a tool does not need its own enum type; a `str` enum still works, since its values are strings | decided |
 | Hidden commands | registered and callable, left out of the help listing | decided |

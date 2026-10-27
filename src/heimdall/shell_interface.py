@@ -50,36 +50,36 @@ def _write_message(
 
 
 def log_note(
-    message: str,
+    text: str,
 ) -> None:
     """Note something about the work that is neither a task nor an outcome."""
     _write_message(
         message_style=_terminal_output.NOTE_STYLE,
-        text_markup=message,
+        text_markup=text,
         colour_whole_line=False,
     )
 
 
 def log_task(
-    message: str,
+    text: str,
 ) -> None:
     """Announce a task that is starting."""
     _write_message(
         message_style=_terminal_output.TASK_STYLE,
-        text_markup=message,
+        text_markup=text,
         colour_whole_line=False,
     )
 
 
 def log_outcome(
-    message: str,
+    text: str,
     *,
     status: OutcomeStatus,
 ) -> None:
     """Report how a task or action ended; the status sets the colour and is never assumed."""
     _write_message(
         message_style=status.value,
-        text_markup=message,
+        text_markup=text,
         colour_whole_line=True,
     )
 
@@ -98,24 +98,24 @@ def log_value(
 
 
 def log_result(
-    message: str,
+    text: str,
 ) -> None:
     """Print a result for the user or a pipe: plain text on stdout, with no symbol, colour, timestamp, or wrapping."""
     _terminal_output.write_line(
-        message,
+        text,
         is_result=True,
     )
 
 
 def exit_with_error(
-    message: str,
+    text: str,
     *,
     exit_code: int = 1,
 ) -> NoReturn:
     """Report an error that ends the run, then exit the process with `exit_code`."""
     _write_message(
         message_style=OutcomeStatus.ERROR.value,
-        text_markup=f"error: {message}",
+        text_markup=f"error: {text}",
         colour_whole_line=True,
     )
     sys.exit(exit_code)
@@ -145,21 +145,22 @@ class CommandOutcome:
         return self.exit_code == 0
 
 
-def _print_command(
+def _write_command(
     *,
     action: _terminal_output.Action,
     command: list[str],
-    outcome_status: OutcomeStatus | None = None,
-    command_prefix: str = "",
+    is_skipped: bool = False,
 ) -> None:
-    """Print a command with the symbol of its action, in the colour of its outcome status when it already has one."""
+    """Write a command with the symbol of its action; a command skipped in dry-run takes the colour of the skipped status."""
     colour = action.value.colour
-    if outcome_status is not None:
-        colour = outcome_status.value.colour
+    command_markup = escape_markup(shlex.join(command))
+    if is_skipped:
+        colour = OutcomeStatus.SKIPPED.value.colour
+        command_markup = f"(dry-run) skipped: {command_markup}"
     line_markup = _terminal_output.render_line(
         symbol=action.value.symbol,
         colour=colour,
-        text_markup=f"{command_prefix}{escape_markup(shlex.join(command))}",
+        text_markup=command_markup,
         colour_whole_line=True,
     )
     _terminal_output.write_line(line_markup)
@@ -178,14 +179,13 @@ def run_command_and_show_output(
     A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
     """
     if run_params.dry_run:
-        _print_command(
+        _write_command(
             action=_terminal_output.Action.CHANGE,
-            outcome_status=OutcomeStatus.SKIPPED,
             command=command,
-            command_prefix="(dryrun) skipped: ",
+            is_skipped=True,
         )
         return True
-    _print_command(
+    _write_command(
         action=_terminal_output.Action.CHANGE,
         command=command,
     )
@@ -214,14 +214,13 @@ def run_command_and_capture_output(
     skipped outcome instead of carrying on with it.
     """
     if run_params.dry_run:
-        _print_command(
+        _write_command(
             action=_terminal_output.Action.CHANGE,
-            outcome_status=OutcomeStatus.SKIPPED,
             command=command,
-            command_prefix="(dryrun) skipped: ",
+            is_skipped=True,
         )
         return ""
-    _print_command(
+    _write_command(
         action=_terminal_output.Action.CHANGE,
         command=command,
     )
@@ -246,7 +245,7 @@ def query_command_and_capture_output(
 
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
-    _print_command(
+    _write_command(
         action=_terminal_output.Action.INSPECTION,
         command=command,
     )
@@ -276,7 +275,7 @@ def query_command_and_capture_outcome(
 
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
-    _print_command(
+    _write_command(
         action=_terminal_output.Action.INSPECTION,
         command=command,
     )

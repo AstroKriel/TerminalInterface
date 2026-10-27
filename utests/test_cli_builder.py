@@ -59,7 +59,7 @@ def _make_go_command(
     command_fn: Callable[..., None],
     *,
     command_arguments: list[cli_builder.CommandArgument] | None = None,
-) -> list[cli_builder.CommandEntry]:
+) -> list[cli_builder.Command]:
     go_command = cli_builder.make_command(
         command_name="go",
         command_fn=command_fn,
@@ -73,7 +73,7 @@ def _make_go_command(
 
 def _make_command_line_tool(
     *,
-    commands: list[cli_builder.CommandEntry],
+    commands: list[cli_builder.Command],
     flags: list[cli_builder.CommandArgument] | None = None,
 ) -> cli_builder.CommandLineTool:
     if flags is None:
@@ -91,7 +91,7 @@ def _make_command_line_tool(
 ##
 
 
-class TestCommandDetails_ArgumentMapping(unittest.TestCase):
+class TestCommand_ArgumentMapping(unittest.TestCase):
 
     def _call_with(
         self,
@@ -108,12 +108,12 @@ class TestCommandDetails_ArgumentMapping(unittest.TestCase):
         ) -> None:
             received.update(command_argument_values)
 
-        _, command_details = cli_builder.make_command(
+        command = cli_builder.make_command(
             command_name="test-command",
             command_fn=record_arguments,
             command_arguments=command_arguments,
         )
-        command_details.call(
+        command.call(
             run_params=shell_interface.RunParams(),
             parsed_arguments=argparse.Namespace(dry_run=False, **parsed_values),
         )
@@ -205,8 +205,8 @@ class TestCommandGroup_SectionStamping(unittest.TestCase):
                 cli_builder.make_command(command_name="beta", command_fn=_do_nothing),
             ],
         )
-        self.assertEqual([_command_name for _command_name, _ in commands], ["alpha", "beta"])
-        self.assertEqual([_command_details.section_title for _, _command_details in commands], ["Syncing", "Syncing"])
+        self.assertEqual([_command.command_name for _command in commands], ["alpha", "beta"])
+        self.assertEqual([_command.section_title for _command in commands], ["Syncing", "Syncing"])
 
 
 class TestRunCli_Dispatch(unittest.TestCase):
