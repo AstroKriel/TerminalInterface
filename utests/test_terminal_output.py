@@ -157,7 +157,7 @@ class TestWriteLine_Timestamps(unittest.TestCase):
     ) -> None:
         _terminal_output.set_output_params(
             show_timestamps=True,
-            record_path=None,
+            log_path=None,
             dry_run=False,
         )
         stderr_buffer = io.StringIO()
@@ -167,9 +167,9 @@ class TestWriteLine_Timestamps(unittest.TestCase):
         self.assertEqual(stderr_buffer.getvalue(), "[2026-01-02 03:04:05] stamped\n")
 
 
-class TestWriteLine_Record(unittest.TestCase):
+class TestWriteLine_Log(unittest.TestCase):
 
-    record_path: Path
+    log_path: Path
 
     def setUp(
         self,
@@ -178,29 +178,29 @@ class TestWriteLine_Record(unittest.TestCase):
         self.addCleanup(_terminal_output.reset_output_params)
         temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(temporary_directory.cleanup)
-        self.record_path = Path(temporary_directory.name) / "logs" / "record.log"
+        self.log_path = Path(temporary_directory.name) / "logs" / "tool.log"
 
-    def _start_recording(
+    def _start_logging(
         self,
         *,
         dry_run: bool,
     ) -> None:
         _terminal_output.set_output_params(
             show_timestamps=False,
-            record_path=self.record_path,
+            log_path=self.log_path,
             dry_run=dry_run,
         )
 
     def test_appends_plain_lines(
         self,
     ) -> None:
-        self._start_recording(dry_run=False)
+        self._start_logging(dry_run=False)
         with mock.patch.object(_terminal_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
                 _terminal_output.write_line("[#FFFFFF]○[/] first")
                 _terminal_output.write_line("[bold]second[/bold]")
         self.assertEqual(
-            self.record_path.read_text().splitlines(),
+            self.log_path.read_text().splitlines(),
             [
                 "[2026-01-02 03:04:05] ○ first",
                 "[2026-01-02 03:04:05] second",
@@ -210,17 +210,17 @@ class TestWriteLine_Record(unittest.TestCase):
     def test_not_written_in_dry_run(
         self,
     ) -> None:
-        self._start_recording(dry_run=True)
+        self._start_logging(dry_run=True)
         with contextlib.redirect_stderr(io.StringIO()):
             _terminal_output.write_line("nothing happens")
-        self.assertFalse(self.record_path.exists())
+        self.assertFalse(self.log_path.exists())
 
     def test_off_by_default(
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
             _terminal_output.write_line("nowhere")
-        self.assertFalse(self.record_path.exists())
+        self.assertFalse(self.log_path.exists())
 
 
 class TestEscapeMarkup_Text(unittest.TestCase):

@@ -158,7 +158,7 @@ class TestCommandDetails_ArgumentMapping(unittest.TestCase):
         ) -> None:
             received.append(base)
 
-        command_line_tool =_make_command_line_tool(
+        command_line_tool = _make_command_line_tool(
             commands=_make_go_command(
                 record_base,
                 command_arguments=[cli_builder.CommandArgument(argument_name="--base")],
@@ -183,7 +183,7 @@ class TestCommandDetails_ArgumentMapping(unittest.TestCase):
             argument_name="paths",
             value_count=cli_builder.ValueCount.AT_LEAST_ONE,
         )
-        command_line_tool =_make_command_line_tool(
+        command_line_tool = _make_command_line_tool(
             commands=_make_go_command(
                 record_paths,
                 command_arguments=[paths_argument],
@@ -228,7 +228,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             received.append(run_params)
 
-        command_line_tool =_make_command_line_tool(commands=_make_go_command(record_run_params))
+        command_line_tool = _make_command_line_tool(commands=_make_go_command(record_run_params))
         cli_builder.run_cli(command_line_tool=command_line_tool, argv=["--dry-run", "go"])
         self.assertEqual(received, [shell_interface.RunParams(dry_run=True)])
 
@@ -243,7 +243,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             received.append(run_params)
 
-        command_line_tool =cli_builder.CommandLineTool(
+        command_line_tool = cli_builder.CommandLineTool(
             name="tool",
             description="a tool",
             commands=_make_go_command(record_run_params),
@@ -262,7 +262,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             raise subprocess.CalledProcessError(returncode=3, cmd=["false"])
 
-        command_line_tool =_make_command_line_tool(commands=_make_go_command(fail))
+        command_line_tool = _make_command_line_tool(commands=_make_go_command(fail))
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
             cli_builder.run_cli(command_line_tool=command_line_tool, argv=["go"])
@@ -272,32 +272,32 @@ class TestRunCli_Dispatch(unittest.TestCase):
     def test_visible_command_outside_a_group_is_rejected(
         self,
     ) -> None:
-        command_line_tool =_make_command_line_tool(commands=[cli_builder.make_command(command_name="loose", command_fn=_do_nothing)])
+        command_line_tool = _make_command_line_tool(commands=[cli_builder.make_command(command_name="loose", command_fn=_do_nothing)])
         with self.assertRaises(ValueError):
             cli_builder.run_cli(command_line_tool=command_line_tool, argv=["loose"])
 
-    def test_record_is_started_from_the_tool(
+    def test_log_is_started_from_the_tool(
         self,
     ) -> None:
         temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(temporary_directory.cleanup)
-        record_path = Path(temporary_directory.name) / "record.log"
+        log_path = Path(temporary_directory.name) / "tool.log"
 
         def narrate(
             *,
             run_params: shell_interface.RunParams,
         ) -> None:
-            shell_interface.log_task("recorded")
+            shell_interface.log_task("logged")
 
-        command_line_tool =cli_builder.CommandLineTool(
+        command_line_tool = cli_builder.CommandLineTool(
             name="tool",
             description="a tool",
             commands=_make_go_command(narrate),
-            record_path=record_path,
+            log_path=log_path,
         )
         with contextlib.redirect_stderr(io.StringIO()):
             cli_builder.run_cli(command_line_tool=command_line_tool, argv=["go"])
-        self.assertIn("○ recorded", record_path.read_text())
+        self.assertIn("○ logged", log_path.read_text())
 
 
 class TestHelp_Output(unittest.TestCase):
@@ -347,7 +347,7 @@ class TestHelp_Output(unittest.TestCase):
     def test_longest_label_sets_the_column(
         self,
     ) -> None:
-        command_line_tool =_make_command_line_tool(
+        command_line_tool = _make_command_line_tool(
             commands=cli_builder.make_command_group(
                 section_title="Syncing",
                 commands=[
@@ -364,7 +364,7 @@ class TestHelp_Output(unittest.TestCase):
     def test_omits_hidden_commands(
         self,
     ) -> None:
-        command_line_tool =_make_command_line_tool(
+        command_line_tool = _make_command_line_tool(
             commands=[
                 *cli_builder.make_command_group(
                     section_title="Shown",
@@ -380,7 +380,7 @@ class TestHelp_Output(unittest.TestCase):
     def test_lists_extra_flags(
         self,
     ) -> None:
-        command_line_tool =_make_command_line_tool(
+        command_line_tool = _make_command_line_tool(
             commands=[],
             flags=[cli_builder.CommandArgument(argument_name="--allow-dirty", is_switch=True, argument_help="skip the check")],
         )
@@ -416,7 +416,7 @@ class TestHelp_Output(unittest.TestCase):
         class SectionTitle(str, Enum):
             SYNCING = "Syncing with the remote"
 
-        command_line_tool =_make_command_line_tool(
+        command_line_tool = _make_command_line_tool(
             commands=cli_builder.make_command_group(
                 section_title=SectionTitle.SYNCING,
                 commands=[cli_builder.make_command(command_name="alpha", command_fn=_do_nothing)],

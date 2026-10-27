@@ -34,7 +34,7 @@ The second generalisation: the existing entry point hardcoded the name, usage li
 | `flags` | flags beyond `--dry-run`, which every tool has, as `CommandArgument`s | decided |
 | `make_run_params` | builds the `RunParams` of the tool (or a subclass) from the parsed flags | decided |
 | `show_timestamps` | whether terminal lines carry a timestamp; off by default | decided |
-| `record_path` | where the persistent record is appended; `None` (the default) writes no record | decided |
+| `log_path` | where the log is appended; `None` (the default) writes no log | decided |
 | Type name | `CommandLineTool`; a variable holding one is named `command_line_tool` | decided |
 
 ```text

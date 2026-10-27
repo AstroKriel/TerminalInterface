@@ -180,7 +180,7 @@ MESSAGE_GROUPS: list[MessageGroup] = [
 @dataclass
 class _OutputParams:
     show_timestamps: bool = False
-    record_path: Path | None = None
+    log_path: Path | None = None
 
 
 _OUTPUT_PARAMS = _OutputParams()
@@ -197,22 +197,22 @@ _CONSOLE_STDOUT = rich_Console(
 def set_output_params(
     *,
     show_timestamps: bool,
-    record_path: Path | None,
+    log_path: Path | None,
     dry_run: bool,
 ) -> None:
-    """Set how output behaves for the rest of the process; the record is never written in dry-run."""
+    """Set how output behaves for the rest of the process; the log is never written in dry-run."""
     _OUTPUT_PARAMS.show_timestamps = show_timestamps
     if dry_run:
-        _OUTPUT_PARAMS.record_path = None
+        _OUTPUT_PARAMS.log_path = None
     else:
-        _OUTPUT_PARAMS.record_path = record_path
+        _OUTPUT_PARAMS.log_path = log_path
 
 
 def reset_output_params() -> None:
-    """Return to the defaults: no timestamps, no record."""
+    """Return to the defaults: no timestamps, no log."""
     set_output_params(
         show_timestamps=False,
-        record_path=None,
+        log_path=None,
         dry_run=False,
     )
 
@@ -236,20 +236,20 @@ def escape_markup(
     return rich_markup.escape(text)
 
 
-def _append_record(
+def _append_log(
     *,
-    record_path: Path,
+    log_path: Path,
     timestamp: str,
     line_markup: str,
 ) -> None:
     plain_line = rich_Text.from_markup(line_markup).plain
-    record_entry = f"[{timestamp}] {plain_line}\n"
-    record_path.parent.mkdir(
+    log_entry = f"[{timestamp}] {plain_line}\n"
+    log_path.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
-    with open(record_path, "a") as record_stream:
-        record_stream.write(record_entry)
+    with open(log_path, "a") as log_stream:
+        log_stream.write(log_entry)
 
 
 def write_line(
@@ -274,10 +274,10 @@ def write_line(
             timestamp_text = escape_markup(f"[{timestamp}]")
             console_line = f"[{Colour.GREY.value}]{timestamp_text}[/] {line_markup}"
         _CONSOLE_STDERR.print(console_line)
-    if _OUTPUT_PARAMS.record_path is None:
+    if _OUTPUT_PARAMS.log_path is None:
         return
-    _append_record(
-        record_path=_OUTPUT_PARAMS.record_path,
+    _append_log(
+        log_path=_OUTPUT_PARAMS.log_path,
         timestamp=timestamp,
         line_markup=line_markup,
     )

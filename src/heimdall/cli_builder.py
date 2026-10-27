@@ -134,8 +134,8 @@ class CommandLineTool:
     - `make_run_params`:
         Builds the `RunParams` of the tool (or a subclass) from the parsed flags.
 
-    - `record_path`:
-        Where every printed line is also appended as plain text; `None` writes no record.
+    - `log_path`:
+        Where every printed line is also appended as plain text; `None` writes no log.
     """
     name: str
     description: str
@@ -143,7 +143,7 @@ class CommandLineTool:
     flags: list[CommandArgument] = field(default_factory=list)
     make_run_params: Callable[[argparse.Namespace], shell_interface.RunParams] = _make_default_run_params
     show_timestamps: bool = False
-    record_path: Path | None = None
+    log_path: Path | None = None
 
 
 _DRY_RUN_FLAG = CommandArgument(
@@ -382,7 +382,7 @@ def run_cli(
     run_params = command_line_tool.make_run_params(parsed_arguments)
     _terminal_output.set_output_params(
         show_timestamps=command_line_tool.show_timestamps,
-        record_path=command_line_tool.record_path,
+        log_path=command_line_tool.log_path,
         dry_run=run_params.dry_run,
     )
     selected_command_details = dict(command_line_tool.commands)[parsed_arguments.command]

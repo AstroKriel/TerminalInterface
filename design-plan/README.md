@@ -26,7 +26,7 @@ It grew out of a terminal layer that had been copied between tools and had drift
 | Running commands: mutating, read-only, captured, and probing | File actions such as creating symlinks or backing up files |
 | Dry-run behaviour for mutating commands | Config files of any one tool |
 | Building a subcommand interface with grouped help and global flags | |
-| Optional timestamps and an optional persistent record of output | |
+| Optional timestamps and an optional log of output | |
 
 A feature belongs here only if it is about the terminal and at least two tools need it. State: decided.
 
@@ -49,7 +49,7 @@ A feature belongs here only if it is about the terminal and at least two tools n
 
 | Note | Covers |
 |---|---|
-| [`<terminal-interface>/design-plan/shell_interface.md`](shell_interface.md) | run params, output functions, message types, command runners, timestamps, and the persistent record |
+| [`<terminal-interface>/design-plan/shell_interface.md`](shell_interface.md) | run params, output functions, message types, command runners, timestamps, and the log |
 | [`<terminal-interface>/design-plan/cli_builder.md`](cli_builder.md) | subcommand descriptions, the tool, flags, grouped help, and the entry point |
 | [`<terminal-interface>/design-plan/adopting.md`](adopting.md) | how an existing tool moves onto this package, and how it pins a version |
 
@@ -64,7 +64,7 @@ TerminalInterface/
 ├── design-plan/  # these notes
 ├── src/
 │   └── heimdall/
-│       ├── _terminal_output.py  # private core: palette, message types, consoles, the output params, timestamps, emit and record
+│       ├── _terminal_output.py  # private core: palette, message types, consoles, the output params, timestamps, rendering, writing, and the log
 │       ├── shell_interface.py  # run params, output functions, command runners
 │       └── cli_builder.py  # subcommand interface and grouped help
 └── utests/
@@ -75,5 +75,5 @@ TerminalInterface/
 | Package name | `heimdall`, so imports read `from heimdall import shell_interface` | decided |
 | Python | `>=3.11`, the oldest version any planned user declares; tests run on 3.11 and 3.14 | decided |
 | Module names | `shell_interface` keeps the name tools already import | decided |
-| Private core | `_terminal_output` holds everything both public modules share, so a later message layer can be added as its own module on the same palette, consoles, and record without touching `shell_interface` | decided |
-| First version | the existing terminal layer, generalised in three places, plus the additions described in the module notes: runners named for what happens to their output, `working_directory` on every runner, `query_command_and_capture_outcome`, quoted command printing, timestamps, and the persistent record | decided |
+| Private core | `_terminal_output` holds everything both public modules share, so a later message layer can be added as its own module on the same palette, consoles, and log without touching `shell_interface` | decided |
+| First version | the existing terminal layer, generalised in three places, plus the additions described in the module notes: runners named for what happens to their output, `working_directory` on every runner, `query_command_and_capture_outcome`, quoted command printing, timestamps, and the log | decided |

@@ -105,13 +105,13 @@ The two `capture_output` runners strip surrounding whitespace, because their out
 
 ## Output for One Run
 
-The entry point sets these once per process, from the fields of the `CommandLineTool`. Timestamps and the record serve tools that keep a history of what they did to a machine.
+The entry point sets these once per process, from the fields of the `CommandLineTool`. Timestamps and the log serve tools that keep a history of what they did to a machine.
 
 | Feature | Detail | State |
 |---|---|---|
 | Timestamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | decided |
-| Persistent record | every line printed, steps and commands included, is also appended to a file, as plain text without colour markup | decided |
-| Record format | `[<timestamp>] <line>`, one line per entry, always timestamped whether or not the terminal shows timestamps | decided |
-| Record in dry-run | nothing is written: the record is a history of what was done to the machine, and a dry-run does nothing | decided |
+| Log | every line printed, steps and commands included, is also appended to the file at `log_path`, as plain text without colour markup | decided |
+| Log format | `[<timestamp>] <line>`, one line per entry, always timestamped whether or not the terminal shows timestamps | decided |
+| Log in dry-run | nothing is written: the log is a history of what was done to the machine, and a dry-run does nothing | decided |
 
-Timestamps and the record are off unless a tool turns them on, so tools that do not need them see no change. A script that never calls the entry point gets the defaults: no timestamps, no record.
+Timestamps and the log are off unless a tool turns them on, so tools that do not need them see no change. A script that never calls the entry point gets the defaults: no timestamps, no log.

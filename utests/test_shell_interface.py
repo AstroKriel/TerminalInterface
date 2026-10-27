@@ -116,7 +116,7 @@ class TestLogFunctions_Output(unittest.TestCase):
     ) -> None:
         _terminal_output.set_output_params(
             show_timestamps=True,
-            record_path=None,
+            log_path=None,
             dry_run=False,
         )
         stdout_text, _ = self._capture(lambda: shell_interface.log_result("data"))
