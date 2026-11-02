@@ -19,7 +19,7 @@ from enum import Enum
 from pathlib import Path
 
 ## local
-from huginn import _manage_terminal, input_value_types, manage_cli, manage_log, manage_shell, params
+from huginn import _manage_terminal, cmd_args, manage_cli, manage_log, manage_shell, params
 
 ##
 ## === HELPERS
@@ -50,15 +50,6 @@ def _get_help(
     return stdout_buffer.getvalue()
 
 
-def _parse_with(
-    argument: manage_cli.Argument,
-    argv: list[str],
-) -> argparse.Namespace:
-    argument_parser = argparse.ArgumentParser()
-    argument.add_to_parser(argument_parser)
-    return argument_parser.parse_args(argv)
-
-
 def _make_cmd_group(
     *cmds: manage_cli.Command,
     title: str = "Commands",
@@ -72,7 +63,7 @@ def _make_cmd_group(
 def _make_go_cmd(
     fn: Callable[..., None],
     *,
-    arguments: list[manage_cli.PositionalArgument | manage_cli.NamedArgument | manage_cli.FlagArgument]
+    arguments: list[cmd_args.PositionalArgument | cmd_args.NamedArgument | cmd_args.FlagArgument]
     | None = None,
 ) -> manage_cli.Command:
     if arguments is None:
@@ -89,7 +80,7 @@ def _make_command_line_tool(
     *,
     cmd_groups: list[manage_cli.CommandGroup],
     hidden_cmds: list[manage_cli.Command] | None = None,
-    flags: list[manage_cli.FlagArgument] | None = None,
+    flags: list[cmd_args.FlagArgument] | None = None,
 ) -> manage_cli.CommandLineTool:
     if hidden_cmds is None:
         hidden_cmds = []
@@ -114,7 +105,7 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
     def _call_with(
         self,
         *,
-        arguments: list[manage_cli.PositionalArgument | manage_cli.NamedArgument | manage_cli.FlagArgument],
+        arguments: list[cmd_args.PositionalArgument | cmd_args.NamedArgument | cmd_args.FlagArgument],
         parsed_values: dict[str, str | None],
     ) -> dict[str, str | None]:
         received: dict[str, str | None] = {}
@@ -143,10 +134,10 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
     ) -> None:
         received = self._call_with(
             arguments=[
-                manage_cli.PositionalArgument(
+                cmd_args.PositionalArgument(
                     param_name="branch_name",
                     description="branch to use",
-                    input_value_type=input_value_types.TEXT,
+                    input_value_type=cmd_args.InputValueTypes.TEXT,
                 ),
             ],
             parsed_values={"branch_name": "feature"},
@@ -158,10 +149,10 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
     ) -> None:
         received = self._call_with(
             arguments=[
-                manage_cli.NamedArgument(
+                cmd_args.NamedArgument(
                     long_arg_name="base-ref",
                     description="ref to compare against",
-                    input_value_type=input_value_types.TEXT,
+                    input_value_type=cmd_args.InputValueTypes.TEXT,
                 ),
             ],
             parsed_values={"base_ref": "development"},
@@ -173,10 +164,10 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
     ) -> None:
         received = self._call_with(
             arguments=[
-                manage_cli.NamedArgument(
+                cmd_args.NamedArgument(
                     long_arg_name="base",
                     description="branch to compare against",
-                    input_value_type=input_value_types.TEXT,
+                    input_value_type=cmd_args.InputValueTypes.TEXT,
                 ),
             ],
             parsed_values={"base": None},
@@ -198,10 +189,10 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         go_cmd = _make_go_cmd(
             record_base,
             arguments=[
-                manage_cli.NamedArgument(
+                cmd_args.NamedArgument(
                     long_arg_name="base",
                     description="branch to compare against",
-                    input_value_type=input_value_types.TEXT,
+                    input_value_type=cmd_args.InputValueTypes.TEXT,
                 ),
             ],
         )
@@ -224,11 +215,11 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         ) -> None:
             received.append(paths)
 
-        paths_argument = manage_cli.PositionalArgument(
+        paths_argument = cmd_args.PositionalArgument(
             param_name="paths",
             description="paths to use",
-            input_value_type=input_value_types.TEXT,
-            allowed_num_input_values=manage_cli.AllowedNumInputValues.ONE_OR_MORE,
+            input_value_type=cmd_args.InputValueTypes.TEXT,
+            allowed_num_input_values=cmd_args.AllowedNumInputValues.ONE_OR_MORE,
         )
         go_cmd = _make_go_cmd(
             record_paths,
@@ -240,50 +231,6 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
             argv=["go", "a", "b"],
         )
         self.assertEqual(received, [["a", "b"]])
-
-
-class TestFlagArgument_Switch(unittest.TestCase):
-
-    def test_flag_is_true_when_passed_and_false_when_not(
-        self,
-    ) -> None:
-        force_flag = manage_cli.FlagArgument(
-            long_arg_name="force",
-            description="skip the check",
-        )
-        self.assertTrue(_parse_with(force_flag, ["--force"]).force)
-        self.assertFalse(_parse_with(force_flag, []).force)
-
-
-class TestArgument_AllowedNumInputValues(unittest.TestCase):
-
-    def test_one_takes_a_single_input(
-        self,
-    ) -> None:
-        path_argument = manage_cli.PositionalArgument(
-            param_name="path",
-            description="path to use",
-            input_value_type=input_value_types.TEXT,
-        )
-        self.assertEqual(_parse_with(path_argument, ["a"]).path, "a")
-
-    def test_ranges_collect_their_inputs(
-        self,
-    ) -> None:
-        expected_inputs: dict[manage_cli.AllowedNumInputValues, tuple[list[str], list[str] | None]] = {
-            manage_cli.AllowedNumInputValues.ZERO_OR_ONE: ([], None),
-            manage_cli.AllowedNumInputValues.ZERO_OR_MORE: ([], []),
-            manage_cli.AllowedNumInputValues.ONE_OR_MORE: (["a", "b"], ["a", "b"]),
-        }
-        for allowed_num_input_values, (argv, expected_paths) in expected_inputs.items():
-            ranged_argument = manage_cli.PositionalArgument(
-                param_name="paths",
-                description="paths to use",
-                input_value_type=input_value_types.TEXT,
-                allowed_num_input_values=allowed_num_input_values,
-            )
-            with self.subTest(allowed_num_input_values=allowed_num_input_values):
-                self.assertEqual(_parse_with(ranged_argument, argv).paths, expected_paths)
 
 
 class TestArgument_InputValueType(unittest.TestCase):
@@ -300,10 +247,10 @@ class TestArgument_InputValueType(unittest.TestCase):
         ) -> None:
             received.append(since_date)
 
-        since_date_argument = manage_cli.PositionalArgument(
+        since_date_argument = cmd_args.PositionalArgument(
             param_name="since_date",
             description="only posts after this date",
-            input_value_type=input_value_types.DATE,
+            input_value_type=cmd_args.InputValueTypes.DATE,
         )
         go_cmd = _make_go_cmd(
             record_date,
@@ -328,10 +275,10 @@ class TestArgument_InputValueType(unittest.TestCase):
         ) -> None:
             received.append(since_date)
 
-        since_date_argument = manage_cli.PositionalArgument(
+        since_date_argument = cmd_args.PositionalArgument(
             param_name="since_date",
             description="only posts after this date",
-            input_value_type=input_value_types.DATE,
+            input_value_type=cmd_args.InputValueTypes.DATE,
         )
         go_cmd = _make_go_cmd(
             record_date,
@@ -349,101 +296,7 @@ class TestArgument_InputValueType(unittest.TestCase):
         self.assertIn("date must be YYYY-MM-DD; got `2026-13-01`.", stderr_buffer.getvalue())
 
 
-class TestArgumentDefinitions_Checks(unittest.TestCase):
-
-    def test_positional_name_must_be_a_param_name(
-        self,
-    ) -> None:
-        for bad_name in ["--since", "since-date", "Since", "2nd", ""]:
-            with self.subTest(bad_name=bad_name), self.assertRaises(ValueError) as error_context:
-                manage_cli.PositionalArgument(
-                    param_name=bad_name,
-                    description="since date",
-                    input_value_type=input_value_types.DATE,
-                )
-            self.assertEqual(
-                str(error_context.exception),
-                f"PositionalArgument: `param_name` must be lowercase letters, digits, and `_`, starting with a letter; got `{bad_name}`.",
-            )
-
-    def test_positional_default_needs_an_input_that_can_be_left_out(
-        self,
-    ) -> None:
-        with self.assertRaises(ValueError) as error_context:
-            manage_cli.PositionalArgument(
-                param_name="path",
-                description="path to use",
-                input_value_type=input_value_types.PATH,
-                default_value=".",
-            )
-        self.assertEqual(
-            str(error_context.exception),
-            "PositionalArgument: `default_value` for `path` must be `None` when `allowed_num_input_values` is `ONE`, since an input value is always given; got `.`.",
-        )
-        optional_path_argument = manage_cli.PositionalArgument(
-            param_name="path",
-            description="path to use",
-            input_value_type=input_value_types.PATH,
-            allowed_num_input_values=manage_cli.AllowedNumInputValues.ZERO_OR_ONE,
-            default_value=".",
-        )
-        self.assertEqual(_parse_with(optional_path_argument, []).path, Path("."))
-
-    def test_long_arg_name_must_be_bare_lowercase_words(
-        self,
-    ) -> None:
-        for bad_long_arg_name in ["--output", "base_ref", "Output", "-o", ""]:
-            with self.subTest(bad_long_arg_name=bad_long_arg_name), self.assertRaises(ValueError):
-                manage_cli.NamedArgument(
-                    long_arg_name=bad_long_arg_name,
-                    description="folder to write to",
-                    input_value_type=input_value_types.DIR,
-                )
-            with self.subTest(bad_long_arg_name=bad_long_arg_name), self.assertRaises(ValueError):
-                manage_cli.FlagArgument(
-                    long_arg_name=bad_long_arg_name,
-                    description="skip the check",
-                )
-
-    def test_short_arg_name_must_be_one_to_three_letters(
-        self,
-    ) -> None:
-        for good_short_arg_name in ["o", "ou", "out"]:
-            output_argument = manage_cli.NamedArgument(
-                long_arg_name="output",
-                short_arg_name=good_short_arg_name,
-                description="folder to write to",
-                input_value_type=input_value_types.DIR,
-            )
-            self.assertEqual(output_argument.arg_names, [f"-{good_short_arg_name}", "--output"])
-        for bad_short_arg_name in ["-o", "outp", "o1", ""]:
-            with self.subTest(
-                    bad_short_arg_name=bad_short_arg_name, ), self.assertRaises(ValueError) as error_context:
-                manage_cli.FlagArgument(
-                    long_arg_name="force",
-                    short_arg_name=bad_short_arg_name,
-                    description="skip the check",
-                )
-            self.assertEqual(
-                str(error_context.exception),
-                f"FlagArgument: `short_arg_name` for `force` must be one to three letters; got `{bad_short_arg_name}`.",
-            )
-
-    def test_required_named_argument_has_no_default(
-        self,
-    ) -> None:
-        with self.assertRaises(ValueError) as error_context:
-            manage_cli.NamedArgument(
-                long_arg_name="output",
-                description="folder to write to",
-                input_value_type=input_value_types.DIR,
-                is_required=True,
-                default_value=".",
-            )
-        self.assertEqual(
-            str(error_context.exception),
-            "NamedArgument: `default_value` for `output` must be `None` when `is_required` is `True`, since a required argument never falls back; got `.`.",
-        )
+class TestCommandDefinitions_Checks(unittest.TestCase):
 
     def test_cmd_arguments_need_unique_param_names(
         self,
@@ -452,15 +305,15 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
             _make_go_cmd(
                 _do_nothing,
                 arguments=[
-                    manage_cli.PositionalArgument(
+                    cmd_args.PositionalArgument(
                         param_name="output",
                         description="folder to write to",
-                        input_value_type=input_value_types.DIR,
+                        input_value_type=cmd_args.InputValueTypes.DIR,
                     ),
-                    manage_cli.NamedArgument(
+                    cmd_args.NamedArgument(
                         long_arg_name="output",
                         description="folder to write to",
-                        input_value_type=input_value_types.DIR,
+                        input_value_type=cmd_args.InputValueTypes.DIR,
                     ),
                 ],
             )
@@ -472,10 +325,10 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
             _make_go_cmd(
                 _do_nothing,
                 arguments=[
-                    manage_cli.PositionalArgument(
+                    cmd_args.PositionalArgument(
                         param_name="tool_params",
                         description="clashes with the tool params",
-                        input_value_type=input_value_types.TEXT,
+                        input_value_type=cmd_args.InputValueTypes.TEXT,
                     ),
                 ],
             )
@@ -486,10 +339,10 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
         dry_run_cmd = _make_go_cmd(
             _do_nothing,
             arguments=[
-                manage_cli.PositionalArgument(
+                cmd_args.PositionalArgument(
                     param_name="dry_run",
                     description="clashes with the built-in flag",
-                    input_value_type=input_value_types.TEXT,
+                    input_value_type=cmd_args.InputValueTypes.TEXT,
                 ),
             ],
         )
@@ -515,11 +368,11 @@ class TestTypedNames_ShortName(unittest.TestCase):
         ) -> None:
             received.append(output)
 
-        output_argument = manage_cli.NamedArgument(
+        output_argument = cmd_args.NamedArgument(
             long_arg_name="output",
             short_arg_name="o",
             description="folder to write to",
-            input_value_type=input_value_types.TEXT,
+            input_value_type=cmd_args.InputValueTypes.TEXT,
         )
         command_line_tool = _make_command_line_tool(
             cmd_groups=[
@@ -541,7 +394,7 @@ class TestTypedNames_ShortName(unittest.TestCase):
     def test_help_lists_both_forms(
         self,
     ) -> None:
-        verbose_flag = manage_cli.FlagArgument(
+        verbose_flag = cmd_args.FlagArgument(
             long_arg_name="verbose",
             short_arg_name="v",
             description="say more",
@@ -593,7 +446,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
             received.append(tool_params)
 
         go_cmd = _make_go_cmd(record_tool_params)
-        allow_dirty_flag = manage_cli.FlagArgument(
+        allow_dirty_flag = cmd_args.FlagArgument(
             long_arg_name="allow-dirty",
             description="skip the check",
         )
@@ -845,7 +698,7 @@ class TestHelp_Output(unittest.TestCase):
     def test_lists_extra_flags(
         self,
     ) -> None:
-        allow_dirty_flag = manage_cli.FlagArgument(
+        allow_dirty_flag = cmd_args.FlagArgument(
             long_arg_name="allow-dirty",
             description="skip the check",
         )

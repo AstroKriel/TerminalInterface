@@ -40,7 +40,7 @@ A feature belongs here only if it is about the terminal and at least two tools n
 | Diagnostics and results are separate | narration always goes to stderr; results meant for the user or a pipe always go to stdout | decided |
 | Dry-run is built in | every tool gets `--dry-run`; mutating runners print the command and skip it; read-only runners still run | decided |
 | Stable names | the functions tools already call keep their names, so adopting this package is an import change plus a mechanical rename (see [`<terminal-interface>/design-plan/adopting.md`](adopting.md)) | decided |
-| One vocabulary | params: a container of options, named by what it is for, e.g. `ToolParams` for the values of the flags of a tool in one run; a tool: one command line tool, described by `CommandLineTool` | decided |
+| One vocabulary | params: a container of options, named by what it is for, e.g. `ToolParams` for the values of the flags of a tool in one run, or the argparse params an argument hands to `add_argument`; a tool: one command line tool, described by `CommandLineTool` | decided |
 | Light to install | one third-party dependency (`rich`), so it installs on a fresh machine through `uv` alone | decided |
 
 ---
@@ -51,9 +51,9 @@ A feature belongs here only if it is about the terminal and at least two tools n
 |---|---|
 | [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md) | output functions, message types, timestamps, and the log |
 | [`<terminal-interface>/design-plan/params.md`](params.md) | every params group: tool params and output params |
-| [`<terminal-interface>/design-plan/input_value_types.md`](input_value_types.md) | input value types: the label and conversion of a value the user types, the basic set, and how a tool extends it |
 | [`<terminal-interface>/design-plan/manage_shell.md`](manage_shell.md) | command runners |
-| [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md) | subcommand descriptions, the tool, flags, grouped help, and the entry point |
+| [`<terminal-interface>/design-plan/cmd_args.md`](cmd_args.md) | the args of a cmd: input value types and how a tool extends them, positional arguments, named arguments, flags, and their checks |
+| [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md) | the tool and its cmds, the built-in flags, grouped help, and the entry point |
 | [`<terminal-interface>/design-plan/adopting.md`](adopting.md) | how an existing tool moves onto this package, and how it pins a version |
 
 ---
@@ -68,11 +68,11 @@ TerminalInterface/
 ├── src/
 │   └── huginn/
 │       ├── params.py  # every params group: tool params and output params
-│       ├── input_value_types.py  # the basic input value types: label and conversion of a value the user types
+│       ├── cmd_args.py  # the args of a cmd: input value types, positional arguments, named arguments, and flags
 │       ├── _manage_terminal.py  # private core: palette, message types, consoles, the active params, timestamps, rendering, writing, and the log
 │       ├── manage_log.py  # output functions
 │       ├── manage_shell.py  # command runners
-│       └── manage_cli.py  # subcommand interface and grouped help
+│       └── manage_cli.py  # the tool and its cmds, grouped help, and the entry point
 └── utests/
 ```
 
@@ -80,7 +80,7 @@ TerminalInterface/
 |---|---|---|
 | Package name | `huginn`, the raven of Odin who flies out and reports back, so imports read `from huginn import manage_log, manage_shell`; renamed from `heimdall` on 2026-10-27, which passes to a planned types and validation package | decided |
 | Python | `>=3.11`, the oldest version any planned user declares; tests run on 3.11 and 3.14 | decided |
-| Module names | `manage_<noun>`, matching the jormi modules expected to move in (`manage_log`, `manage_shell`), so that move merges into same-named modules; output functions and command runners are separate modules, as in jormi | decided |
+| Module names | a module that does things is named `manage_<noun>` (`manage_log`, `manage_shell`, `manage_cli`, and the private `_manage_terminal`); a module that only defines the types a tool author writes is named after them, plain (`params`, `cmd_args`); `manage_log` and `manage_shell` also match the jormi modules expected to move in, so that move merges into same-named modules | decided |
 | Private core | `_manage_terminal` holds everything the public modules share, so neither public module depends on another, and a later message layer can be added on the same palette, consoles, and log | decided |
 | Params in one place | every params group is defined in `params`, grouped by who sets it; no other module defines or re-exports params | decided |
 | First version | the existing terminal layer, generalised in three places, plus the additions described in the module notes: runners named for what happens to their output, `working_directory` on every runner, `query_cmd_and_capture_outcome`, quoted command printing, timestamps, and the log | decided |
