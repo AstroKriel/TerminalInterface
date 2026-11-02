@@ -11,7 +11,7 @@ import unittest
 from collections.abc import Callable
 
 ## local
-from huginn import _manage_terminal, manage_log, params
+from huginn import _manage_output, manage_log, params
 
 ##
 ## === TEST SUITE
@@ -23,8 +23,8 @@ class TestLogFunctions_Output(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_terminal.reset_params()
-        self.addCleanup(_manage_terminal.reset_params)
+        _manage_output.reset_params()
+        self.addCleanup(_manage_output.reset_params)
 
     def _capture(
         self,
@@ -92,7 +92,7 @@ class TestLogFunctions_Output(unittest.TestCase):
     def test_log_result_has_no_timestamp(
         self,
     ) -> None:
-        _manage_terminal.set_params(
+        _manage_output.set_params(
             tool_params=params.ToolParams(),
             output_params=params.OutputParams(show_timestamps=True),
         )

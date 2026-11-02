@@ -5,13 +5,14 @@
 ##
 
 ## stdlib
+import dataclasses
 import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 ## local
-from huginn import _manage_terminal, params
+from huginn import _manage_output, message_styles, params
 
 ##
 ## === COMMAND RUNNERS
@@ -39,27 +40,28 @@ class CommandOutcome:
 
 def _write_cmd(
     *,
-    action: _manage_terminal.Action,
+    action: message_styles.Action,
     cmd: list[str],
     is_skipped: bool = False,
 ) -> None:
     """
     Write a command with the symbol of its action; a command skipped in dry-run takes the colour of the skipped status.
 
-    A skipped command is always shown, since showing it is the po of a dry run; other actions can be hidden.
+    A skipped command is always shown, since showing it is the point of a dry run; other actions can be hidden.
     """
-    colour = action.value.colour
-    cmd_markup = _manage_terminal.escape_markup(shlex.join(cmd))
+    message_style = action.value
+    cmd_markup = _manage_output.escape_markup(shlex.join(cmd))
     if is_skipped:
-        colour = _manage_terminal.OutcomeStatus.SKIPPED.value.colour
+        message_style = dataclasses.replace(
+            message_style,
+            colour=message_styles.OutcomeStatus.SKIPPED.value.colour,
+        )
         cmd_markup = f"(dry-run) skipped: {cmd_markup}"
-    line_markup = _manage_terminal.render_line(
-        symbol=action.value.symbol,
-        colour=colour,
+    line_markup = message_style.render(
         text_markup=cmd_markup,
         colour_whole_line=True,
     )
-    _manage_terminal.write_line(
+    _manage_output.write_line(
         line_markup,
         is_action=not is_skipped,
     )
@@ -79,13 +81,13 @@ def run_cmd_and_show_output(
     """
     if tool_params.dry_run:
         _write_cmd(
-            action=_manage_terminal.Action.CHANGE,
+            action=message_styles.Action.CHANGE,
             cmd=cmd,
             is_skipped=True,
         )
         return True
     _write_cmd(
-        action=_manage_terminal.Action.CHANGE,
+        action=message_styles.Action.CHANGE,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -114,13 +116,13 @@ def run_cmd_and_capture_output(
     """
     if tool_params.dry_run:
         _write_cmd(
-            action=_manage_terminal.Action.CHANGE,
+            action=message_styles.Action.CHANGE,
             cmd=cmd,
             is_skipped=True,
         )
         return ""
     _write_cmd(
-        action=_manage_terminal.Action.CHANGE,
+        action=message_styles.Action.CHANGE,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -145,7 +147,7 @@ def query_cmd_and_capture_output(
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _write_cmd(
-        action=_manage_terminal.Action.INSPECTION,
+        action=message_styles.Action.INSPECTION,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -175,7 +177,7 @@ def query_cmd_and_capture_outcome(
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _write_cmd(
-        action=_manage_terminal.Action.INSPECTION,
+        action=message_styles.Action.INSPECTION,
         cmd=cmd,
     )
     try:

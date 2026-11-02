@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 ## local
-from huginn import _manage_terminal, manage_shell, params
+from huginn import _manage_output, manage_shell, params
 
 ##
 ## === TEST SUITE
@@ -49,8 +49,8 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_terminal.reset_params()
-        self.addCleanup(_manage_terminal.reset_params)
+        _manage_output.reset_params()
+        self.addCleanup(_manage_output.reset_params)
 
     def _print_query(
         self,
@@ -95,8 +95,8 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_terminal.reset_params()
-        self.addCleanup(_manage_terminal.reset_params)
+        _manage_output.reset_params()
+        self.addCleanup(_manage_output.reset_params)
 
     def test_dry_run_skips_logs_and_counts_as_success(
         self,
@@ -114,18 +114,13 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     def test_dry_run_line_uses_the_change_symbol_in_the_skipped_colour(
         self,
     ) -> None:
-        with (
-                mock.patch.object(_manage_terminal, "render_line", wraps=_manage_terminal.render_line) as
-                mock_render_line,
-                contextlib.redirect_stderr(io.StringIO()),
-        ):
+        with mock.patch.object(_manage_output, "write_line") as mock_write_line:
             manage_shell.run_cmd_and_show_output(
                 tool_params=params.ToolParams(dry_run=True),
                 cmd=["git", "push"],
             )
-        render_kwargs = mock_render_line.call_args.kwargs
-        self.assertEqual(render_kwargs["symbol"], _manage_terminal.Action.CHANGE.value.symbol)
-        self.assertEqual(render_kwargs["colour"], _manage_terminal.OutcomeStatus.SKIPPED.value.colour)
+        line_markup = mock_write_line.call_args.args[0]
+        self.assertEqual(line_markup, "[#E48500]→ (dry-run) skipped: git push[/]")
 
     def test_logs_and_executes_when_not_dry_run(
         self,

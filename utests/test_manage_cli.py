@@ -19,7 +19,7 @@ from enum import Enum
 from pathlib import Path
 
 ## local
-from huginn import _manage_terminal, cmd_args, manage_cli, manage_log, manage_shell, params
+from huginn import _manage_output, cmd_args, manage_cli, manage_log, manage_shell, message_styles, params
 
 ##
 ## === HELPERS
@@ -412,8 +412,8 @@ class TestRunCli_Dispatch(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_terminal.reset_params()
-        self.addCleanup(_manage_terminal.reset_params)
+        _manage_output.reset_params()
+        self.addCleanup(_manage_output.reset_params)
 
     def test_dispatches_with_default_tool_params(
         self,
@@ -658,7 +658,7 @@ class TestHelp_Output(unittest.TestCase):
         help_lines = _get_help(self._make_syncing_command_line_tool()).splitlines()
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
         dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
-        task_description = _manage_terminal.TASK_STYLE.description
+        task_description = message_styles.TASK_STYLE.description
         legend_line = next(_line for _line in help_lines if task_description in _line)
         self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index("print commands"))
         self.assertEqual(alpha_line.index("does alpha"), legend_line.index(task_description))
@@ -713,7 +713,7 @@ class TestHelp_Output(unittest.TestCase):
     def test_legend_labels_a_plain_result_as_plain(
         self,
     ) -> None:
-        result_description = _manage_terminal.OutcomeContent.RESULT.value.description
+        result_description = message_styles.OutcomeContent.RESULT.value.description
         self.assertRegex(
             _get_help(_make_command_line_tool(cmd_groups=[])),
             re.compile(rf"^ {{4}}plain +{re.escape(result_description)}$", flags=re.MULTILINE),
@@ -723,12 +723,12 @@ class TestHelp_Output(unittest.TestCase):
         self,
     ) -> None:
         help_lines = _get_help(_make_command_line_tool(cmd_groups=[])).splitlines()
-        for message_group in _manage_terminal.MESSAGE_GROUPS:
+        for message_group in message_styles.MESSAGE_GROUPS:
             title_index = help_lines.index(f"  {message_group.title}")
             for line_offset, message_style in enumerate(message_group.grouped_message_styles, start=1):
                 legend_label = "plain"
                 if (message_style.symbol is not None) and (message_style.colour is not None):
-                    legend_label = f"{message_style.symbol.value} {message_style.colour.name.lower()}"
+                    legend_label = f"{message_style.symbol} {message_style.colour.name.lower()}"
                 legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_style.description)}$"
                 self.assertRegex(help_lines[title_index + line_offset], re.compile(legend_pattern))
 

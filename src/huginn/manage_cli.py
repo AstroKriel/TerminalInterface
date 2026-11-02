@@ -17,7 +17,7 @@ from typing import final
 from rich.console import Console as rich_Console
 
 ## local
-from huginn import _manage_terminal, cmd_args, manage_log, params
+from huginn import _manage_output, cmd_args, manage_log, message_styles, params
 
 ##
 ## === DATA STRUCTURES
@@ -173,7 +173,7 @@ class _CommandLineToolHelp:
         self.all_flags = command_line_tool.all_flags
         legend_labels = [
             self._get_legend_label(_message_style)
-            for _message_group in _manage_terminal.MESSAGE_GROUPS
+            for _message_group in message_styles.MESSAGE_GROUPS
             for _message_style in _message_group.grouped_message_styles
         ]
         all_labels = [
@@ -200,12 +200,12 @@ class _CommandLineToolHelp:
 
     @staticmethod
     def _get_legend_label(
-        message_style: _manage_terminal.MessageStyle,
+        message_style: message_styles.MessageStyle,
     ) -> str:
         """The symbol and colour name, e.g. `● green`; `plain` for a line with neither."""
         if (message_style.symbol is None) or (message_style.colour is None):
             return "plain"
-        return f"{message_style.symbol.value} {message_style.colour.name.lower()}"
+        return f"{message_style.symbol} {message_style.colour.name.lower()}"
 
     def _print_row(
         self,
@@ -241,7 +241,7 @@ class _CommandLineToolHelp:
             for cmd in cmd_group.cmds:
                 self._print_row(
                     label=cmd.name,
-                    label_style=_manage_terminal.Colour.CYAN.value,
+                    label_style=message_styles.Colour.CYAN,
                     description=cmd.description,
                 )
 
@@ -253,7 +253,7 @@ class _CommandLineToolHelp:
         for flag in self.all_flags:
             self._print_row(
                 label=self._get_flag_label(flag),
-                label_style=_manage_terminal.Colour.CYAN.value,
+                label_style=message_styles.Colour.CYAN,
                 description=flag.description,
             )
 
@@ -262,12 +262,12 @@ class _CommandLineToolHelp:
     ) -> None:
         self.console.print()
         self.console.print("[bold]Output legend[/bold]")
-        for message_group in _manage_terminal.MESSAGE_GROUPS:
+        for message_group in message_styles.MESSAGE_GROUPS:
             self.console.print(f"{_MESSAGE_GROUP_INDENT}[dim]{message_group.title}[/dim]")
             for message_style in message_group.grouped_message_styles:
                 legend_colour = None
                 if message_style.colour is not None:
-                    legend_colour = message_style.colour.value
+                    legend_colour = message_style.colour
                 self._print_row(
                     label=self._get_legend_label(message_style),
                     label_style=legend_colour,
@@ -329,7 +329,7 @@ def run_cli(
         command_line_tool_help.print_help()
         return
     tool_params = command_line_tool.tool_params_type.from_parsed_arguments(parsed_arguments)
-    _manage_terminal.set_params(
+    _manage_output.set_params(
         tool_params=tool_params,
         output_params=command_line_tool.output_params,
     )
