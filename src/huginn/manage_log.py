@@ -9,9 +9,9 @@ import sys
 from typing import NoReturn
 
 ## local
-from huginn import _manage_output, message_styles
+from huginn import _manage_output, _message_styles
 from huginn._manage_output import escape_markup as escape_markup
-from huginn.message_styles import OutcomeStatus as OutcomeStatus
+from huginn._message_styles import OutcomeStatus as OutcomeStatus
 
 ##
 ## === OUTPUT
@@ -21,7 +21,7 @@ from huginn.message_styles import OutcomeStatus as OutcomeStatus
 
 def _write_message(
     *,
-    message_style: message_styles.MessageStyle,
+    message_style: _message_styles.MessageStyle,
     text_markup: str,
     colour_whole_line: bool,
 ) -> None:
@@ -37,7 +37,7 @@ def log_note(
 ) -> None:
     """Note something about the work that is neither a task nor an outcome."""
     _write_message(
-        message_style=message_styles.NOTE_STYLE,
+        message_style=_message_styles.NOTE_STYLE,
         text_markup=text,
         colour_whole_line=False,
     )
@@ -48,7 +48,7 @@ def log_task(
 ) -> None:
     """Announce a task that is starting."""
     _write_message(
-        message_style=message_styles.TASK_STYLE,
+        message_style=_message_styles.TASK_STYLE,
         text_markup=text,
         colour_whole_line=False,
     )
@@ -74,7 +74,7 @@ def log_value(
 ) -> None:
     """Report a value that an action produced, by inspecting or by changing the system; the value prints exactly as written."""
     _write_message(
-        message_style=message_styles.OutcomeContent.VALUE.value,
+        message_style=_message_styles.OutcomeContent.VALUE.value,
         text_markup=escape_markup(f"{name} = {value}"),
         colour_whole_line=True,
     )

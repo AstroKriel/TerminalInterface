@@ -9,7 +9,7 @@ import dataclasses
 import unittest
 
 ## local
-from huginn import message_styles
+from huginn import _message_styles
 
 ##
 ## === TEST SUITE
@@ -22,41 +22,41 @@ class TestLegend_Groups(unittest.TestCase):
         self,
     ) -> None:
         self.assertEqual(
-            [_message_group.title for _message_group in message_styles.MESSAGE_GROUPS],
+            [_message_group.title for _message_group in _message_styles.MESSAGE_GROUPS],
             ["Tasks", "Notes", "Actions", "Outcomes"],
         )
 
     def test_every_type_status_and_content_is_in_its_group(
         self,
     ) -> None:
-        tasks_group, notes_group, actions_group, outcomes_group = message_styles.MESSAGE_GROUPS
-        self.assertEqual(tasks_group.grouped_message_styles, (message_styles.TASK_STYLE, ))
-        self.assertEqual(notes_group.grouped_message_styles, (message_styles.NOTE_STYLE, ))
-        for action in message_styles.Action:
+        tasks_group, notes_group, actions_group, outcomes_group = _message_styles.MESSAGE_GROUPS
+        self.assertEqual(tasks_group.grouped_message_styles, (_message_styles.TASK_STYLE, ))
+        self.assertEqual(notes_group.grouped_message_styles, (_message_styles.NOTE_STYLE, ))
+        for action in _message_styles.Action:
             self.assertIn(action.value, actions_group.grouped_message_styles)
-        for outcome_status in message_styles.OutcomeStatus:
+        for outcome_status in _message_styles.OutcomeStatus:
             self.assertIn(outcome_status.value, outcomes_group.grouped_message_styles)
-        for outcome_content in message_styles.OutcomeContent:
+        for outcome_content in _message_styles.OutcomeContent:
             self.assertIn(outcome_content.value, outcomes_group.grouped_message_styles)
 
     def test_every_message_style_has_a_description(
         self,
     ) -> None:
-        for message_group in message_styles.MESSAGE_GROUPS:
+        for message_group in _message_styles.MESSAGE_GROUPS:
             for message_style in message_group.grouped_message_styles:
                 self.assertNotEqual(message_style.description, "")
 
     def test_result_has_no_symbol_or_colour(
         self,
     ) -> None:
-        result_style = message_styles.OutcomeContent.RESULT.value
+        result_style = _message_styles.OutcomeContent.RESULT.value
         self.assertIsNone(result_style.symbol)
         self.assertIsNone(result_style.colour)
 
     def test_only_failure_and_error_share_a_colour(
         self,
     ) -> None:
-        outcome_status = message_styles.OutcomeStatus
+        outcome_status = _message_styles.OutcomeStatus
         self.assertEqual(outcome_status.FAILURE.value.colour, outcome_status.ERROR.value.colour)
         other_colours = [
             _outcome_status.value.colour
@@ -71,7 +71,7 @@ class TestMessageStyle_Render(unittest.TestCase):
     def test_colours_only_the_symbol(
         self,
     ) -> None:
-        line_markup = message_styles.TASK_STYLE.render(
+        line_markup = _message_styles.TASK_STYLE.render(
             text_markup="task",
             colour_whole_line=False,
         )
@@ -80,7 +80,7 @@ class TestMessageStyle_Render(unittest.TestCase):
     def test_colours_the_whole_line(
         self,
     ) -> None:
-        line_markup = message_styles.OutcomeStatus.SUCCESS.value.render(
+        line_markup = _message_styles.OutcomeStatus.SUCCESS.value.render(
             text_markup="done",
             colour_whole_line=True,
         )
@@ -89,7 +89,7 @@ class TestMessageStyle_Render(unittest.TestCase):
     def test_renders_plain_without_symbol_or_colour(
         self,
     ) -> None:
-        line_markup = message_styles.OutcomeContent.RESULT.value.render(
+        line_markup = _message_styles.OutcomeContent.RESULT.value.render(
             text_markup="plain",
             colour_whole_line=True,
         )
@@ -99,8 +99,8 @@ class TestMessageStyle_Render(unittest.TestCase):
         self,
     ) -> None:
         skipped_change_style = dataclasses.replace(
-            message_styles.Action.CHANGE.value,
-            colour=message_styles.OutcomeStatus.SKIPPED.value.colour,
+            _message_styles.Action.CHANGE.value,
+            colour=_message_styles.OutcomeStatus.SKIPPED.value.colour,
         )
         line_markup = skipped_change_style.render(
             text_markup="git push",

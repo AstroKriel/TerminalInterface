@@ -14,7 +14,7 @@ from rich.console import Console as rich_Console
 from rich.text import Text as rich_Text
 
 ## local
-from huginn import message_styles, params
+from huginn import _message_styles, params
 
 ##
 ## === ACTIVE PARAMS
@@ -110,7 +110,7 @@ def write_line(
         console_line = line_markup
         if _active_output_params.show_timestamps:
             timestamp_text = escape_markup(f"[{timestamp}]")
-            console_line = f"[{message_styles.Colour.GREY}]{timestamp_text}[/] {line_markup}"
+            console_line = f"[{_message_styles.Colour.GREY}]{timestamp_text}[/] {line_markup}"
         _CONSOLE_STDERR.print(console_line)
     if _active_tool_params.dry_run or (_active_output_params.log_path is None):
         return

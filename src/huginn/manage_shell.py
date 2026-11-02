@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ## local
-from huginn import _manage_output, message_styles, params
+from huginn import _manage_output, _message_styles, params
 
 ##
 ## === COMMAND RUNNERS
@@ -40,7 +40,7 @@ class CommandOutcome:
 
 def _write_cmd(
     *,
-    action: message_styles.Action,
+    action: _message_styles.Action,
     cmd: list[str],
     is_skipped: bool = False,
 ) -> None:
@@ -54,7 +54,7 @@ def _write_cmd(
     if is_skipped:
         message_style = dataclasses.replace(
             message_style,
-            colour=message_styles.OutcomeStatus.SKIPPED.value.colour,
+            colour=_message_styles.OutcomeStatus.SKIPPED.value.colour,
         )
         cmd_markup = f"(dry-run) skipped: {cmd_markup}"
     line_markup = message_style.render(
@@ -81,13 +81,13 @@ def run_cmd_and_show_output(
     """
     if tool_params.dry_run:
         _write_cmd(
-            action=message_styles.Action.CHANGE,
+            action=_message_styles.Action.CHANGE,
             cmd=cmd,
             is_skipped=True,
         )
         return True
     _write_cmd(
-        action=message_styles.Action.CHANGE,
+        action=_message_styles.Action.CHANGE,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -116,13 +116,13 @@ def run_cmd_and_capture_output(
     """
     if tool_params.dry_run:
         _write_cmd(
-            action=message_styles.Action.CHANGE,
+            action=_message_styles.Action.CHANGE,
             cmd=cmd,
             is_skipped=True,
         )
         return ""
     _write_cmd(
-        action=message_styles.Action.CHANGE,
+        action=_message_styles.Action.CHANGE,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -147,7 +147,7 @@ def query_cmd_and_capture_output(
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _write_cmd(
-        action=message_styles.Action.INSPECTION,
+        action=_message_styles.Action.INSPECTION,
         cmd=cmd,
     )
     result = subprocess.run(
@@ -177,7 +177,7 @@ def query_cmd_and_capture_outcome(
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _write_cmd(
-        action=message_styles.Action.INSPECTION,
+        action=_message_styles.Action.INSPECTION,
         cmd=cmd,
     )
     try:

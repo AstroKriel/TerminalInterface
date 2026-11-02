@@ -69,7 +69,7 @@ TerminalInterface/
 │   └── huginn/
 │       ├── params.py  # every params group: tool params and output params
 │       ├── cmd_args.py  # the args of a cmd: input value types, positional arguments, named arguments, and flags
-│       ├── message_styles.py  # palette and message kinds, each style drawing its own lines, and the groups the help legend is built from
+│       ├── _message_styles.py  # private: palette and message kinds, each style drawing its own lines, and the groups the help legend is built from
 │       ├── _manage_output.py  # private: the active params, the consoles, timestamps, writing lines, and the log
 │       ├── manage_log.py  # output functions
 │       ├── manage_shell.py  # command runners
@@ -81,7 +81,7 @@ TerminalInterface/
 |---|---|---|
 | Package name | `huginn`, the raven of Odin who flies out and reports back, so imports read `from huginn import manage_log, manage_shell`; renamed from `heimdall` on 2026-10-27, which passes to a planned types and validation package | decided |
 | Python | `>=3.11`, the oldest version any planned user declares; tests run on 3.11 and 3.14 | decided |
-| Module names | a module that does things is named `manage_<noun>` (`manage_log`, `manage_shell`, `manage_cli`, and the private `_manage_output`); a module that only defines the types a tool author writes is named after them, plain (`params`, `cmd_args`, `message_styles`); `manage_log` and `manage_shell` also match the jormi modules expected to move in, so that move merges into same-named modules | decided |
-| Message styles and output | `message_styles` defines what each kind of message looks like and draws lines in those styles; the private `_manage_output` holds what the public modules share for writing: the active params, the consoles, and the log; neither public module depends on another, and a later message layer can be added on the same styles and output | decided |
+| Module names | a module that does things is named `manage_<noun>` (`manage_log`, `manage_shell`, `manage_cli`, and the private `_manage_output`); a module that only defines the types a tool author writes is named after them, plain (`params`, `cmd_args`); a module only huginn itself uses is private, with a leading `_` (`_manage_output`, `_message_styles`), while the names inside it stay plain, since other huginn modules use them; `manage_log` and `manage_shell` also match the jormi modules expected to move in, so that move merges into same-named modules | decided |
+| Message styles and output | the private `_message_styles` defines what each kind of message looks like and draws lines in those styles; a tool never picks a style, since each `manage_log` function and shell runner brings its own, and the one choice a tool makes, the outcome status, it reaches as `manage_log.OutcomeStatus`; the private `_manage_output` holds what the public modules share for writing: the active params, the consoles, and the log; neither public module depends on another, and a later message layer can be added on the same styles and output | decided |
 | Params in one place | every params group is defined in `params`, grouped by who sets it; no other module defines or re-exports params | decided |
 | First version | the existing terminal layer, generalised in three places, plus the additions described in the module notes: runners named for what happens to their output, `working_directory` on every runner, `query_cmd_and_capture_outcome`, quoted command printing, timestamps, and the log | decided |
