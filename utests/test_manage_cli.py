@@ -17,7 +17,6 @@ import unittest
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 ## local
 from huginn import _manage_terminal, input_types, manage_cli, manage_log, manage_shell, params
@@ -49,6 +48,15 @@ def _get_help(
             argv=["--help"],
         )
     return stdout_buffer.getvalue()
+
+
+def _parse_with(
+    argument: manage_cli.Argument,
+    argv: list[str],
+) -> argparse.Namespace:
+    argument_parser = argparse.ArgumentParser()
+    argument.add_to_parser(argument_parser)
+    return argument_parser.parse_args(argv)
 
 
 def _make_cmd_group(
@@ -144,13 +152,13 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         )
         self.assertEqual(received, {"branch_name": "feature"})
 
-    def test_named_flag_is_passed_without_dashes(
+    def test_named_argument_is_passed_without_dashes(
         self,
     ) -> None:
         received = self._call_with(
             arguments=[
-                manage_cli.FlagArgument(
-                    long_name="base-ref",
+                manage_cli.NamedArgument(
+                    long_arg_name="base-ref",
                     description="ref to compare against",
                     input_type=input_types.TEXT,
                 ),
@@ -159,13 +167,13 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         )
         self.assertEqual(received, {"base_ref": "development"})
 
-    def test_named_flag_passes_none_when_not_set(
+    def test_named_argument_passes_none_when_not_set(
         self,
     ) -> None:
         received = self._call_with(
             arguments=[
-                manage_cli.FlagArgument(
-                    long_name="base",
+                manage_cli.NamedArgument(
+                    long_arg_name="base",
                     description="branch to compare against",
                     input_type=input_types.TEXT,
                 ),
@@ -174,7 +182,7 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         )
         self.assertEqual(received, {"base": None})
 
-    def test_unset_flag_reaches_the_cmd_as_none_through_run_cli(
+    def test_unset_named_argument_reaches_the_cmd_as_none_through_run_cli(
         self,
     ) -> None:
         received: list[str | None] = []
@@ -189,8 +197,8 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         go_cmd = _make_go_cmd(
             record_base,
             arguments=[
-                manage_cli.FlagArgument(
-                    long_name="base",
+                manage_cli.NamedArgument(
+                    long_arg_name="base",
                     description="branch to compare against",
                     input_type=input_types.TEXT,
                 ),
@@ -233,68 +241,51 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         self.assertEqual(received, [["a", "b"]])
 
 
-class TestArgument_AllowedInputCount(unittest.TestCase):
+class TestFlagArgument_Switch(unittest.TestCase):
 
-    def test_zero_is_a_switch(
+    def test_flag_is_true_when_passed_and_false_when_not(
         self,
     ) -> None:
-        switch_argument = manage_cli.FlagArgument(
-            long_name="force",
+        force_flag = manage_cli.FlagArgument(
+            long_arg_name="force",
             description="skip the check",
-            input_type=None,
-            allowed_input_count=manage_cli.AllowedInputCount.ZERO,
         )
-        keyword_arguments = switch_argument.argparse_keyword_arguments
-        self.assertEqual(keyword_arguments["action"], "store_true")
-        self.assertNotIn("nargs", keyword_arguments)
+        self.assertTrue(_parse_with(force_flag, ["--force"]).force)
+        self.assertFalse(_parse_with(force_flag, []).force)
 
-    def test_one_is_the_default_and_sets_no_nargs(
+
+class TestArgument_AllowedInputCount(unittest.TestCase):
+
+    def test_one_takes_a_single_input(
         self,
     ) -> None:
         path_argument = manage_cli.PositionalArgument(
             name="path",
             description="path to use",
-            input_type=input_types.PATH,
+            input_type=input_types.TEXT,
         )
-        keyword_arguments = path_argument.argparse_keyword_arguments
-        self.assertNotIn("action", keyword_arguments)
-        self.assertNotIn("nargs", keyword_arguments)
+        self.assertEqual(_parse_with(path_argument, ["a"]).path, "a")
 
-    def test_ranges_map_to_their_nargs_symbols(
+    def test_ranges_collect_their_inputs(
         self,
     ) -> None:
-        expected_symbols = {
-            manage_cli.AllowedInputCount.ZERO_OR_ONE: "?",
-            manage_cli.AllowedInputCount.ZERO_OR_MORE: "*",
-            manage_cli.AllowedInputCount.ONE_OR_MORE: "+",
+        expected_inputs: dict[manage_cli.AllowedInputCount, tuple[list[str], list[str] | None]] = {
+            manage_cli.AllowedInputCount.ZERO_OR_ONE: ([], None),
+            manage_cli.AllowedInputCount.ZERO_OR_MORE: ([], []),
+            manage_cli.AllowedInputCount.ONE_OR_MORE: (["a", "b"], ["a", "b"]),
         }
-        for allowed_input_count, expected_symbol in expected_symbols.items():
+        for allowed_input_count, (argv, expected_paths) in expected_inputs.items():
             ranged_argument = manage_cli.PositionalArgument(
                 name="paths",
                 description="paths to use",
-                input_type=input_types.PATH,
+                input_type=input_types.TEXT,
                 allowed_input_count=allowed_input_count,
             )
-            self.assertEqual(ranged_argument.argparse_keyword_arguments["nargs"], expected_symbol)
+            with self.subTest(allowed_input_count=allowed_input_count):
+                self.assertEqual(_parse_with(ranged_argument, argv).paths, expected_paths)
 
 
 class TestArgument_InputType(unittest.TestCase):
-
-    def test_argument_that_takes_input_needs_an_input_type(
-        self,
-    ) -> None:
-        with self.assertRaises(ValueError):
-            manage_cli.PositionalArgument(
-                name="base_ref",
-                description="ref to compare against",
-                input_type=None,
-            )
-        with self.assertRaises(ValueError):
-            manage_cli.FlagArgument(
-                long_name="base-ref",
-                description="ref to compare against",
-                input_type=None,
-            )
 
     def test_input_type_sets_placeholder_and_conversion(
         self,
@@ -313,7 +304,6 @@ class TestArgument_InputType(unittest.TestCase):
             description="only posts after this date",
             input_type=input_types.DATE,
         )
-        self.assertEqual(since_date_argument.argparse_keyword_arguments["metavar"], "<date>")
         go_cmd = _make_go_cmd(
             record_date,
             arguments=[since_date_argument],
@@ -360,7 +350,7 @@ class TestArgument_InputType(unittest.TestCase):
 
 class TestArgumentDefinitions_Checks(unittest.TestCase):
 
-    def test_positional_name_must_be_a_parameter_name(
+    def test_positional_name_must_be_a_param_name(
         self,
     ) -> None:
         for bad_name in ["--since", "since-date", "Since", "2nd", ""]:
@@ -370,17 +360,6 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
                     description="since date",
                     input_type=input_types.DATE,
                 )
-
-    def test_positional_cannot_be_a_switch(
-        self,
-    ) -> None:
-        with self.assertRaises(ValueError):
-            manage_cli.PositionalArgument(
-                name="force",
-                description="skip the check",
-                input_type=None,
-                allowed_input_count=manage_cli.AllowedInputCount.ZERO,
-            )
 
     def test_positional_default_needs_an_input_that_can_be_left_out(
         self,
@@ -394,7 +373,7 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
             )
         self.assertEqual(
             str(error_context.exception),
-            "positional `path`: `default_value` must be `None` when `allowed_input_count` is `ONE`, since the input is always given; got `.`.",
+            "PositionalArgument `path`: `default_value` must be `None` when `allowed_input_count` is `ONE`, since the input is always given; got `.`.",
         )
         optional_path_argument = manage_cli.PositionalArgument(
             name="path",
@@ -403,45 +382,54 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
             allowed_input_count=manage_cli.AllowedInputCount.ZERO_OR_ONE,
             default_value=".",
         )
-        self.assertEqual(optional_path_argument.argparse_keyword_arguments["default"], ".")
+        self.assertEqual(_parse_with(optional_path_argument, []).path, Path("."))
 
-    def test_long_name_must_be_bare_lowercase_words(
+    def test_long_arg_name_must_be_bare_lowercase_words(
         self,
     ) -> None:
-        for bad_long_name in ["--output", "base_ref", "Output", "-o", ""]:
-            with self.subTest(bad_long_name=bad_long_name), self.assertRaises(ValueError):
-                manage_cli.FlagArgument(
-                    long_name=bad_long_name,
+        for bad_long_arg_name in ["--output", "base_ref", "Output", "-o", ""]:
+            with self.subTest(bad_long_arg_name=bad_long_arg_name), self.assertRaises(ValueError):
+                manage_cli.NamedArgument(
+                    long_arg_name=bad_long_arg_name,
                     description="folder to write to",
                     input_type=input_types.DIR,
                 )
+            with self.subTest(bad_long_arg_name=bad_long_arg_name), self.assertRaises(ValueError):
+                manage_cli.FlagArgument(
+                    long_arg_name=bad_long_arg_name,
+                    description="skip the check",
+                )
 
-    def test_short_name_must_be_one_to_three_letters(
+    def test_short_arg_name_must_be_one_to_three_letters(
         self,
     ) -> None:
-        for good_short_name in ["o", "ou", "out"]:
-            output_flag = manage_cli.FlagArgument(
-                long_name="output",
-                short_name=good_short_name,
+        for good_short_arg_name in ["o", "ou", "out"]:
+            output_argument = manage_cli.NamedArgument(
+                long_arg_name="output",
+                short_arg_name=good_short_arg_name,
                 description="folder to write to",
                 input_type=input_types.DIR,
             )
-            self.assertEqual(output_flag.option_strings[0], f"-{good_short_name}")
-        for bad_short_name in ["-o", "outp", "o1", ""]:
-            with self.subTest(bad_short_name=bad_short_name), self.assertRaises(ValueError):
+            self.assertEqual(output_argument.arg_names, [f"-{good_short_arg_name}", "--output"])
+        for bad_short_arg_name in ["-o", "outp", "o1", ""]:
+            with self.subTest(
+                    bad_short_arg_name=bad_short_arg_name, ), self.assertRaises(ValueError) as error_context:
                 manage_cli.FlagArgument(
-                    long_name="output",
-                    short_name=bad_short_name,
-                    description="folder to write to",
-                    input_type=input_types.DIR,
+                    long_arg_name="force",
+                    short_arg_name=bad_short_arg_name,
+                    description="skip the check",
                 )
+            self.assertEqual(
+                str(error_context.exception),
+                f"FlagArgument `force`: `short_arg_name` must be one to three letters; got `{bad_short_arg_name}`.",
+            )
 
-    def test_required_flag_has_no_default(
+    def test_required_named_argument_has_no_default(
         self,
     ) -> None:
         with self.assertRaises(ValueError) as error_context:
-            manage_cli.FlagArgument(
-                long_name="output",
+            manage_cli.NamedArgument(
+                long_arg_name="output",
                 description="folder to write to",
                 input_type=input_types.DIR,
                 is_required=True,
@@ -449,35 +437,10 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
             )
         self.assertEqual(
             str(error_context.exception),
-            "flag `output`: `default_value` must be `None` when `is_required` is `True`, since a required flag never falls back; got `.`.",
+            "NamedArgument `output`: `default_value` must be `None` when `is_required` is `True`, since a required argument never falls back; got `.`.",
         )
 
-    def test_switch_is_not_required_and_takes_no_input(
-        self,
-    ) -> None:
-        bad_switch_settings: list[dict[str, Any]] = [
-            {
-                "input_type": None,
-                "is_required": True,
-            },
-            {
-                "input_type": input_types.TEXT,
-            },
-            {
-                "input_type": None,
-                "default_value": True,
-            },
-        ]
-        for bad_switch_setting in bad_switch_settings:
-            with self.subTest(bad_switch_setting=bad_switch_setting), self.assertRaises(ValueError):
-                manage_cli.FlagArgument(
-                    long_name="force",
-                    description="skip the check",
-                    allowed_input_count=manage_cli.AllowedInputCount.ZERO,
-                    **bad_switch_setting,
-                )
-
-    def test_cmd_arguments_need_unique_parameter_names(
+    def test_cmd_arguments_need_unique_param_names(
         self,
     ) -> None:
         with self.assertRaises(ValueError):
@@ -489,8 +452,8 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
                         description="folder to write to",
                         input_type=input_types.DIR,
                     ),
-                    manage_cli.FlagArgument(
-                        long_name="output",
+                    manage_cli.NamedArgument(
+                        long_arg_name="output",
                         description="folder to write to",
                         input_type=input_types.DIR,
                     ),
@@ -512,7 +475,7 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
                 ],
             )
 
-    def test_cmd_argument_cannot_reuse_a_tool_flag_parameter_name(
+    def test_cmd_argument_cannot_reuse_a_tool_flag_param_name(
         self,
     ) -> None:
         dry_run_cmd = _make_go_cmd(
@@ -533,7 +496,7 @@ class TestArgumentDefinitions_Checks(unittest.TestCase):
         )
 
 
-class TestFlagArgument_ShortName(unittest.TestCase):
+class TestTypedNames_ShortName(unittest.TestCase):
 
     def test_short_and_long_forms_both_reach_the_cmd(
         self,
@@ -547,9 +510,9 @@ class TestFlagArgument_ShortName(unittest.TestCase):
         ) -> None:
             received.append(output)
 
-        output_flag = manage_cli.FlagArgument(
-            long_name="output",
-            short_name="o",
+        output_argument = manage_cli.NamedArgument(
+            long_arg_name="output",
+            short_arg_name="o",
             description="folder to write to",
             input_type=input_types.TEXT,
         )
@@ -558,7 +521,7 @@ class TestFlagArgument_ShortName(unittest.TestCase):
                 _make_cmd_group(
                     _make_go_cmd(
                         record_output,
-                        arguments=[output_flag],
+                        arguments=[output_argument],
                     ),
                 ),
             ],
@@ -574,11 +537,9 @@ class TestFlagArgument_ShortName(unittest.TestCase):
         self,
     ) -> None:
         verbose_flag = manage_cli.FlagArgument(
-            long_name="verbose",
-            short_name="v",
+            long_arg_name="verbose",
+            short_arg_name="v",
             description="say more",
-            input_type=None,
-            allowed_input_count=manage_cli.AllowedInputCount.ZERO,
         )
         command_line_tool = _make_command_line_tool(
             cmd_groups=[_make_cmd_group(_make_go_cmd(_do_nothing))],
@@ -628,10 +589,8 @@ class TestRunCli_Dispatch(unittest.TestCase):
 
         go_cmd = _make_go_cmd(record_tool_params)
         allow_dirty_flag = manage_cli.FlagArgument(
-            long_name="allow-dirty",
+            long_arg_name="allow-dirty",
             description="skip the check",
-            input_type=None,
-            allowed_input_count=manage_cli.AllowedInputCount.ZERO,
         )
         command_line_tool = manage_cli.CommandLineTool(
             name="tool",
@@ -882,10 +841,8 @@ class TestHelp_Output(unittest.TestCase):
         self,
     ) -> None:
         allow_dirty_flag = manage_cli.FlagArgument(
-            long_name="allow-dirty",
+            long_arg_name="allow-dirty",
             description="skip the check",
-            input_type=None,
-            allowed_input_count=manage_cli.AllowedInputCount.ZERO,
         )
         command_line_tool = _make_command_line_tool(
             cmd_groups=[],
