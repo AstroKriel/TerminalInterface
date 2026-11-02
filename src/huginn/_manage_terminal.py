@@ -6,7 +6,7 @@
 
 ## stdlib
 import datetime
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
@@ -14,6 +14,9 @@ from pathlib import Path
 from rich import markup as rich_markup
 from rich.console import Console as rich_Console
 from rich.text import Text as rich_Text
+
+## local
+from huginn import params
 
 ##
 ## === PALETTE
@@ -172,18 +175,11 @@ MESSAGE_GROUPS: list[MessageGroup] = [
 ]
 
 ##
-## === OUTPUT PARAMS
+## === ACTIVE PARAMS
 ##
 
-
-@dataclass(frozen=True)
-class OutputParams:
-    """How output behaves for one run: timestamps on terminal lines, and where every line is also logged."""
-    show_timestamps: bool = False
-    log_path: Path | None = None
-
-
-_active_output_params = OutputParams()
+_active_tool_params = params.ToolParams()
+_active_output_params = params.OutputParams()
 _CONSOLE_STDERR = rich_Console(
     highlight=False,
     stderr=True,
@@ -194,23 +190,22 @@ _CONSOLE_STDOUT = rich_Console(
 )
 
 
-def set_output_params(
+def set_params(
     *,
-    output_params: OutputParams,
-    dry_run: bool,
+    tool_params: params.ToolParams,
+    output_params: params.OutputParams,
 ) -> None:
-    """Set how output behaves for the rest of the process; the log is never written in dry-run."""
-    global _active_output_params
-    if dry_run:
-        output_params = replace(output_params, log_path=None)
+    """Set how output behaves for the rest of the process."""
+    global _active_tool_params, _active_output_params
+    _active_tool_params = tool_params
     _active_output_params = output_params
 
 
-def reset_output_params() -> None:
-    """Return to the defaults: no timestamps, no log."""
-    set_output_params(
-        output_params=OutputParams(),
-        dry_run=False,
+def reset_params() -> None:
+    """Return to the defaults: no timestamps, actions shown, no log."""
+    set_params(
+        tool_params=params.ToolParams(),
+        output_params=params.OutputParams(),
     )
 
 
@@ -253,25 +248,28 @@ def write_line(
     line_markup: str,
     *,
     is_result: bool = False,
+    is_action: bool = False,
 ) -> None:
     """
     Write one finished line: narration goes to stderr; a result goes to stdout as is.
 
     A result is data for the user or a pipe, so it never gets a timestamp and is never wrapped at the terminal width.
+    A hidden action is left off the terminal but still logged; the log is never written in dry-run.
     """
     timestamp = get_timestamp()
+    action_is_hidden = is_action and _active_tool_params.hide_actions
     if is_result:
         _CONSOLE_STDOUT.print(
             line_markup,
             soft_wrap=True,
         )
-    else:
+    elif not action_is_hidden:
         console_line = line_markup
         if _active_output_params.show_timestamps:
             timestamp_text = escape_markup(f"[{timestamp}]")
             console_line = f"[{Colour.GREY.value}]{timestamp_text}[/] {line_markup}"
         _CONSOLE_STDERR.print(console_line)
-    if _active_output_params.log_path is None:
+    if _active_tool_params.dry_run or _active_output_params.log_path is None:
         return
     _append_log(
         log_path=_active_output_params.log_path,

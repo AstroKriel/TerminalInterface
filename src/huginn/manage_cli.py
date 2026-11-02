@@ -6,18 +6,19 @@
 
 ## stdlib
 import argparse
+import re
 import shlex
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, auto
 from typing import Any, final
 
 ## third-party
 from rich.console import Console as rich_Console
 
 ## local
-from huginn import _manage_terminal, manage_log, manage_shell
+from huginn import _manage_terminal, input_types, manage_log, params
 
 ##
 ## === DATA STRUCTURES
@@ -25,57 +26,238 @@ from huginn import _manage_terminal, manage_log, manage_shell
 ##
 
 
-class ValueCount(str, Enum):
-    """How many values an argument takes, as the symbol argparse expects."""
-    OPTIONAL = "?"
-    ANY = "*"
-    AT_LEAST_ONE = "+"
+class AllowedInputCount(Enum):
+    """How many inputs an argument allows; an argument that allows none is a switch, received as `True` or `False`."""
+    ZERO = auto()
+    ONE = auto()
+    ZERO_OR_ONE = auto()
+    ZERO_OR_MORE = auto()
+    ONE_OR_MORE = auto()
 
 
-@dataclass(frozen=True)
-class CommandArgument:
-    """One argument of a cmd or a tool: a bare positional, or a `--flag`."""
-    name: str
-    description: str | None = None
-    value_type: type = str
+_NARGS_SYMBOLS = {
+    AllowedInputCount.ZERO_OR_ONE: "?",
+    AllowedInputCount.ZERO_OR_MORE: "*",
+    AllowedInputCount.ONE_OR_MORE: "+",
+}
+
+_POSITIONAL_NAME_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
+_LONG_NAME_PATTERN = re.compile(r"[a-z][a-z0-9-]*")
+_SHORT_NAME_PATTERN = re.compile(r"[A-Za-z]{1,3}")
+_INPUT_COUNTS_WITH_NO_INPUT = (AllowedInputCount.ZERO_OR_ONE, AllowedInputCount.ZERO_OR_MORE)
+
+
+def _format_names(
+    names: list[str],
+) -> str:
+    """Names in backticks, joined by commas, for error messages."""
+    return ", ".join(f"`{_name}`" for _name in names)
+
+
+@dataclass(
+    frozen=True,
+    kw_only=True,
+)
+class Argument:
+    """
+    What every argument shares: how its input is described and converted.
+
+    `description` and `input_type` have no defaults, so every argument states them; only a switch, which takes no
+    input, passes `input_type=None`.
+    """
+    description: str
+    input_type: input_types.InputType | None
+    allowed_input_count: AllowedInputCount = AllowedInputCount.ONE
     default_value: Any = None
-    value_placeholder: str | None = None
-    is_switch: bool = False
-    is_required: bool = False
-    value_count: ValueCount | None = None
 
     @property
     def parameter_name(
         self,
     ) -> str:
-        """The cmd function parameter this argument is passed to, e.g. `--word-diff` -> `word_diff`."""
-        return self.name.lstrip("-").replace("-", "_")
+        raise NotImplementedError
+
+    @property
+    def option_strings(
+        self,
+    ) -> list[str]:
+        """What `add_argument` takes before its keyword arguments."""
+        raise NotImplementedError
 
     @property
     def argparse_keyword_arguments(
         self,
     ) -> dict[str, Any]:
-        """Build the keyword arguments for `add_argument`; flags with no description get a default-value hint."""
+        raise NotImplementedError
+
+    def _get_required_input_type(
+        self,
+    ) -> input_types.InputType:
+        """The input type of an argument that takes input, which must be set."""
+        if self.input_type is None:
+            raise ValueError(
+                f"argument `{self.parameter_name}`: `input_type` must be set, since the argument takes input; got `None`.",
+            )
+        return self.input_type
+
+    def _get_input_keyword_arguments(
+        self,
+    ) -> dict[str, Any]:
+        """The keyword arguments for an argument that takes input: its conversion, placeholder, count, and help."""
+        input_type = self._get_required_input_type()
+        keyword_arguments: dict[str, Any] = {
+            "type": input_type.convert_fn,
+            "metavar": f"<{input_type.placeholder_name}>",
+            "help": self.description,
+        }
+        if self.allowed_input_count in _NARGS_SYMBOLS:
+            keyword_arguments["nargs"] = _NARGS_SYMBOLS[self.allowed_input_count]
+        return keyword_arguments
+
+
+@dataclass(
+    frozen=True,
+    kw_only=True,
+)
+class PositionalArgument(Argument):
+    """An input typed straight after the cmd name; `name` is only the parameter name, never typed."""
+    name: str
+
+    def __post_init__(
+        self,
+    ) -> None:
+        if _POSITIONAL_NAME_PATTERN.fullmatch(self.name) is None:
+            raise ValueError(
+                f"positional argument: `name` must be lowercase letters, digits, and `_`, starting with a letter; got `{self.name}`.",
+            )
+        if self.allowed_input_count is AllowedInputCount.ZERO:
+            allowed_names = _format_names(
+                [
+                    _allowed_input_count.name
+                    for _allowed_input_count in AllowedInputCount
+                    if _allowed_input_count is not AllowedInputCount.ZERO
+                ],
+            )
+            raise ValueError(
+                f"positional `{self.name}`: `allowed_input_count` must be one of {{{allowed_names}}}, since only a flag can take no input; got `ZERO`.",
+            )
+        self._get_required_input_type()
+        if self.default_value is not None and self.allowed_input_count not in _INPUT_COUNTS_WITH_NO_INPUT:
+            raise ValueError(
+                f"positional `{self.name}`: `default_value` must be `None` when `allowed_input_count` is `{self.allowed_input_count.name}`, since the input is always given; got `{self.default_value}`.",
+            )
+
+    @property
+    def parameter_name(
+        self,
+    ) -> str:
+        return self.name
+
+    @property
+    def option_strings(
+        self,
+    ) -> list[str]:
+        return [self.name]
+
+    @property
+    def argparse_keyword_arguments(
+        self,
+    ) -> dict[str, Any]:
+        keyword_arguments = self._get_input_keyword_arguments()
+        if self.allowed_input_count in _INPUT_COUNTS_WITH_NO_INPUT:
+            keyword_arguments["default"] = self.default_value
+        return keyword_arguments
+
+
+@dataclass(
+    frozen=True,
+    kw_only=True,
+)
+class FlagArgument(Argument):
+    """
+    An input given after `--<long name>`, or `-<short name>`; huginn adds the dashes.
+
+    A flag that takes no input (`AllowedInputCount.ZERO`) is a switch, received as `True` or `False`.
+    """
+    long_name: str
+    short_name: str | None = None
+    is_required: bool = False
+
+    def __post_init__(
+        self,
+    ) -> None:
+        if _LONG_NAME_PATTERN.fullmatch(self.long_name) is None:
+            raise ValueError(
+                f"flag: `long_name` must be lowercase letters, digits, and `-`, starting with a letter; got `{self.long_name}`.",
+            )
+        flag_label = f"flag `{self.long_name}`"
+        if self.short_name is not None and _SHORT_NAME_PATTERN.fullmatch(self.short_name) is None:
+            raise ValueError(
+                f"{flag_label}: `short_name` must be one to three letters; got `{self.short_name}`.",
+            )
+        if self.is_required and self.default_value is not None:
+            raise ValueError(
+                f"{flag_label}: `default_value` must be `None` when `is_required` is `True`, since a required flag never falls back; got `{self.default_value}`.",
+            )
+        if self.allowed_input_count is AllowedInputCount.ZERO:
+            if self.is_required:
+                raise ValueError(
+                    f"{flag_label}: `is_required` must be `False` for a switch, since a switch is only ever on or off; got `True`.",
+                )
+            if self.input_type is not None:
+                raise ValueError(
+                    f"{flag_label}: `input_type` must be `None` for a switch, since a switch takes no input; got `<{self.input_type.placeholder_name}>`.",
+                )
+            if self.default_value is not None:
+                raise ValueError(
+                    f"{flag_label}: `default_value` must be `None` for a switch, since a switch is off unless passed; got `{self.default_value}`.",
+                )
+        else:
+            self._get_required_input_type()
+
+    @property
+    def is_switch(
+        self,
+    ) -> bool:
+        return self.allowed_input_count is AllowedInputCount.ZERO
+
+    @property
+    def parameter_name(
+        self,
+    ) -> str:
+        """The cmd function parameter this flag is passed to, e.g. `word-diff` -> `word_diff`."""
+        return self.long_name.replace("-", "_")
+
+    @property
+    def option_strings(
+        self,
+    ) -> list[str]:
+        """The short form first, then the long form, e.g. `["-o", "--output"]`."""
+        long_option = f"--{self.long_name}"
+        if self.short_name is None:
+            return [long_option]
+        return [f"-{self.short_name}", long_option]
+
+    @property
+    def argparse_keyword_arguments(
+        self,
+    ) -> dict[str, Any]:
         if self.is_switch:
             keyword_arguments: dict[str, Any] = {
                 "action": "store_true",
                 "default": False,
+                "help": self.description,
             }
         else:
-            keyword_arguments = {"type": self.value_type}
-            if self.value_count is not None:
-                keyword_arguments["nargs"] = self.value_count.value
-            if self.value_placeholder is not None:
-                keyword_arguments["metavar"] = self.value_placeholder
+            keyword_arguments = self._get_input_keyword_arguments()
             if self.is_required:
                 keyword_arguments["required"] = True
             else:
                 keyword_arguments["default"] = self.default_value
-        if self.description is not None:
-            keyword_arguments["help"] = self.description
-        elif self.name.startswith("--") and not self.is_required:
-            keyword_arguments["help"] = "(default: %(default)s)"
+        keyword_arguments["dest"] = self.parameter_name
         return keyword_arguments
+
+
+_RESERVED_PARAMETER_NAME = "tool_params"
 
 
 @dataclass(frozen=True)
@@ -84,21 +266,41 @@ class Command:
     name: str
     description: str
     fn: Callable[..., None]
-    arguments: list[CommandArgument] = field(default_factory=list)
+    arguments: list[Argument] = field(default_factory=list)
+
+    def __post_init__(
+        self,
+    ) -> None:
+        parameter_names = [_argument.parameter_name for _argument in self.arguments]
+        if _RESERVED_PARAMETER_NAME in parameter_names:
+            raise ValueError(
+                f"cmd `{self.name}`: argument names must not be `{_RESERVED_PARAMETER_NAME}`, which every cmd function already receives; got `{_RESERVED_PARAMETER_NAME}`.",
+            )
+        repeated_parameter_names = sorted(
+            {
+                _parameter_name
+                for _parameter_name in parameter_names
+                if parameter_names.count(_parameter_name) > 1
+            },
+        )
+        if len(repeated_parameter_names) > 0:
+            raise ValueError(
+                f"cmd `{self.name}`: argument parameter names must be unique; got {_format_names(repeated_parameter_names)} more than once.",
+            )
 
     def call(
         self,
         *,
-        run_params: manage_shell.RunParams,
+        tool_params: params.ToolParams,
         parsed_arguments: argparse.Namespace,
     ) -> None:
-        """Call `fn` with `run_params` and each argument by its parameter name, all as keywords."""
+        """Call `fn` with `tool_params` and each argument by its parameter name, all as keywords."""
         argument_values = {
             _argument.parameter_name: getattr(parsed_arguments, _argument.parameter_name)
             for _argument in self.arguments
         }
         self.fn(
-            run_params=run_params,
+            tool_params=tool_params,
             **argument_values,
         )
 
@@ -118,21 +320,49 @@ class CommandLineTool:
     Fields
     ---
     - `flags`:
-        Flags beyond `--dry-run`, which every tool has.
+        Flags beyond `--dry-run` and `--hide-actions`, which every tool has.
 
     - `hidden_cmds`:
         Cmds that can be run but are left out of help.
 
-    - `run_params_type`:
-        `RunParams` or a subclass; built from the parsed flags with `from_parsed_arguments`.
+    - `tool_params_type`:
+        `ToolParams` or a subclass with one field per extra flag; built from the parsed flags with
+        `from_parsed_arguments`.
     """
     name: str
     description: str
     cmd_groups: list[CommandGroup]
     hidden_cmds: list[Command] = field(default_factory=list)
-    flags: list[CommandArgument] = field(default_factory=list)
-    run_params_type: type[manage_shell.RunParams] = manage_shell.RunParams
-    output_params: manage_log.OutputParams = manage_log.OutputParams()
+    flags: list[FlagArgument] = field(default_factory=list)
+    tool_params_type: type[params.ToolParams] = params.ToolParams
+    output_params: params.OutputParams = params.OutputParams()
+
+    def __post_init__(
+        self,
+    ) -> None:
+        flags_by_parameter_name = {_flag.parameter_name: _flag for _flag in self.all_flags}
+        for cmd in self.all_cmds:
+            clashing_parameter_names = sorted(
+                {
+                    _argument.parameter_name
+                    for _argument in cmd.arguments
+                    if _argument.parameter_name in flags_by_parameter_name
+                },
+            )
+            if len(clashing_parameter_names) > 0:
+                clash_descriptions = ", ".join(
+                    f"`{_parameter_name}`, which is also `--{flags_by_parameter_name[_parameter_name].long_name}`"
+                    for _parameter_name in clashing_parameter_names
+                )
+                raise ValueError(
+                    f"cmd `{cmd.name}`: argument parameter names must differ from the flags of the tool; got {clash_descriptions}.",
+                )
+
+    @property
+    def all_flags(
+        self,
+    ) -> list[FlagArgument]:
+        return [*_BUILT_IN_FLAGS, *self.flags]
 
     @property
     def all_cmds(
@@ -142,11 +372,19 @@ class CommandLineTool:
         return [*grouped_cmds, *self.hidden_cmds]
 
 
-_DRY_RUN_FLAG = CommandArgument(
-    name="--dry-run",
+_DRY_RUN_FLAG = FlagArgument(
+    long_name="dry-run",
     description="print commands without executing them",
-    is_switch=True,
+    input_type=None,
+    allowed_input_count=AllowedInputCount.ZERO,
 )
+_HIDE_ACTIONS_FLAG = FlagArgument(
+    long_name="hide-actions",
+    description="do not print the commands run; the log still records them",
+    input_type=None,
+    allowed_input_count=AllowedInputCount.ZERO,
+)
+_BUILT_IN_FLAGS = (_DRY_RUN_FLAG, _HIDE_ACTIONS_FLAG)
 
 ##
 ## === HELP
@@ -167,7 +405,7 @@ class _CommandLineToolHelp:
     ) -> None:
         self.command_line_tool = command_line_tool
         self.console = rich_Console(highlight=False)
-        self.all_flags = [_DRY_RUN_FLAG, *command_line_tool.flags]
+        self.all_flags = command_line_tool.all_flags
         legend_labels = [
             self._get_legend_label(_message_style)
             for _message_group in _manage_terminal.MESSAGE_GROUPS
@@ -175,7 +413,7 @@ class _CommandLineToolHelp:
         ]
         all_labels = [
             *[_cmd.name for _cmd_group in command_line_tool.cmd_groups for _cmd in _cmd_group.cmds],
-            *[_flag.name for _flag in self.all_flags],
+            *[self._get_flag_label(_flag) for _flag in self.all_flags],
             *legend_labels,
         ]
         self.column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
@@ -187,6 +425,13 @@ class _CommandLineToolHelp:
         if isinstance(title, Enum):
             return str(title.value)
         return title
+
+    @staticmethod
+    def _get_flag_label(
+        flag: FlagArgument,
+    ) -> str:
+        """The forms of a flag, e.g. `-o, --output`."""
+        return ", ".join(flag.option_strings)
 
     @staticmethod
     def _get_legend_label(
@@ -213,7 +458,7 @@ class _CommandLineToolHelp:
     def _print_header(
         self,
     ) -> None:
-        usage_flags = " ".join(f"[{_flag.name}]" for _flag in self.all_flags)
+        usage_flags = " ".join(f"[--{_flag.long_name}]" for _flag in self.all_flags)
         usage_text = manage_log.escape_markup(f"{self.command_line_tool.name} {usage_flags} <command> [args]")
         self.console.print()
         self.console.print(
@@ -241,13 +486,10 @@ class _CommandLineToolHelp:
         self.console.print()
         self.console.print("[bold]Flags[/bold]")
         for flag in self.all_flags:
-            flag_description = flag.description
-            if flag_description is None:
-                flag_description = ""
             self._print_row(
-                label=flag.name,
+                label=self._get_flag_label(flag),
                 label_style=_manage_terminal.Colour.CYAN.value,
-                description=flag_description,
+                description=flag.description,
             )
 
     def _print_legend(
@@ -296,8 +538,8 @@ def _build_parser(
         "--help",
         action="store_true",
     )
-    for flag in [_DRY_RUN_FLAG, *command_line_tool.flags]:
-        argument_parser.add_argument(flag.name, **flag.argparse_keyword_arguments)
+    for flag in command_line_tool.all_flags:
+        argument_parser.add_argument(*flag.option_strings, **flag.argparse_keyword_arguments)
     subparsers = argument_parser.add_subparsers(
         dest="cmd",
         required=False,
@@ -306,7 +548,7 @@ def _build_parser(
     for cmd in command_line_tool.all_cmds:
         subparser = subparsers.add_parser(cmd.name, help=cmd.description)
         for argument in cmd.arguments:
-            subparser.add_argument(argument.name, **argument.argparse_keyword_arguments)
+            subparser.add_argument(*argument.option_strings, **argument.argparse_keyword_arguments)
     return argument_parser
 
 
@@ -315,22 +557,22 @@ def run_cli(
     command_line_tool: CommandLineTool,
     argv: Sequence[str] | None = None,
 ) -> None:
-    """Parse argv (default: `sys.argv`), build the run params, set up output for the run, and run one cmd."""
+    """Parse argv (default: `sys.argv`), build the tool params, set up output for the run, and run one cmd."""
     parsed_arguments = _build_parser(command_line_tool).parse_args(argv)
     if parsed_arguments.help or parsed_arguments.cmd is None:
         command_line_tool_help = _CommandLineToolHelp(command_line_tool)
         command_line_tool_help.print_help()
         return
-    run_params = command_line_tool.run_params_type.from_parsed_arguments(parsed_arguments)
-    _manage_terminal.set_output_params(
+    tool_params = command_line_tool.tool_params_type.from_parsed_arguments(parsed_arguments)
+    _manage_terminal.set_params(
+        tool_params=tool_params,
         output_params=command_line_tool.output_params,
-        dry_run=run_params.dry_run,
     )
     cmds_by_name = {_cmd.name: _cmd for _cmd in command_line_tool.all_cmds}
     selected_cmd = cmds_by_name[parsed_arguments.cmd]
     try:
         selected_cmd.call(
-            run_params=run_params,
+            tool_params=tool_params,
             parsed_arguments=parsed_arguments,
         )
     except subprocess.CalledProcessError as process_error:

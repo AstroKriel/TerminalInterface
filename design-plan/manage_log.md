@@ -62,12 +62,13 @@ Narration always goes to stderr; whoever runs the tool can merge the two streams
 
 ## Output for One Run
 
-The entry point sets these once per process, from the fields of the `CommandLineTool`. Timestamps and the log serve tools that keep a history of what they did to a machine.
+The entry point sets these once per process, from the tool params and output params (see [`<terminal-interface>/design-plan/params.md`](params.md)). Timestamps and the log serve tools that keep a history of what they did to a machine.
 
 | Feature | Detail | State |
 |---|---|---|
 | Timestamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | decided |
-| Log | every line printed, steps and commands included, is also appended to the file at `log_path`, as plain text without colour markup | decided |
+| Hidden actions | with `hide_actions`, action messages are left off the terminal; set by the `--hide-actions` flag, off by default; a cmd skipped in dry-run still shows, since showing it is the point of a dry run | decided |
+| Log | every message, hidden actions included, is also appended to the file at `log_path`, as plain text without colour markup | decided |
 | Log format | `[<timestamp>] <line>`, one line per entry, always timestamped whether or not the terminal shows timestamps | decided |
 | Log in dry-run | nothing is written: the log is a history of what was done to the machine, and a dry-run does nothing | decided |
 

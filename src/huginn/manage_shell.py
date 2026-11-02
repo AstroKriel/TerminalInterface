@@ -5,33 +5,13 @@
 ##
 
 ## stdlib
-import argparse
 import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
 
 ## local
-from huginn import _manage_terminal
-
-##
-## === PARAMS
-##
-
-
-@dataclass(frozen=True)
-class RunParams:
-    """Options for one run of a tool; a tool subclasses it to add its own flags and overrides `from_parsed_arguments`."""
-    dry_run: bool = False
-
-    @classmethod
-    def from_parsed_arguments(
-        cls,
-        parsed_arguments: argparse.Namespace,
-    ) -> Self:
-        return cls(dry_run=parsed_arguments.dry_run)
-
+from huginn import _manage_terminal, params
 
 ##
 ## === COMMAND RUNNERS
@@ -47,8 +27,8 @@ class CommandOutcome:
     cmd: str
     working_directory: Path | None
     exit_code: int
-    stdout: str | None
-    stderr: str | None
+    stdout: str
+    stderr: str
 
     @property
     def succeeded(
@@ -63,7 +43,11 @@ def _write_cmd(
     cmd: list[str],
     is_skipped: bool = False,
 ) -> None:
-    """Write a command with the symbol of its action; a command skipped in dry-run takes the colour of the skipped status."""
+    """
+    Write a command with the symbol of its action; a command skipped in dry-run takes the colour of the skipped status.
+
+    A skipped command is always shown, since showing it is the po of a dry run; other actions can be hidden.
+    """
     colour = action.value.colour
     cmd_markup = _manage_terminal.escape_markup(shlex.join(cmd))
     if is_skipped:
@@ -75,12 +59,15 @@ def _write_cmd(
         text_markup=cmd_markup,
         colour_whole_line=True,
     )
-    _manage_terminal.write_line(line_markup)
+    _manage_terminal.write_line(
+        line_markup,
+        is_action=not is_skipped,
+    )
 
 
 def run_cmd_and_show_output(
     *,
-    run_params: RunParams,
+    tool_params: params.ToolParams,
     cmd: list[str],
     working_directory: Path | None = None,
     raise_error: bool = True,
@@ -90,7 +77,7 @@ def run_cmd_and_show_output(
 
     A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
     """
-    if run_params.dry_run:
+    if tool_params.dry_run:
         _write_cmd(
             action=_manage_terminal.Action.CHANGE,
             cmd=cmd,
@@ -115,7 +102,7 @@ def run_cmd_and_show_output(
 
 def run_cmd_and_capture_output(
     *,
-    run_params: RunParams,
+    tool_params: params.ToolParams,
     cmd: list[str],
     working_directory: Path | None = None,
 ) -> str:
@@ -125,7 +112,7 @@ def run_cmd_and_capture_output(
     In dry-run the empty string is a placeholder for an unknown value; anything that depends on it should report a
     skipped outcome instead of carrying on with it.
     """
-    if run_params.dry_run:
+    if tool_params.dry_run:
         _write_cmd(
             action=_manage_terminal.Action.CHANGE,
             cmd=cmd,

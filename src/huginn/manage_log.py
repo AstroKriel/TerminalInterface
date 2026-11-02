@@ -11,7 +11,6 @@ from typing import NoReturn
 ## local
 from huginn import _manage_terminal
 from huginn._manage_terminal import OutcomeStatus as OutcomeStatus
-from huginn._manage_terminal import OutputParams as OutputParams
 from huginn._manage_terminal import escape_markup as escape_markup
 
 ##

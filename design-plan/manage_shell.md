@@ -1,18 +1,6 @@
 # manage_shell
 
-Design notes for `huginn.manage_shell`: the run params and the command runners. The output functions and message types are in [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md).
-
----
-
-## Run Params
-
-| Detail | Choice | State |
-|---|---|---|
-| Base type | `RunParams(dry_run: bool = False)`, frozen | decided |
-| Tool-specific flags | a tool subclasses `RunParams` to add its own fields, e.g. `<Tool>RunParams(RunParams)` with `<flag>: bool`; the subclass must also be frozen; every runner accepts the base type, so a subclass passes through unchanged | decided |
-| Who builds it | the entry point builds it once from the parsed flags (see [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md)) and passes it to every command function as `run_params` | decided |
-
-This is the first generalisation: the existing layer carried a tool-specific flag in a type named `Config`, which also said nothing about what it configured.
+Design notes for `huginn.manage_shell`: the command runners. The mutating runners take `tool_params` from [`<terminal-interface>/design-plan/params.md`](params.md). The output functions and message types are in [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md).
 
 ---
 
@@ -25,8 +13,8 @@ Every runner is named `<verb>_cmd_and_<what happens to the output>` (`cmd` is th
 
 | Function | Output | On failure | In dry-run | Returns | State |
 |---|---|---|---|---|---|
-| `run_cmd_and_show_output(*, run_params, cmd, working_directory=None, raise_error=True)` | shown live | raises `CalledProcessError`; returns `False` with `raise_error=False` | printed, skipped, counts as success | `True` iff it succeeded | decided |
-| `run_cmd_and_capture_output(*, run_params, cmd, working_directory=None)` | captured | raises `CalledProcessError` | printed, skipped | stdout, stripped | decided |
+| `run_cmd_and_show_output(*, tool_params, cmd, working_directory=None, raise_error=True)` | shown live | raises `CalledProcessError`; returns `False` with `raise_error=False` | printed, skipped, counts as success | `True` iff it succeeded | decided |
+| `run_cmd_and_capture_output(*, tool_params, cmd, working_directory=None)` | captured | raises `CalledProcessError` | printed, skipped | stdout, stripped | decided |
 | `query_cmd_and_capture_output(*, cmd, working_directory=None, raise_error=True)` | captured | raises `CalledProcessError`; returns `""` with `raise_error=False` | runs | stdout, stripped | decided |
 | `query_cmd_and_capture_outcome(*, cmd, working_directory=None)` | captured | never raises | runs | a `CommandOutcome`, output unstripped | decided |
 | `query_cmd_and_discard_output(*, cmd, working_directory=None)` | discarded, nothing printed | never raises | runs | exit status | decided |
@@ -37,7 +25,7 @@ Every runner prints its command with `shlex.join(cmd)`, which quotes an argument
 
 The two `capture_output` runners strip surrounding whitespace, because their output is a value for code to use; `query_cmd_and_capture_outcome` keeps it as is, because a `CommandOutcome` is a record of exactly what ran. State: decided.
 
-`CommandOutcome` holds `cmd` (the command exactly as printed), `working_directory` (`None` if not set), `exit_code`, `stdout`, and `stderr`, with a `succeeded` property. `query_cmd_and_capture_outcome` prints its command as an inspection, like the other query runners, and never raises: a non-zero exit is part of the outcome, and a program that is not installed is reported as exit status 127, the shell code for command not found, with the reason in `stderr`. It serves tools that record each finding together with the command that produced it, so the record can show what ran and let the user rerun it. The name and fields match an existing result type that is expected to move into this package, so that the move is additive. State: decided.
+`CommandOutcome` holds `cmd` (the command exactly as printed), `working_directory` (`None` if not set), `exit_code`, `stdout`, and `stderr`, with a `succeeded` property. `stdout` and `stderr` are always text, empty when the command printed nothing, so callers never check for `None`. `query_cmd_and_capture_outcome` prints its command as an inspection, like the other query runners, and never raises: a non-zero exit is part of the outcome, and a program that is not installed is reported as exit status 127, the shell code for command not found, with the reason in `stderr`. It serves tools that record each finding together with the command that produced it, so the record can show what ran and let the user rerun it. The name and fields match an existing result type that is expected to move into this package, so that the move is additive. State: decided.
 
 | Question | State |
 |---|---|

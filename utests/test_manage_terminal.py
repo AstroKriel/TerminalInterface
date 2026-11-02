@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 ## local
-from huginn import _manage_terminal
+from huginn import _manage_terminal, params
 
 ##
 ## === TEST SUITE
@@ -111,8 +111,8 @@ class TestWriteLine_Streams(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_terminal.reset_output_params()
-        self.addCleanup(_manage_terminal.reset_output_params)
+        _manage_terminal.reset_params()
+        self.addCleanup(_manage_terminal.reset_params)
 
     def test_narration_goes_to_stderr(
         self,
@@ -141,8 +141,8 @@ class TestWriteLine_Timestamps(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_terminal.reset_output_params()
-        self.addCleanup(_manage_terminal.reset_output_params)
+        _manage_terminal.reset_params()
+        self.addCleanup(_manage_terminal.reset_params)
 
     def test_off_by_default(
         self,
@@ -155,9 +155,9 @@ class TestWriteLine_Timestamps(unittest.TestCase):
     def test_prefix_when_enabled(
         self,
     ) -> None:
-        _manage_terminal.set_output_params(
-            output_params=_manage_terminal.OutputParams(show_timestamps=True),
-            dry_run=False,
+        _manage_terminal.set_params(
+            tool_params=params.ToolParams(),
+            output_params=params.OutputParams(show_timestamps=True),
         )
         stderr_buffer = io.StringIO()
         with mock.patch.object(_manage_terminal, "get_timestamp", return_value="2026-01-02 03:04:05"):
@@ -173,8 +173,8 @@ class TestWriteLine_Log(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_terminal.reset_output_params()
-        self.addCleanup(_manage_terminal.reset_output_params)
+        _manage_terminal.reset_params()
+        self.addCleanup(_manage_terminal.reset_params)
         temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(temporary_directory.cleanup)
         self.log_path = Path(temporary_directory.name) / "logs" / "tool.log"
@@ -184,9 +184,9 @@ class TestWriteLine_Log(unittest.TestCase):
         *,
         dry_run: bool,
     ) -> None:
-        _manage_terminal.set_output_params(
-            output_params=_manage_terminal.OutputParams(log_path=self.log_path),
-            dry_run=dry_run,
+        _manage_terminal.set_params(
+            tool_params=params.ToolParams(dry_run=dry_run),
+            output_params=params.OutputParams(log_path=self.log_path),
         )
 
     def test_appends_plain_lines(

@@ -15,35 +15,30 @@ from pathlib import Path
 from unittest import mock
 
 ## local
-from huginn import _manage_terminal, manage_shell
+from huginn import _manage_terminal, manage_shell, params
 
 ##
 ## === TEST SUITE
 ##
 
 
-class TestRunParams_Defaults(unittest.TestCase):
-
-    def test_dry_run_is_false(
-        self,
-    ) -> None:
-        self.assertFalse(manage_shell.RunParams().dry_run)
+class TestToolParams_Runners(unittest.TestCase):
 
     def test_subclass_passes_through_runners(
         self,
     ) -> None:
 
         @dataclasses.dataclass(frozen=True)
-        class ToolRunParams(manage_shell.RunParams):
+        class ExampleToolParams(params.ToolParams):
             allow_dirty: bool = False
 
-        tool_run_params = ToolRunParams(
+        example_tool_params = ExampleToolParams(
             dry_run=True,
             allow_dirty=True,
         )
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
             manage_shell.run_cmd_and_show_output(
-                run_params=tool_run_params,
+                tool_params=example_tool_params,
                 cmd=["git", "push"],
             )
         mock_run.assert_not_called()
@@ -54,8 +49,8 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_terminal.reset_output_params()
-        self.addCleanup(_manage_terminal.reset_output_params)
+        _manage_terminal.reset_params()
+        self.addCleanup(_manage_terminal.reset_params)
 
     def _print_query(
         self,
@@ -100,8 +95,8 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_terminal.reset_output_params()
-        self.addCleanup(_manage_terminal.reset_output_params)
+        _manage_terminal.reset_params()
+        self.addCleanup(_manage_terminal.reset_params)
 
     def test_dry_run_skips_logs_and_counts_as_success(
         self,
@@ -109,7 +104,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         stderr_buffer = io.StringIO()
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
             cmd_succeeded = manage_shell.run_cmd_and_show_output(
-                run_params=manage_shell.RunParams(dry_run=True),
+                tool_params=params.ToolParams(dry_run=True),
                 cmd=["git", "push"],
             )
         mock_run.assert_not_called()
@@ -125,7 +120,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
                 contextlib.redirect_stderr(io.StringIO()),
         ):
             manage_shell.run_cmd_and_show_output(
-                run_params=manage_shell.RunParams(dry_run=True),
+                tool_params=params.ToolParams(dry_run=True),
                 cmd=["git", "push"],
             )
         render_kwargs = mock_render_line.call_args.kwargs
@@ -139,7 +134,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
             mock_run.return_value = mock.MagicMock(returncode=0)
             cmd_succeeded = manage_shell.run_cmd_and_show_output(
-                run_params=manage_shell.RunParams(),
+                tool_params=params.ToolParams(),
                 cmd=["git", "status"],
             )
         mock_run.assert_called_once()
@@ -151,7 +146,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
             manage_shell.run_cmd_and_show_output(
-                run_params=manage_shell.RunParams(),
+                tool_params=params.ToolParams(),
                 cmd=["false"],
             )
 
@@ -160,7 +155,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
             cmd_succeeded = manage_shell.run_cmd_and_show_output(
-                run_params=manage_shell.RunParams(),
+                tool_params=params.ToolParams(),
                 cmd=["false"],
                 raise_error=False,
             )
@@ -174,7 +169,7 @@ class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
     ) -> None:
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
             captured_output = manage_shell.run_cmd_and_capture_output(
-                run_params=manage_shell.RunParams(dry_run=True),
+                tool_params=params.ToolParams(dry_run=True),
                 cmd=["git", "rev-list", "--count", "HEAD"],
             )
         mock_run.assert_not_called()
@@ -189,7 +184,7 @@ class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
                 returncode=0,
             )
             captured_output = manage_shell.run_cmd_and_capture_output(
-                run_params=manage_shell.RunParams(),
+                tool_params=params.ToolParams(),
                 cmd=["git", "rev-list", "--count", "HEAD"],
                 working_directory=Path("/tmp"),
             )
