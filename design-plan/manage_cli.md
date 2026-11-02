@@ -22,17 +22,18 @@ CommandLineTool
 
 | Part | Detail | State |
 |---|---|---|
-| `Argument` | the base of every argument: `description`, which has no default, so every argument states it; `param_name`, what the cmd function receives it as; and `add_to_parser`, which registers it with argparse; never made directly | decided |
-| `_ArgumentWithInput` | private; what an argument that takes input adds: `input_type` (an `InputType`, see [`<terminal-interface>/design-plan/input_types.md`](input_types.md)), `allowed_input_count`, and `default_value`, and turning them into argparse settings | decided |
+| `Argument` | the base of every argument: `description`, which has no default, so every argument states it, and `add_to_parser`, which registers it with argparse; never made directly | decided |
+| `param_name` | what the cmd function receives an argument as; every concrete kind has one, a field on `PositionalArgument` and derived from the long arg name on the named kinds, so `Command.arguments` lists the three concrete kinds rather than the base | decided |
+| `_ArgumentWithInputValue` | private; what an argument the user types a value for adds: `input_value_type` (an `InputValueType`, see [`<terminal-interface>/design-plan/input_value_types.md`](input_value_types.md)), `allowed_num_input_values`, and `default_value`, and turning them into argparse settings | decided |
 | `_ArgumentWithNames` | private; what an argument the user types by name adds: `long_arg_name` (shown as `--<long arg name>`) and optional `short_arg_name` (shown as `-<short arg name>`), their checks, `arg_names` (every typed form, e.g. `["-o", "--output"]`), and a `param_name` from the long arg name | decided |
-| `PositionalArgument(_ArgumentWithInput)` | an input typed straight after the cmd name, e.g. `arch-news-since 2026-10-01`; adds `name`, which is only the param name and is never typed | decided |
-| `NamedArgument(_ArgumentWithNames, _ArgumentWithInput)` | an input given after its arg name, e.g. `--output ./notes`; adds `is_required` | decided |
-| `FlagArgument(_ArgumentWithNames)` | a named argument that takes no input, e.g. `--dry-run`; received as `True` if passed and `False` if not | decided |
+| `PositionalArgument(_ArgumentWithInputValue)` | an input value typed straight after the cmd name, e.g. `arch-news-since 2026-10-01`; adds `param_name`; only its value is typed, so it has a param name and no arg name | decided |
+| `NamedArgument(_ArgumentWithNames, _ArgumentWithInputValue)` | an input value given after its arg name, e.g. `--output ./notes`; adds `is_required` | decided |
+| `FlagArgument(_ArgumentWithNames)` | a named argument with no input value, e.g. `--dry-run`; received as `True` if passed and `False` if not | decided |
 | Ownership | each class owns the fields it adds, their checks, and their part of the argparse wiring, so no module function does the work of a type; the concrete kinds are the combinations of the two private bases, and tools only ever write the concrete kinds | decided |
 | Check chain | each `__post_init__` calls `super().__post_init__()` first, so making a `NamedArgument` runs the arg name checks of `_ArgumentWithNames`, then its own; `Argument.__post_init__` ends the chain | decided |
-| Input type | `input_type` has no default and no `None`, and exists only on the kinds that take input, so a flag cannot be given one and an input cannot be left without one | decided |
-| Defaults | a field has a default only when the default means "nothing extra": absent (`short_arg_name=None`, `default_value=None`, empty `arguments`), off (`is_required=False`), or the plain case (`allowed_input_count=ONE`); a field with no neutral value, such as `description` or `input_type`, has no default, so every argument states it; this keeps a command table to what is special about each entry | decided |
-| `AllowedInputCount` | how many inputs an argument that takes input allows: `ONE` (the default), `ZERO_OR_ONE`, `ZERO_OR_MORE`, or `ONE_OR_MORE`; the last three map to the argparse symbols `?`, `*`, and `+` | decided |
+| Input value type | `input_value_type` has no default and no `None`, and exists only on the kinds the user types a value for, so a flag cannot be given one and an input value cannot be left without one | decided |
+| Defaults | a field has a default only when the default means "nothing extra": absent (`short_arg_name=None`, `default_value=None`, empty `arguments`), off (`is_required=False`), or the plain case (`allowed_num_input_values=ONE`); a field with no neutral value, such as `description` or `input_value_type`, has no default, so every argument states it; this keeps a command table to what is special about each entry | decided |
+| `AllowedNumInputValues` | how many input values an argument allows the user to type: `ONE` (the default), `ZERO_OR_ONE`, `ZERO_OR_MORE`, or `ONE_OR_MORE`; the enum answers questions about itself: `nargs_symbol` gives the argparse symbol (`?`, `*`, `+`, or `None` for `ONE`), and `is_zero_allowed` says whether the user may type nothing, so a default value can apply | decided |
 | `Command` | one cmd: `name`, `description`, `fn`, and `arguments` | decided |
 | Definition checks | each argument, cmd, and tool checks itself when made, so a mistake in a command table fails when the tool starts; see [Definition Checks](#definition-checks) | decided |
 | `CommandGroup` | cmds listed together in help under one `title`; a `str` enum title prints its value | decided |
@@ -57,12 +58,12 @@ run_cli(command_line_tool=command_line_tool)
 
 ## Definition Checks
 
-Each check catches a definition that would otherwise pass silently or fail later with an unclear message, and raises a `ValueError` that says what went wrong: the argument by its type and name as written in the command table, the field, what it must be and why, and what it got, e.g. ``NamedArgument `output`: `default_value` must be `None` when `is_required` is `True`, since a required argument never falls back; got `.`.`` Rules the types already express, such as a flag having no input type, need no check. Checks that argparse already makes clearly are left to it.
+Each check catches a definition that would otherwise pass silently or fail later with an unclear message, and raises a `ValueError` that says what went wrong. The scope before the colon is always just the type, as written in the command table; the sentence then names the field, the argument it belongs to as "for `<name>`", what it must be and why, and what it got, e.g. ``NamedArgument: `default_value` for `output` must be `None` when `is_required` is `True`, since a required argument never falls back; got `.`.`` A check on the identifying name itself leaves out the "for", since that name is the bad value, e.g. ``PositionalArgument: `param_name` must be lowercase letters, digits, and `_`, starting with a letter; got `Since`.`` Rules the types already express, such as a flag having no input value type, need no check. Checks that argparse already makes clearly are left to it.
 
 | Where | Check | State |
 |---|---|---|
-| `PositionalArgument` | `name` is lowercase letters, digits, and `_`, starting with a letter, since it becomes a parameter name | decided |
-| `PositionalArgument` | `default_value` only with `ZERO_OR_ONE` or `ZERO_OR_MORE`; otherwise an input is always given and the default is never used | decided |
+| `PositionalArgument` | `param_name` is lowercase letters, digits, and `_`, starting with a letter, since it is a Python parameter name | decided |
+| `PositionalArgument` | `default_value` only with `ZERO_OR_ONE` or `ZERO_OR_MORE`; otherwise an input value is always given and the default is never used | decided |
 | `NamedArgument`, `FlagArgument` | `long_arg_name` is lowercase letters, digits, and `-`, starting with a letter, with no dashes passed in | decided |
 | `NamedArgument`, `FlagArgument` | `short_arg_name` is one to three letters | decided |
 | `NamedArgument` | not `is_required` together with `default_value`: a required argument never falls back | decided |

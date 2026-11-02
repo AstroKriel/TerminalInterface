@@ -51,7 +51,7 @@ A feature belongs here only if it is about the terminal and at least two tools n
 |---|---|
 | [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md) | output functions, message types, timestamps, and the log |
 | [`<terminal-interface>/design-plan/params.md`](params.md) | every params group: tool params and output params |
-| [`<terminal-interface>/design-plan/input_types.md`](input_types.md) | input types: the label and conversion of an input, the basic set, and how a tool extends it |
+| [`<terminal-interface>/design-plan/input_value_types.md`](input_value_types.md) | input value types: the label and conversion of a value the user types, the basic set, and how a tool extends it |
 | [`<terminal-interface>/design-plan/manage_shell.md`](manage_shell.md) | command runners |
 | [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md) | subcommand descriptions, the tool, flags, grouped help, and the entry point |
 | [`<terminal-interface>/design-plan/adopting.md`](adopting.md) | how an existing tool moves onto this package, and how it pins a version |
@@ -68,7 +68,7 @@ TerminalInterface/
 ├── src/
 │   └── huginn/
 │       ├── params.py  # every params group: tool params and output params
-│       ├── input_types.py  # the basic input types: label and conversion of an input
+│       ├── input_value_types.py  # the basic input value types: label and conversion of a value the user types
 │       ├── _manage_terminal.py  # private core: palette, message types, consoles, the active params, timestamps, rendering, writing, and the log
 │       ├── manage_log.py  # output functions
 │       ├── manage_shell.py  # command runners

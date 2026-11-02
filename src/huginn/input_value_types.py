@@ -14,25 +14,27 @@ from pathlib import Path
 from typing import Any
 
 ##
-## === INPUT TYPES
-## the basic input types; a tool defines its own in an `input_types` module of its own, the same way.
+## === INPUT VALUE TYPES
+## the basic input value types; a tool defines its own in an `input_value_types` module of its own, the same way.
 ##
-
-_PLACEHOLDER_NAME_PATTERN = re.compile(r"[A-Za-z0-9_-]+")
 
 
 @dataclass(frozen=True)
-class InputType:
-    """What an input is: the name of its placeholder in help, shown as `<name>`, and the function that converts it."""
+class InputValueType:
+    """
+    What kind of value the user types: the name of its placeholder in help, shown as `<name>`, and its conversion.
+
+    `convert_fn` receives the text exactly as the user typed it, and returns the value the cmd function receives.
+    """
     placeholder_name: str
-    convert_fn: Callable[[str], Any] = str
+    convert_fn: Callable[[str], Any]
 
     def __post_init__(
         self,
     ) -> None:
-        if _PLACEHOLDER_NAME_PATTERN.fullmatch(self.placeholder_name) is None:
+        if re.fullmatch(r"[A-Za-z0-9_-]+", self.placeholder_name) is None:
             raise ValueError(
-                f"input type: `placeholder_name` must be letters, digits, `_`, or `-`; got `{self.placeholder_name}`.",
+                f"{type(self).__name__}: `placeholder_name` must be letters, digits, `_`, or `-`; got `{self.placeholder_name}`.",
             )
 
 
@@ -45,20 +47,23 @@ def _convert_str_to_date(
         raise argparse.ArgumentTypeError(f"date must be YYYY-MM-DD; got `{text}`.") from None
 
 
-TEXT = InputType(placeholder_name="text")
-NUMBER = InputType(
+TEXT = InputValueType(
+    placeholder_name="text",
+    convert_fn=str,
+)
+NUMBER = InputValueType(
     placeholder_name="number",
     convert_fn=int,
 )
-DATE = InputType(
+DATE = InputValueType(
     placeholder_name="date",
     convert_fn=_convert_str_to_date,
 )
-PATH = InputType(
+PATH = InputValueType(
     placeholder_name="path",
     convert_fn=Path,
 )
-DIR = InputType(
+DIR = InputValueType(
     placeholder_name="dir",
     convert_fn=Path,
 )

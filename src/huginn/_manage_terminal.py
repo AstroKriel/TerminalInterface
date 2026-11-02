@@ -269,7 +269,7 @@ def write_line(
             timestamp_text = escape_markup(f"[{timestamp}]")
             console_line = f"[{Colour.GREY.value}]{timestamp_text}[/] {line_markup}"
         _CONSOLE_STDERR.print(console_line)
-    if _active_tool_params.dry_run or _active_output_params.log_path is None:
+    if _active_tool_params.dry_run or (_active_output_params.log_path is None):
         return
     _append_log(
         log_path=_active_output_params.log_path,

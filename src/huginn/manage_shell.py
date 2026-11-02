@@ -92,7 +92,7 @@ def run_cmd_and_show_output(
         cmd,
         cwd=working_directory,
     )
-    if raise_error and result.returncode != 0:
+    if raise_error and (result.returncode != 0):
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
             cmd=cmd,
@@ -154,7 +154,7 @@ def query_cmd_and_capture_output(
         text=True,
         cwd=working_directory,
     )
-    if raise_error and result.returncode != 0:
+    if raise_error and (result.returncode != 0):
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
             cmd=cmd,
