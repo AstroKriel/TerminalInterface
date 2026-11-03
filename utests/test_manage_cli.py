@@ -63,15 +63,15 @@ def _make_cmd_group(
 def _make_go_cmd(
     fn: Callable[..., None],
     *,
-    arguments: list[cmd_args.CommandArgument] | None = None,
+    args: list[cmd_args.CommandArgument] | None = None,
 ) -> manage_cli.Command:
-    if arguments is None:
-        arguments = []
+    if args is None:
+        args = []
     return manage_cli.Command(
         name="go",
         description="go",
         fn=fn,
-        arguments=arguments,
+        args=args,
     )
 
 
@@ -104,35 +104,35 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
     def _call_with(
         self,
         *,
-        arguments: list[cmd_args.CommandArgument],
+        args: list[cmd_args.CommandArgument],
         parsed_values: dict[str, str | None],
     ) -> dict[str, str | None]:
         received: dict[str, str | None] = {}
 
-        def record_arguments(
+        def record_args(
             *,
             tool_params: params.ToolParams,
-            **argument_values: str | None,
+            **arg_values: str | None,
         ) -> None:
-            received.update(argument_values)
+            received.update(arg_values)
 
         cmd = manage_cli.Command(
             name="test-command",
             description="records its arguments",
-            fn=record_arguments,
-            arguments=arguments,
+            fn=record_args,
+            args=args,
         )
         cmd.call(
             tool_params=params.ToolParams(),
-            parsed_arguments=argparse.Namespace(dry_run=False, **parsed_values),
+            parsed_args=argparse.Namespace(dry_run=False, **parsed_values),
         )
         return received
 
-    def test_positional_argument_is_passed_by_name(
+    def test_positional_arg_is_passed_by_name(
         self,
     ) -> None:
         received = self._call_with(
-            arguments=[
+            args=[
                 cmd_args.PositionalArgument(
                     param_name="branch_name",
                     description="branch to use",
@@ -143,11 +143,11 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         )
         self.assertEqual(received, {"branch_name": "feature"})
 
-    def test_named_argument_is_passed_without_dashes(
+    def test_named_arg_is_passed_without_dashes(
         self,
     ) -> None:
         received = self._call_with(
-            arguments=[
+            args=[
                 cmd_args.NamedArgument(
                     long_arg_name="base-ref",
                     description="ref to compare against",
@@ -158,11 +158,11 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         )
         self.assertEqual(received, {"base_ref": "development"})
 
-    def test_named_argument_passes_none_when_not_set(
+    def test_named_arg_passes_none_when_not_set(
         self,
     ) -> None:
         received = self._call_with(
-            arguments=[
+            args=[
                 cmd_args.NamedArgument(
                     long_arg_name="base",
                     description="branch to compare against",
@@ -173,7 +173,7 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         )
         self.assertEqual(received, {"base": None})
 
-    def test_unset_named_argument_reaches_the_cmd_as_none_through_run_cli(
+    def test_unset_named_arg_reaches_the_cmd_as_none_through_run_cli(
         self,
     ) -> None:
         received: list[str | None] = []
@@ -187,7 +187,7 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
 
         go_cmd = _make_go_cmd(
             record_base,
-            arguments=[
+            args=[
                 cmd_args.NamedArgument(
                     long_arg_name="base",
                     description="branch to compare against",
@@ -214,7 +214,7 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         ) -> None:
             received.append(paths)
 
-        paths_argument = cmd_args.PositionalArgument(
+        paths_arg = cmd_args.PositionalArgument(
             param_name="paths",
             description="paths to use",
             input_value_type=cmd_args.InputValueTypes.TEXT,
@@ -222,7 +222,7 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         )
         go_cmd = _make_go_cmd(
             record_paths,
-            arguments=[paths_argument],
+            args=[paths_arg],
         )
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(go_cmd)])
         manage_cli.run_cli(
@@ -246,14 +246,14 @@ class TestArgument_InputValueType(unittest.TestCase):
         ) -> None:
             received.append(since_date)
 
-        since_date_argument = cmd_args.PositionalArgument(
+        since_date_arg = cmd_args.PositionalArgument(
             param_name="since_date",
             description="only posts after this date",
             input_value_type=cmd_args.InputValueTypes.DATE,
         )
         go_cmd = _make_go_cmd(
             record_date,
-            arguments=[since_date_argument],
+            args=[since_date_arg],
         )
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(go_cmd)])
         manage_cli.run_cli(
@@ -274,14 +274,14 @@ class TestArgument_InputValueType(unittest.TestCase):
         ) -> None:
             received.append(since_date)
 
-        since_date_argument = cmd_args.PositionalArgument(
+        since_date_arg = cmd_args.PositionalArgument(
             param_name="since_date",
             description="only posts after this date",
             input_value_type=cmd_args.InputValueTypes.DATE,
         )
         go_cmd = _make_go_cmd(
             record_date,
-            arguments=[since_date_argument],
+            args=[since_date_arg],
         )
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(go_cmd)])
         stderr_buffer = io.StringIO()
@@ -297,13 +297,13 @@ class TestArgument_InputValueType(unittest.TestCase):
 
 class TestCommandDefinitions_Checks(unittest.TestCase):
 
-    def test_cmd_arguments_need_unique_param_names(
+    def test_cmd_args_need_unique_param_names(
         self,
     ) -> None:
         with self.assertRaises(ValueError):
             _make_go_cmd(
                 _do_nothing,
-                arguments=[
+                args=[
                     cmd_args.PositionalArgument(
                         param_name="output",
                         description="folder to write to",
@@ -317,13 +317,13 @@ class TestCommandDefinitions_Checks(unittest.TestCase):
                 ],
             )
 
-    def test_cmd_argument_cannot_be_named_tool_params(
+    def test_cmd_arg_cannot_be_named_tool_params(
         self,
     ) -> None:
         with self.assertRaises(ValueError):
             _make_go_cmd(
                 _do_nothing,
-                arguments=[
+                args=[
                     cmd_args.PositionalArgument(
                         param_name="tool_params",
                         description="clashes with the tool params",
@@ -332,12 +332,12 @@ class TestCommandDefinitions_Checks(unittest.TestCase):
                 ],
             )
 
-    def test_cmd_argument_cannot_reuse_a_tool_flag_param_name(
+    def test_cmd_arg_cannot_reuse_a_tool_flag_param_name(
         self,
     ) -> None:
         dry_run_cmd = _make_go_cmd(
             _do_nothing,
-            arguments=[
+            args=[
                 cmd_args.PositionalArgument(
                     param_name="dry_run",
                     description="clashes with the built-in flag",
@@ -367,7 +367,7 @@ class TestTypedNames_ShortName(unittest.TestCase):
         ) -> None:
             received.append(output)
 
-        output_argument = cmd_args.NamedArgument(
+        output_arg = cmd_args.NamedArgument(
             long_arg_name="output",
             short_arg_name="o",
             description="folder to write to",
@@ -378,7 +378,7 @@ class TestTypedNames_ShortName(unittest.TestCase):
                 _make_cmd_group(
                     _make_go_cmd(
                         record_output,
-                        arguments=[output_argument],
+                        args=[output_arg],
                     ),
                 ),
             ],

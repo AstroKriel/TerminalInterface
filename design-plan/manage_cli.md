@@ -22,13 +22,13 @@ CommandLineTool
 
 | Part | Detail | State |
 |---|---|---|
-| Arguments | `Command.arguments` and `CommandLineTool.flags` hold the arg kinds from `cmd_args`: `PositionalArgument`, `NamedArgument`, and `FlagArgument` (see [`<terminal-interface>/design-plan/cmd_args.md`](cmd_args.md)) | decided |
-| Defaults | the same rule as for args: a field has a default only when it means "nothing extra", e.g. empty `arguments` or `hidden_cmds` | decided |
-| `Command` | one cmd: `name`, `description`, `fn`, and `arguments` | decided |
+| Arguments | `Command.args` and `CommandLineTool.flags` hold the arg kinds from `cmd_args`: `PositionalArgument`, `NamedArgument`, and `FlagArgument` (see [`<terminal-interface>/design-plan/cmd_args.md`](cmd_args.md)) | decided |
+| Defaults | the same rule as for args: a field has a default only when it means "nothing extra", e.g. empty `args` or `hidden_cmds` | decided |
+| `Command` | one cmd: `name`, `description`, `fn`, and `args` | decided |
 | Definition checks | each argument, cmd, and tool checks itself when made, so a mistake in a command table fails when the tool starts; see [Definition Checks](#definition-checks) | decided |
 | `CommandGroup` | cmds listed together in help under one `title`; a `str` enum title prints its value | decided |
 | Hidden cmds | `hidden_cmds` on the tool: registered and runnable, left out of help | decided |
-| Tool params | `tool_params_type` names `ToolParams` or a subclass; `run_cli` builds it with `from_parsed_arguments` (see [`<terminal-interface>/design-plan/params.md`](params.md)) | decided |
+| Tool params | `tool_params_type` names `ToolParams` or a subclass; `run_cli` builds it with `from_parsed_args` (see [`<terminal-interface>/design-plan/params.md`](params.md)) | decided |
 | Output params | `output_params` holds an `OutputParams` (`show_timestamps`, `log_path`); `run_cli` hands it to the output together with the tool params | decided |
 | Built-in flags | every tool gets `--dry-run` and `--hide-actions`; both are off unless the user passes them | decided |
 | Failed cmd | `run_cli` reports an error outcome naming the shell cmd that failed, then exits with its exit status | decided |

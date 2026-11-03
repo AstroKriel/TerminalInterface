@@ -65,7 +65,7 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
             manage_shell.query_cmd_and_capture_output(cmd=cmd)
         return stderr_buffer.getvalue()
 
-    def test_argument_with_spaces_is_quoted(
+    def test_arg_with_spaces_is_quoted(
         self,
     ) -> None:
         self.assertEqual(
@@ -73,7 +73,7 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
             "→ git commit -m 'a message'\n",
         )
 
-    def test_brackets_in_arguments_print_literally(
+    def test_brackets_in_args_print_literally(
         self,
     ) -> None:
         self.assertEqual(self._print_query(["ls", "[red]"]), "→ ls '[red]'\n")
@@ -81,7 +81,7 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
 
 class TestRunners_KeywordOnly(unittest.TestCase):
 
-    def test_positional_arguments_are_rejected(
+    def test_positional_args_are_rejected(
         self,
     ) -> None:
         with self.assertRaises(TypeError):

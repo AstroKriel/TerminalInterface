@@ -42,14 +42,14 @@ class TestToolParams_FromParsedArguments(unittest.TestCase):
     def test_subclass_fields_fill_from_flags_of_the_same_name(
         self,
     ) -> None:
-        parsed_arguments = argparse.Namespace(
+        parsed_args = argparse.Namespace(
             dry_run=True,
             hide_actions=False,
             allow_dirty=True,
             cmd="go",
         )
         self.assertEqual(
-            _ExampleToolParams.from_parsed_arguments(parsed_arguments),
+            _ExampleToolParams.from_parsed_args(parsed_args),
             _ExampleToolParams(
                 dry_run=True,
                 allow_dirty=True,
@@ -59,12 +59,12 @@ class TestToolParams_FromParsedArguments(unittest.TestCase):
     def test_field_with_no_flag_raises(
         self,
     ) -> None:
-        parsed_arguments = argparse.Namespace(
+        parsed_args = argparse.Namespace(
             dry_run=False,
             hide_actions=False,
         )
         with self.assertRaises(AttributeError):
-            _ExampleToolParams.from_parsed_arguments(parsed_arguments)
+            _ExampleToolParams.from_parsed_args(parsed_args)
 
 
 class TestOutputParams_Defaults(unittest.TestCase):

@@ -28,13 +28,13 @@ class ToolParams:
     hide_actions: bool = False
 
     @classmethod
-    def from_parsed_arguments(
+    def from_parsed_args(
         cls,
-        parsed_arguments: argparse.Namespace,
+        parsed_args: argparse.Namespace,
     ) -> Self:
         """Fill every field from the flag of the same name; a field with no flag raises `AttributeError`."""
         flag_values = {
-            _field.name: getattr(parsed_arguments, _field.name)
+            _field.name: getattr(parsed_args, _field.name)
             for _field in dataclasses.fields(cls)
         }
         return cls(**flag_values)

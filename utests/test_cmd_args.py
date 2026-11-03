@@ -19,11 +19,11 @@ from huginn import cmd_args
 
 
 def _parse_with(
-    argument: cmd_args.Argument,
+    arg: cmd_args.Argument,
     argv: list[str],
 ) -> argparse.Namespace:
     arg_parser = argparse.ArgumentParser()
-    argument.add_to_arg_parser(arg_parser)
+    arg.add_to_arg_parser(arg_parser)
     return arg_parser.parse_args(argv)
 
 
@@ -122,12 +122,12 @@ class TestAllowedNumInputValues_Parsing(unittest.TestCase):
     def test_one_takes_a_single_input(
         self,
     ) -> None:
-        path_argument = cmd_args.PositionalArgument(
+        path_arg = cmd_args.PositionalArgument(
             param_name="path",
             description="path to use",
             input_value_type=cmd_args.InputValueTypes.TEXT,
         )
-        self.assertEqual(_parse_with(path_argument, ["a"]).path, "a")
+        self.assertEqual(_parse_with(path_arg, ["a"]).path, "a")
 
     def test_ranges_collect_their_inputs(
         self,
@@ -138,14 +138,14 @@ class TestAllowedNumInputValues_Parsing(unittest.TestCase):
             cmd_args.AllowedNumInputValues.ONE_OR_MORE: (["a", "b"], ["a", "b"]),
         }
         for allowed_num_input_values, (argv, expected_paths) in expected_inputs.items():
-            ranged_argument = cmd_args.PositionalArgument(
+            ranged_arg = cmd_args.PositionalArgument(
                 param_name="paths",
                 description="paths to use",
                 input_value_type=cmd_args.InputValueTypes.TEXT,
                 allowed_num_input_values=allowed_num_input_values,
             )
             with self.subTest(allowed_num_input_values=allowed_num_input_values):
-                self.assertEqual(_parse_with(ranged_argument, argv).paths, expected_paths)
+                self.assertEqual(_parse_with(ranged_arg, argv).paths, expected_paths)
 
 
 class TestFlagArgument_Switch(unittest.TestCase):
@@ -192,14 +192,14 @@ class TestArgument_Checks(unittest.TestCase):
             str(error_context.exception),
             "PositionalArgument: `default_value` for `path` must be `None` when `allowed_num_input_values` is `ONE`, since an input value is always given; got `.`.",
         )
-        optional_path_argument = cmd_args.PositionalArgument(
+        optional_path_arg = cmd_args.PositionalArgument(
             param_name="path",
             description="path to use",
             input_value_type=cmd_args.InputValueTypes.PATH,
             allowed_num_input_values=cmd_args.AllowedNumInputValues.ZERO_OR_ONE,
             default_value=".",
         )
-        self.assertEqual(_parse_with(optional_path_argument, []).path, Path("."))
+        self.assertEqual(_parse_with(optional_path_arg, []).path, Path("."))
 
     def test_long_arg_name_must_be_bare_lowercase_words(
         self,
@@ -221,13 +221,13 @@ class TestArgument_Checks(unittest.TestCase):
         self,
     ) -> None:
         for good_short_arg_name in ["o", "ou", "out"]:
-            output_argument = cmd_args.NamedArgument(
+            output_arg = cmd_args.NamedArgument(
                 long_arg_name="output",
                 short_arg_name=good_short_arg_name,
                 description="folder to write to",
                 input_value_type=cmd_args.InputValueTypes.DIR,
             )
-            self.assertEqual(output_argument.arg_names, [f"-{good_short_arg_name}", "--output"])
+            self.assertEqual(output_arg.arg_names, [f"-{good_short_arg_name}", "--output"])
         for bad_short_arg_name in ["-o", "outp", "o1", ""]:
             with self.subTest(
                     bad_short_arg_name=bad_short_arg_name, ), self.assertRaises(ValueError) as error_context:
@@ -241,7 +241,7 @@ class TestArgument_Checks(unittest.TestCase):
                 f"FlagArgument: `short_arg_name` for `force` must be one to three letters; got `{bad_short_arg_name}`.",
             )
 
-    def test_required_named_argument_has_no_default(
+    def test_required_named_arg_has_no_default(
         self,
     ) -> None:
         with self.assertRaises(ValueError) as error_context:

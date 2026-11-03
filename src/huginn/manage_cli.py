@@ -33,12 +33,12 @@ class Command:
     name: str
     description: str
     fn: Callable[..., None]
-    arguments: list[cmd_args.CommandArgument] = field(default_factory=list)
+    args: list[cmd_args.CommandArgument] = field(default_factory=list)
 
     def __post_init__(
         self,
     ) -> None:
-        param_names = [_argument.param_name for _argument in self.arguments]
+        param_names = [_arg.param_name for _arg in self.args]
         if _RESERVED_PARAM_NAME in param_names:
             raise ValueError(
                 f"{type(self).__name__}: argument parameter names for `{self.name}` must not be `{_RESERVED_PARAM_NAME}`, which every cmd function already receives; got `{_RESERVED_PARAM_NAME}`.",
@@ -59,16 +59,16 @@ class Command:
         self,
         *,
         tool_params: params.ToolParams,
-        parsed_arguments: argparse.Namespace,
+        parsed_args: argparse.Namespace,
     ) -> None:
         """Call `fn` with `tool_params` and each argument by its parameter name, all as keywords."""
-        argument_values = {
-            _argument.param_name: getattr(parsed_arguments, _argument.param_name)
-            for _argument in self.arguments
+        arg_values = {
+            _arg.param_name: getattr(parsed_args, _arg.param_name)
+            for _arg in self.args
         }
         self.fn(
             tool_params=tool_params,
-            **argument_values,
+            **arg_values,
         )
 
 
@@ -94,7 +94,7 @@ class CommandLineTool:
 
     - `tool_params_type`:
         `ToolParams` or a subclass with one field per extra flag; built from the parsed flags with
-        `from_parsed_arguments`.
+        `from_parsed_args`.
     """
     name: str
     description: str
@@ -111,9 +111,9 @@ class CommandLineTool:
         for cmd in self.all_cmds:
             clashing_param_names = sorted(
                 {
-                    _argument.param_name
-                    for _argument in cmd.arguments
-                    if _argument.param_name in flags_by_param_name
+                    _arg.param_name
+                    for _arg in cmd.args
+                    if _arg.param_name in flags_by_param_name
                 },
             )
             param_names_are_clashing = len(clashing_param_names) > 0
@@ -311,8 +311,8 @@ def _build_arg_parser(
     )
     for cmd in command_line_tool.all_cmds:
         cmd_arg_parser = cmd_arg_parsers.add_parser(cmd.name, help=cmd.description)
-        for argument in cmd.arguments:
-            argument.add_to_arg_parser(cmd_arg_parser)
+        for arg in cmd.args:
+            arg.add_to_arg_parser(cmd_arg_parser)
     return arg_parser
 
 
@@ -322,22 +322,22 @@ def run_cli(
     argv: Sequence[str] | None = None,
 ) -> None:
     """Parse argv (default: `sys.argv`), build the tool params, set up output for the run, and run one cmd."""
-    parsed_arguments = _build_arg_parser(command_line_tool).parse_args(argv)
-    if parsed_arguments.help or (parsed_arguments.cmd is None):
+    parsed_args = _build_arg_parser(command_line_tool).parse_args(argv)
+    if parsed_args.help or (parsed_args.cmd is None):
         command_line_tool_help = _CommandLineToolHelp(command_line_tool)
         command_line_tool_help.print_help()
         return
-    tool_params = command_line_tool.tool_params_type.from_parsed_arguments(parsed_arguments)
+    tool_params = command_line_tool.tool_params_type.from_parsed_args(parsed_args)
     _manage_output.set_params(
         tool_params=tool_params,
         output_params=command_line_tool.output_params,
     )
     cmds_by_name = {_cmd.name: _cmd for _cmd in command_line_tool.all_cmds}
-    selected_cmd = cmds_by_name[parsed_arguments.cmd]
+    selected_cmd = cmds_by_name[parsed_args.cmd]
     try:
         selected_cmd.call(
             tool_params=tool_params,
-            parsed_arguments=parsed_arguments,
+            parsed_args=parsed_args,
         )
     except subprocess.CalledProcessError as process_error:
         failed_cmd = shlex.join(process_error.cmd)

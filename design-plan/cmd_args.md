@@ -37,7 +37,7 @@ Argument(description)
 | Part | Detail | State |
 |---|---|---|
 | `Argument` | the base of every argument: `description`, which has no default, so every argument states it, and `add_to_arg_parser`, which registers it with the arg parser; never made directly | decided |
-| `param_name` | what the cmd function receives an argument as; every concrete kind has one, a field on `PositionalArgument` and derived from the long arg name on the named kinds, so `Command.arguments` lists the three concrete kinds rather than the base | decided |
+| `param_name` | what the cmd function receives an argument as; every concrete kind has one, a field on `PositionalArgument` and derived from the long arg name on the named kinds, so `Command.args` lists the three concrete kinds rather than the base | decided |
 | `_ArgumentWithInputValue` | private; what an argument the user types a value for adds: `input_value_type` (an `InputValueType`), `allowed_num_input_values`, and `default_value`, and turning them into argparse params | decided |
 | `_ArgumentWithNames` | private; what an argument the user types by name adds: `long_arg_name` (shown as `--<long arg name>`) and optional `short_arg_name` (shown as `-<short arg name>`), their checks, `arg_names` (every typed form, e.g. `["-o", "--output"]`), and a `param_name` from the long arg name | decided |
 | `PositionalArgument(_ArgumentWithInputValue)` | an input value typed straight after the cmd name, e.g. `arch-news-since 2026-10-01`; adds `param_name`; only its value is typed, so it has a param name and no arg name | decided |
