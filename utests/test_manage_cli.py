@@ -289,7 +289,7 @@ class TestCommandDefinitions_Checks(unittest.TestCase):
     def test_cmd_args_need_unique_param_names(
         self,
     ) -> None:
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as error_context:
             _make_go_cmd(
                 _do_nothing,
                 args=[
@@ -305,6 +305,10 @@ class TestCommandDefinitions_Checks(unittest.TestCase):
                     ),
                 ],
             )
+        self.assertEqual(
+            str(error_context.exception),
+            "Command: argument parameter names for `go` must be unique; got `output` more than once.",
+        )
 
     def test_cmd_arg_cannot_reuse_a_tool_flag_param_name(
         self,

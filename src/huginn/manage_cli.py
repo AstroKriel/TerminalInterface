@@ -52,14 +52,17 @@ class Command:
         self,
     ) -> None:
         param_names = [_arg.param_name for _arg in self.args]
-        repeated_param_names = sorted(
-            {_param_name
-             for _param_name in param_names
-             if param_names.count(_param_name) > 1},
-        )
+        repeated_param_names = {
+            _param_name
+            for _param_name in param_names
+            if param_names.count(_param_name) > 1
+        }
         param_names_are_repeated = len(repeated_param_names) > 0
         if param_names_are_repeated:
-            repeated_param_names_text = ", ".join(f"`{_param_name}`" for _param_name in repeated_param_names)
+            sorted_repeated_param_names = sorted(repeated_param_names)
+            repeated_param_names_text = ", ".join(
+                f"`{_param_name}`" for _param_name in sorted_repeated_param_names
+            )
             raise ValueError(
                 f"{type(self).__name__}: argument parameter names for `{self.name}` must be unique; got {repeated_param_names_text} more than once.",
             )
@@ -102,18 +105,15 @@ class CommandLineTool:
     ) -> None:
         flags_by_param_name = {_flag.param_name: _flag for _flag in _BUILT_IN_FLAGS}
         for cmd in self.all_cmds:
-            clashing_param_names = sorted(
-                {
-                    _arg.param_name
-                    for _arg in cmd.args
-                    if _arg.param_name in flags_by_param_name
-                },
-            )
+            clashing_param_names = [
+                _arg.param_name for _arg in cmd.args if _arg.param_name in flags_by_param_name
+            ]
             param_names_are_clashing = len(clashing_param_names) > 0
             if param_names_are_clashing:
+                sorted_clashing_param_names = sorted(clashing_param_names)
                 clash_descriptions = ", ".join(
                     f"`{_param_name}`, which is also `--{flags_by_param_name[_param_name].long_arg_name}`"
-                    for _param_name in clashing_param_names
+                    for _param_name in sorted_clashing_param_names
                 )
                 raise ValueError(
                     f"{type(self).__name__}: argument parameter names for cmd `{cmd.name}` must differ from the flags of the tool; got {clash_descriptions}.",
