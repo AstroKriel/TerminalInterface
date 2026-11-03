@@ -11,7 +11,7 @@ Params are split into groups by who sets them, and every group is defined in `pa
 | Group | Fields | Set by | State |
 |---|---|---|---|
 | `ToolParams` | `dry_run`, `hide_actions`, plus one field per extra flag in a subclass | the user, by flags, for one run | decided |
-| `OutputParams` | `show_timestamps`, `log_path` | the tool author, in `CommandLineTool.output_params` | decided |
+| `OutputParams` | `show_time_stamps`, `log_file_path` | the tool author, in `CommandLineTool.output_params` | decided |
 
 A new setting goes in `ToolParams` when the user passes it as a flag, and in `OutputParams` when the tool author fixes it.
 

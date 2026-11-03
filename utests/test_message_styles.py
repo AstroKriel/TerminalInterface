@@ -68,32 +68,18 @@ class TestLegend_Groups(unittest.TestCase):
 
 class TestMessageStyle_Render(unittest.TestCase):
 
-    def test_colours_only_the_symbol(
+    def test_colours_the_whole_msg(
         self,
     ) -> None:
-        line_markup = _message_styles.TASK_STYLE.render(
-            text_markup="task",
-            colour_whole_line=False,
+        self.assertEqual(_message_styles.TASK_STYLE.render(text="task"), "[#A660D0]○ task[/]")
+        self.assertEqual(
+            _message_styles.OutcomeStatus.SUCCESS.value.render(text="done"), "[#239023]● done[/]"
         )
-        self.assertEqual(line_markup, "[#FFFFFF]○[/] task")
-
-    def test_colours_the_whole_line(
-        self,
-    ) -> None:
-        line_markup = _message_styles.OutcomeStatus.SUCCESS.value.render(
-            text_markup="done",
-            colour_whole_line=True,
-        )
-        self.assertEqual(line_markup, "[#32CD32]● done[/]")
 
     def test_renders_plain_without_symbol_or_colour(
         self,
     ) -> None:
-        line_markup = _message_styles.OutcomeContent.RESULT.value.render(
-            text_markup="plain",
-            colour_whole_line=True,
-        )
-        self.assertEqual(line_markup, "plain")
+        self.assertEqual(_message_styles.OutcomeContent.RESULT.value.render(text="plain"), "plain")
 
     def test_copy_with_another_colour_keeps_the_symbol(
         self,
@@ -102,11 +88,7 @@ class TestMessageStyle_Render(unittest.TestCase):
             _message_styles.Action.CHANGE.value,
             colour=_message_styles.OutcomeStatus.SKIPPED.value.colour,
         )
-        line_markup = skipped_change_style.render(
-            text_markup="git push",
-            colour_whole_line=True,
-        )
-        self.assertEqual(line_markup, "[#E48500]→ git push[/]")
+        self.assertEqual(skipped_change_style.render(text="git push"), "[#B86B00]→ git push[/]")
 
 
 ##

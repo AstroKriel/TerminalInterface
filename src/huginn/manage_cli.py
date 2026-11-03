@@ -214,29 +214,35 @@ class _CommandLineToolHelp:
         description: str,
     ) -> None:
         padding = " " * (self.column_width - len(label))
-        styled_label = label
-        if label_style is not None:
-            styled_label = f"[{label_style}]{label}[/]"
-        self.console.print(f"{_HELP_INDENT}{styled_label}{padding}{description}")
+        label_markup = _manage_output.escape_markup(label)
+        if label_style is None:
+            styled_label = label_markup
+        else:
+            styled_label = f"[{label_style}]{label_markup}[/]"
+        description_markup = _manage_output.escape_markup(description)
+        self.console.print(f"{_HELP_INDENT}{styled_label}{padding}{description_markup}")
 
     def _print_header(
         self,
     ) -> None:
         usage_flags = " ".join(f"[--{_flag.long_arg_name}]" for _flag in self.all_flags)
-        usage_text = manage_log.escape_markup(f"{self.command_line_tool.name} {usage_flags} <command> [args]")
-        self.console.print()
-        self.console.print(
-            f"[bold]{self.command_line_tool.name}[/bold]: {self.command_line_tool.description}",
+        usage_markup = _manage_output.escape_markup(
+            f"{self.command_line_tool.name} {usage_flags} <command> [args]",
         )
+        name_markup = _manage_output.escape_markup(self.command_line_tool.name)
+        description_markup = _manage_output.escape_markup(self.command_line_tool.description)
         self.console.print()
-        self.console.print(f"[dim]usage:[/dim] {usage_text}")
+        self.console.print(f"[bold]{name_markup}[/bold]: {description_markup}")
+        self.console.print()
+        self.console.print(f"[dim]usage:[/dim] {usage_markup}")
 
     def _print_cmd_groups(
         self,
     ) -> None:
         for cmd_group in self.command_line_tool.cmd_groups:
             self.console.print()
-            self.console.print(f"[bold]{self._get_title_text(cmd_group.title)}[/bold]")
+            title_markup = _manage_output.escape_markup(self._get_title_text(cmd_group.title))
+            self.console.print(f"[bold]{title_markup}[/bold]")
             for cmd in cmd_group.cmds:
                 self._print_row(
                     label=cmd.name,
@@ -341,11 +347,8 @@ def run_cli(
         )
     except subprocess.CalledProcessError as process_error:
         failed_cmd = shlex.join(process_error.cmd)
-        failure_text = manage_log.escape_markup(
-            f"`{failed_cmd}` failed with exit status {process_error.returncode}.",
-        )
         manage_log.exit_with_error(
-            failure_text,
+            f"`{failed_cmd}` failed with exit status {process_error.returncode}.",
             exit_code=process_error.returncode,
         )
 

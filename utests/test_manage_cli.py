@@ -519,7 +519,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
     ) -> None:
         temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(temporary_directory.cleanup)
-        log_path = Path(temporary_directory.name) / "tool.log"
+        log_file_path = Path(temporary_directory.name) / "tool.log"
 
         def narrate(
             *,
@@ -531,34 +531,34 @@ class TestRunCli_Dispatch(unittest.TestCase):
             name="tool",
             description="a tool",
             cmd_groups=[_make_cmd_group(_make_go_cmd(narrate))],
-            output_params=params.OutputParams(log_path=log_path),
+            output_params=params.OutputParams(log_file_path=log_file_path),
         )
         with contextlib.redirect_stderr(io.StringIO()):
             manage_cli.run_cli(
                 command_line_tool=command_line_tool,
                 argv=["go"],
             )
-        self.assertIn("○ logged", log_path.read_text())
+        self.assertIn("○ logged", log_file_path.read_text())
 
     def test_hidden_actions_are_left_off_the_terminal_but_logged(
         self,
     ) -> None:
         temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(temporary_directory.cleanup)
-        log_path = Path(temporary_directory.name) / "tool.log"
+        log_file_path = Path(temporary_directory.name) / "tool.log"
 
         def inspect(
             *,
             tool_params: params.ToolParams,
         ) -> None:
             manage_log.log_task("inspecting")
-            manage_shell.query_cmd_and_capture_output(cmd=["true"])
+            manage_shell.query_cmd_and_capture_output(cmd_parts=["true"])
 
         command_line_tool = manage_cli.CommandLineTool(
             name="tool",
             description="a tool",
             cmd_groups=[_make_cmd_group(_make_go_cmd(inspect))],
-            output_params=params.OutputParams(log_path=log_path),
+            output_params=params.OutputParams(log_file_path=log_file_path),
         )
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
@@ -567,7 +567,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
                 argv=["--hide-actions", "go"],
             )
         self.assertEqual(stderr_buffer.getvalue(), "○ inspecting\n")
-        self.assertIn("→ true", log_path.read_text())
+        self.assertIn("→ true", log_file_path.read_text())
 
     def test_hidden_actions_still_show_dry_run_skips(
         self,
@@ -579,7 +579,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         ) -> None:
             manage_shell.run_cmd_and_show_output(
                 tool_params=tool_params,
-                cmd=["git", "push"],
+                cmd_parts=["git", "push"],
             )
 
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(push))])

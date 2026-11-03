@@ -20,12 +20,12 @@ outcome              how a task or action ended, reported afterwards
 └── content          optional: a value (what an action produced) or a result (for the user, on stdout)
 ```
 
-The symbol says which concept a line is (open circle: task; hooked arrow: note; right arrow: action; closed circle or middle dot: outcome) and the colour says which type or status. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `symbol`, `description`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private `_message_styles`: `TASK_STYLE`; `NOTE_STYLE`; `Action` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `OutcomeContent` (`VALUE`, `RESULT`). There are no named combinations: a change skipped in dry-run is drawn by a copy of the change style with the skipped colour, and the legend lists only the building blocks. `MESSAGE_GROUPS` lists everything by concept, and the help legend is generated from it, so the legend cannot drift from the output. A style draws a line itself, with `MessageStyle.render`, and the private `_manage_output` writes it with `write_line`.
+The symbol says which concept a line is (open circle: task; hooked arrow: note; right arrow: action; closed circle or middle dot: outcome) and the colour says which type or status. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `symbol`, `description`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private `_message_styles`: `TASK_STYLE`; `NOTE_STYLE`; `Action` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `OutcomeContent` (`VALUE`, `RESULT`). There are no named combinations: a change skipped in dry-run is drawn by a copy of the change style with the skipped colour, and the legend lists only the building blocks. `MESSAGE_GROUPS` lists everything by concept, and the help legend is generated from it, so the legend cannot drift from the output. A style draws a message itself, with `MessageStyle.render`, and the private `_manage_output` sends it to each destination it belongs in with `route_msg`. A style always colours the whole message, symbol and text together. Every colour is mid-brightness, so a message reads on both light and dark terminal themes; there is no white.
 
 | Concept | Facet | Value | Symbol | Colour | State |
 |---|---|---|---|---|---|
-| task | | | open circle | white | decided |
-| note | | | hooked arrow | white | decided |
+| task | | | open circle | purple | decided |
+| note | | | hooked arrow | purple | decided |
 | action | type | change | right arrow | blue | decided |
 | action | type | inspection | right arrow | grey | decided |
 | outcome | status | success | closed circle | green | decided |
@@ -34,7 +34,7 @@ The symbol says which concept a line is (open circle: task; hooked arrow: note; 
 | outcome | status | failure that does not end the run | closed circle | red | decided |
 | outcome | status | error that ends the run | closed circle | red | decided |
 | outcome | content | value an action produced | middle dot | grey | decided |
-| outcome | content | result | none | none: plain text on stdout, never timestamped or wrapped, so a pipe gets clean data | decided |
+| outcome | content | result | none | none: plain text on stdout, never time stamped or wrapped, so a pipe gets clean data | decided |
 
 An inspection exists to produce a value; a change exists to alter the system and may produce a value along the way, e.g. the path of a directory it created. In dry-run a change is skipped, so a value it would have produced is unknown: anything that depends on that value reports a skipped outcome instead of carrying on with a placeholder. State: decided.
 
@@ -52,24 +52,23 @@ An inspection exists to produce a value; a change exists to alter the system and
 | `log_value(*, name, value)` | a value an action produced, as `name = value` | narration | decided |
 | `log_result(text)` | a result for the user or a pipe | stdout | decided |
 | `exit_with_error(text, *, exit_code=1)` | an error outcome, then exits with `exit_code` | narration | decided |
-| `escape_markup(text)` | nothing; returns text that prints exactly as written | N/A | decided |
 
 `OutcomeStatus` is available as `manage_log.OutcomeStatus`.
 
-Narration always goes to stderr; whoever runs the tool can merge the two streams, e.g. with `2>&1`. Message text is rich markup, so a caller can style it; anything a function adds itself (commands, resolved values, timestamps) is escaped. Text from outside the tool, such as a news title or a file name, goes through `escape_markup` first, so square brackets in it print as written.
+Narration always goes to stderr; whoever runs the tool can merge the two streams, e.g. with `2>&1`. A tool supplies raw text and chooses the kind of message, and huginn handles the styling: `text` always prints exactly as written, so square brackets in a news title or a file name need no care. Every message is escaped in one place, `MessageStyle.render`, before its style adds the symbol and colour; text huginn prints without a style, such as the help screen, is escaped where it is printed.
 
 ---
 
 ## Output for One Run
 
-The entry point sets these once per process, from the tool params and output params (see [`<terminal-interface>/design-plan/params.md`](params.md)). Timestamps and the log serve tools that keep a history of what they did to a machine.
+The entry point sets these once per process, from the tool params and output params (see [`<terminal-interface>/design-plan/params.md`](params.md)). Time stamps and the log file serve tools that keep a history of what they did to a machine.
 
 | Feature | Detail | State |
 |---|---|---|
-| Timestamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | decided |
+| Time stamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | decided |
 | Hidden actions | with `hide_actions`, action messages are left off the terminal; set by the `--hide-actions` flag, off by default; a cmd skipped in dry-run still shows, since showing it is the point of a dry run | decided |
-| Log | every message, hidden actions included, is also appended to the file at `log_path`, as plain text without colour markup | decided |
-| Log format | `[<timestamp>] <line>`, one line per entry, always timestamped whether or not the terminal shows timestamps | decided |
+| Log | every message, hidden actions included, is also appended to the file at `log_file_path`, as plain text without markup | decided |
+| Log format | `[<time stamp>] <line>`, one line per entry, always time stamped whether or not the terminal shows time stamps | decided |
 | Log in dry-run | nothing is written: the log is a history of what was done to the machine, and a dry-run does nothing | decided |
 
-Timestamps and the log are off unless a tool turns them on, so tools that do not need them see no change. A script that never calls the entry point gets the defaults: no timestamps, no log.
+Time stamps and the log file are off unless a tool turns them on, so tools that do not need them see no change. A script that never calls the entry point gets the defaults: no time stamps, no log file.

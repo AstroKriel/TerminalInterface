@@ -39,7 +39,7 @@ class TestToolParams_Runners(unittest.TestCase):
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
             manage_shell.run_cmd_and_show_output(
                 tool_params=example_tool_params,
-                cmd=["git", "push"],
+                cmd_parts=["git", "push"],
             )
         mock_run.assert_not_called()
 
@@ -54,7 +54,7 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
 
     def _print_query(
         self,
-        cmd: list[str],
+        cmd_parts: list[str],
     ) -> str:
         stderr_buffer = io.StringIO()
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
@@ -62,7 +62,7 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
                 stdout="",
                 returncode=0,
             )
-            manage_shell.query_cmd_and_capture_output(cmd=cmd)
+            manage_shell.query_cmd_and_capture_output(cmd_parts=cmd_parts)
         return stderr_buffer.getvalue()
 
     def test_arg_with_spaces_is_quoted(
@@ -103,24 +103,24 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     ) -> None:
         stderr_buffer = io.StringIO()
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
-            cmd_succeeded = manage_shell.run_cmd_and_show_output(
+            cmd_has_succeeded = manage_shell.run_cmd_and_show_output(
                 tool_params=params.ToolParams(dry_run=True),
-                cmd=["git", "push"],
+                cmd_parts=["git", "push"],
             )
         mock_run.assert_not_called()
-        self.assertTrue(cmd_succeeded)
+        self.assertTrue(cmd_has_succeeded)
         self.assertEqual(stderr_buffer.getvalue(), "→ (dry-run) skipped: git push\n")
 
     def test_dry_run_line_uses_the_change_symbol_in_the_skipped_colour(
         self,
     ) -> None:
-        with mock.patch.object(_manage_output, "write_line") as mock_write_line:
+        with mock.patch.object(_manage_output, "route_msg") as mock_route_msg:
             manage_shell.run_cmd_and_show_output(
                 tool_params=params.ToolParams(dry_run=True),
-                cmd=["git", "push"],
+                cmd_parts=["git", "push"],
             )
-        line_markup = mock_write_line.call_args.args[0]
-        self.assertEqual(line_markup, "[#E48500]→ (dry-run) skipped: git push[/]")
+        msg_rendered = mock_route_msg.call_args.args[0]
+        self.assertEqual(msg_rendered, "[#B86B00]→ (dry-run) skipped: git push[/]")
 
     def test_logs_and_executes_when_not_dry_run(
         self,
@@ -128,12 +128,12 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         stderr_buffer = io.StringIO()
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
             mock_run.return_value = mock.MagicMock(returncode=0)
-            cmd_succeeded = manage_shell.run_cmd_and_show_output(
+            cmd_has_succeeded = manage_shell.run_cmd_and_show_output(
                 tool_params=params.ToolParams(),
-                cmd=["git", "status"],
+                cmd_parts=["git", "status"],
             )
         mock_run.assert_called_once()
-        self.assertTrue(cmd_succeeded)
+        self.assertTrue(cmd_has_succeeded)
         self.assertEqual(stderr_buffer.getvalue(), "→ git status\n")
 
     def test_failure_raises_by_default(
@@ -142,19 +142,19 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
             manage_shell.run_cmd_and_show_output(
                 tool_params=params.ToolParams(),
-                cmd=["false"],
+                cmd_parts=["false"],
             )
 
     def test_failure_returns_false_when_not_raising(
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
-            cmd_succeeded = manage_shell.run_cmd_and_show_output(
+            cmd_has_succeeded = manage_shell.run_cmd_and_show_output(
                 tool_params=params.ToolParams(),
-                cmd=["false"],
+                cmd_parts=["false"],
                 raise_error=False,
             )
-        self.assertFalse(cmd_succeeded)
+        self.assertFalse(cmd_has_succeeded)
 
 
 class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
@@ -165,7 +165,7 @@ class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
             captured_output = manage_shell.run_cmd_and_capture_output(
                 tool_params=params.ToolParams(dry_run=True),
-                cmd=["git", "rev-list", "--count", "HEAD"],
+                cmd_parts=["git", "rev-list", "--count", "HEAD"],
             )
         mock_run.assert_not_called()
         self.assertEqual(captured_output, "")
@@ -180,7 +180,7 @@ class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
             )
             captured_output = manage_shell.run_cmd_and_capture_output(
                 tool_params=params.ToolParams(),
-                cmd=["git", "rev-list", "--count", "HEAD"],
+                cmd_parts=["git", "rev-list", "--count", "HEAD"],
                 working_directory=Path("/tmp"),
             )
         self.assertEqual(captured_output, "3")
@@ -193,14 +193,14 @@ class TestQueryCmdAndCaptureOutput_Behaviour(unittest.TestCase):
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
-            manage_shell.query_cmd_and_capture_output(cmd=["false"])
+            manage_shell.query_cmd_and_capture_output(cmd_parts=["false"])
 
     def test_returns_empty_string_when_not_raising(
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
             query_output = manage_shell.query_cmd_and_capture_output(
-                cmd=["false"],
+                cmd_parts=["false"],
                 raise_error=False,
             )
         self.assertEqual(query_output, "")
@@ -214,7 +214,7 @@ class TestQueryCmdAndCaptureOutput_Behaviour(unittest.TestCase):
                 returncode=0,
             )
             manage_shell.query_cmd_and_capture_output(
-                cmd=["git", "branch", "--show-current"],
+                cmd_parts=["git", "branch", "--show-current"],
                 working_directory=Path("/tmp"),
             )
         self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))
@@ -236,27 +236,27 @@ class TestQueryCmdAndCaptureOutcome_Outcome(unittest.TestCase):
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
             cmd_outcome = manage_shell.query_cmd_and_capture_outcome(
-                cmd=["echo", "a b"],
+                cmd_parts=["echo", "a b"],
                 working_directory=self.working_directory,
             )
         self.assertEqual(cmd_outcome.cmd, "echo 'a b'")
         self.assertEqual(cmd_outcome.working_directory, self.working_directory)
         self.assertEqual(cmd_outcome.stdout, "a b\n")
-        self.assertTrue(cmd_outcome.succeeded)
+        self.assertTrue(cmd_outcome.has_succeeded)
 
     def test_does_not_raise_on_failure(
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
-            cmd_outcome = manage_shell.query_cmd_and_capture_outcome(cmd=["false"])
-        self.assertFalse(cmd_outcome.succeeded)
+            cmd_outcome = manage_shell.query_cmd_and_capture_outcome(cmd_parts=["false"])
+        self.assertFalse(cmd_outcome.has_succeeded)
 
     def test_missing_program_is_exit_status_127(
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
             cmd_outcome = manage_shell.query_cmd_and_capture_outcome(
-                cmd=["huginn-no-such-program"],
+                cmd_parts=["huginn-no-such-program"],
             )
         self.assertEqual(cmd_outcome.exit_code, 127)
         self.assertEqual(cmd_outcome.stderr, "command not found: `huginn-no-such-program`.")
@@ -269,7 +269,7 @@ class TestQueryCmdAndDiscardOutput_Behaviour(unittest.TestCase):
     ) -> None:
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
-            exit_code = manage_shell.query_cmd_and_discard_output(cmd=["false"])
+            exit_code = manage_shell.query_cmd_and_discard_output(cmd_parts=["false"])
         self.assertEqual(exit_code, 1)
         self.assertEqual(stderr_buffer.getvalue(), "")
 
@@ -279,7 +279,7 @@ class TestQueryCmdAndDiscardOutput_Behaviour(unittest.TestCase):
         with mock.patch("subprocess.run") as mock_run:
             mock_run.return_value = mock.MagicMock(returncode=0)
             manage_shell.query_cmd_and_discard_output(
-                cmd=["true"],
+                cmd_parts=["true"],
                 working_directory=Path("/tmp"),
             )
         self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))

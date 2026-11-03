@@ -32,7 +32,7 @@ class CommandOutcome:
     stderr: str
 
     @property
-    def succeeded(
+    def has_succeeded(
         self,
     ) -> bool:
         return self.exit_code == 0
@@ -41,7 +41,7 @@ class CommandOutcome:
 def _write_cmd(
     *,
     action: _message_styles.Action,
-    cmd: list[str],
+    cmd_parts: list[str],
     is_skipped: bool = False,
 ) -> None:
     """
@@ -49,20 +49,21 @@ def _write_cmd(
 
     A skipped command is always shown, since showing it is the point of a dry run; other actions can be hidden.
     """
-    message_style = action.value
-    cmd_markup = _manage_output.escape_markup(shlex.join(cmd))
+    cmd = shlex.join(cmd_parts)
     if is_skipped:
         message_style = dataclasses.replace(
-            message_style,
+            action.value,
             colour=_message_styles.OutcomeStatus.SKIPPED.value.colour,
         )
-        cmd_markup = f"(dry-run) skipped: {cmd_markup}"
-    line_markup = message_style.render(
-        text_markup=cmd_markup,
-        colour_whole_line=True,
+        msg_text = f"(dry-run) skipped: {cmd}"
+    else:
+        message_style = action.value
+        msg_text = cmd
+    msg_rendered = message_style.render(
+        text=msg_text,
     )
-    _manage_output.write_line(
-        line_markup,
+    _manage_output.route_msg(
+        msg_rendered,
         is_action=not is_skipped,
     )
 
@@ -70,7 +71,7 @@ def _write_cmd(
 def run_cmd_and_show_output(
     *,
     tool_params: params.ToolParams,
-    cmd: list[str],
+    cmd_parts: list[str],
     working_directory: Path | None = None,
     raise_error: bool = True,
 ) -> bool:
@@ -82,22 +83,22 @@ def run_cmd_and_show_output(
     if tool_params.dry_run:
         _write_cmd(
             action=_message_styles.Action.CHANGE,
-            cmd=cmd,
+            cmd_parts=cmd_parts,
             is_skipped=True,
         )
         return True
     _write_cmd(
         action=_message_styles.Action.CHANGE,
-        cmd=cmd,
+        cmd_parts=cmd_parts,
     )
     result = subprocess.run(
-        cmd,
+        cmd_parts,
         cwd=working_directory,
     )
     if raise_error and (result.returncode != 0):
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
-            cmd=cmd,
+            cmd=cmd_parts,
         )
     return result.returncode == 0
 
@@ -105,7 +106,7 @@ def run_cmd_and_show_output(
 def run_cmd_and_capture_output(
     *,
     tool_params: params.ToolParams,
-    cmd: list[str],
+    cmd_parts: list[str],
     working_directory: Path | None = None,
 ) -> str:
     """
@@ -117,16 +118,16 @@ def run_cmd_and_capture_output(
     if tool_params.dry_run:
         _write_cmd(
             action=_message_styles.Action.CHANGE,
-            cmd=cmd,
+            cmd_parts=cmd_parts,
             is_skipped=True,
         )
         return ""
     _write_cmd(
         action=_message_styles.Action.CHANGE,
-        cmd=cmd,
+        cmd_parts=cmd_parts,
     )
     result = subprocess.run(
-        cmd,
+        cmd_parts,
         capture_output=True,
         text=True,
         check=True,
@@ -137,7 +138,7 @@ def run_cmd_and_capture_output(
 
 def query_cmd_and_capture_output(
     *,
-    cmd: list[str],
+    cmd_parts: list[str],
     working_directory: Path | None = None,
     raise_error: bool = True,
 ) -> str:
@@ -148,10 +149,10 @@ def query_cmd_and_capture_output(
     """
     _write_cmd(
         action=_message_styles.Action.INSPECTION,
-        cmd=cmd,
+        cmd_parts=cmd_parts,
     )
     result = subprocess.run(
-        cmd,
+        cmd_parts,
         capture_output=True,
         text=True,
         cwd=working_directory,
@@ -159,7 +160,7 @@ def query_cmd_and_capture_output(
     if raise_error and (result.returncode != 0):
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
-            cmd=cmd,
+            cmd=cmd_parts,
             output=result.stdout,
             stderr=result.stderr,
         )
@@ -168,7 +169,7 @@ def query_cmd_and_capture_output(
 
 def query_cmd_and_capture_outcome(
     *,
-    cmd: list[str],
+    cmd_parts: list[str],
     working_directory: Path | None = None,
 ) -> CommandOutcome:
     """
@@ -178,25 +179,25 @@ def query_cmd_and_capture_outcome(
     """
     _write_cmd(
         action=_message_styles.Action.INSPECTION,
-        cmd=cmd,
+        cmd_parts=cmd_parts,
     )
     try:
         result = subprocess.run(
-            cmd,
+            cmd_parts,
             capture_output=True,
             text=True,
             cwd=working_directory,
         )
     except FileNotFoundError:
         return CommandOutcome(
-            cmd=shlex.join(cmd),
+            cmd=shlex.join(cmd_parts),
             working_directory=working_directory,
             exit_code=_CMD_NOT_FOUND_EXIT_CODE,
             stdout="",
-            stderr=f"command not found: `{cmd[0]}`.",
+            stderr=f"command not found: `{cmd_parts[0]}`.",
         )
     return CommandOutcome(
-        cmd=shlex.join(cmd),
+        cmd=shlex.join(cmd_parts),
         working_directory=working_directory,
         exit_code=result.returncode,
         stdout=result.stdout,
@@ -206,12 +207,12 @@ def query_cmd_and_capture_outcome(
 
 def query_cmd_and_discard_output(
     *,
-    cmd: list[str],
+    cmd_parts: list[str],
     working_directory: Path | None = None,
 ) -> int:
     """Run a read-only command silently and return its exit code, for yes/no checks; the one runner that prints nothing."""
     result = subprocess.run(
-        cmd,
+        cmd_parts,
         capture_output=True,
         cwd=working_directory,
     )

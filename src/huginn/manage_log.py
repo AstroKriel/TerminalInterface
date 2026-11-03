@@ -10,36 +10,31 @@ from typing import NoReturn
 
 ## local
 from huginn import _manage_output, _message_styles
-from huginn._manage_output import escape_markup as escape_markup
 from huginn._message_styles import OutcomeStatus as OutcomeStatus
 
 ##
 ## === OUTPUT
-## message text is rich markup; anything added here (resolved values) is escaped.
+## `text` is raw text: it always prints exactly as written, so a tool supplies the text and the kind of message,
+## and huginn handles the styling.
 ##
 
 
-def _write_message(
+def _render_and_route_msg(
     *,
     message_style: _message_styles.MessageStyle,
-    text_markup: str,
-    colour_whole_line: bool,
+    text: str,
 ) -> None:
-    line_markup = message_style.render(
-        text_markup=text_markup,
-        colour_whole_line=colour_whole_line,
-    )
-    _manage_output.write_line(line_markup)
+    msg_rendered = message_style.render(text=text)
+    _manage_output.route_msg(msg_rendered)
 
 
 def log_note(
     text: str,
 ) -> None:
     """Note something about the work that is neither a task nor an outcome."""
-    _write_message(
+    _render_and_route_msg(
         message_style=_message_styles.NOTE_STYLE,
-        text_markup=text,
-        colour_whole_line=False,
+        text=text,
     )
 
 
@@ -47,10 +42,9 @@ def log_task(
     text: str,
 ) -> None:
     """Announce a task that is starting."""
-    _write_message(
+    _render_and_route_msg(
         message_style=_message_styles.TASK_STYLE,
-        text_markup=text,
-        colour_whole_line=False,
+        text=text,
     )
 
 
@@ -60,10 +54,9 @@ def log_outcome(
     status: OutcomeStatus,
 ) -> None:
     """Report how a task or action ended; the status sets the colour and is never assumed."""
-    _write_message(
+    _render_and_route_msg(
         message_style=status.value,
-        text_markup=text,
-        colour_whole_line=True,
+        text=text,
     )
 
 
@@ -73,19 +66,21 @@ def log_value(
     value: str,
 ) -> None:
     """Report a value that an action produced, by inspecting or by changing the system; the value prints exactly as written."""
-    _write_message(
+    _render_and_route_msg(
         message_style=_message_styles.OutcomeContent.VALUE.value,
-        text_markup=escape_markup(f"{name} = {value}"),
-        colour_whole_line=True,
+        text=f"{name} = {value}",
     )
 
 
 def log_result(
     text: str,
 ) -> None:
-    """Print a result for the user or a pipe: plain text on stdout, with no symbol, colour, timestamp, or wrapping."""
-    _manage_output.write_line(
-        text,
+    """Print a result for the user or a pipe: plain text on stdout, with no symbol, colour, time stamp, or wrapping."""
+    msg_rendered = _message_styles.OutcomeContent.RESULT.value.render(
+        text=text,
+    )
+    _manage_output.route_msg(
+        msg_rendered,
         is_result=True,
     )
 
@@ -96,10 +91,9 @@ def exit_with_error(
     exit_code: int = 1,
 ) -> NoReturn:
     """Report an error that ends the run, then exit the process with `exit_code`."""
-    _write_message(
+    _render_and_route_msg(
         message_style=OutcomeStatus.ERROR.value,
-        text_markup=f"error: {text}",
-        colour_whole_line=True,
+        text=f"error: {text}",
     )
     sys.exit(exit_code)
 

@@ -17,7 +17,7 @@ CommandLineTool
 │       └── Command(name, description, fn, arguments: list[PositionalArgument | NamedArgument | FlagArgument])
 ├── hidden_cmds: list[Command]
 ├── tool_params_type: type[ToolParams]
-└── output_params: OutputParams(show_timestamps, log_path)
+└── output_params: OutputParams(show_time_stamps, log_file_path)
 ```
 
 | Part | Detail | State |
@@ -29,7 +29,7 @@ CommandLineTool
 | `CommandGroup` | cmds listed together in help under one `title`; a `str` enum title prints its value | decided |
 | Hidden cmds | `hidden_cmds` on the tool: registered and runnable, left out of help | decided |
 | Tool params | `tool_params_type` names `ToolParams` or a subclass; `run_cli` builds it with `from_parsed_args` (see [`<terminal-interface>/design-plan/params.md`](params.md)) | decided |
-| Output params | `output_params` holds an `OutputParams` (`show_timestamps`, `log_path`); `run_cli` hands it to the output together with the tool params | decided |
+| Output params | `output_params` holds an `OutputParams` (`show_time_stamps`, `log_file_path`); `run_cli` hands it to the output together with the tool params | decided |
 | Built-in flags | every tool gets `--dry-run` and `--hide-actions`; both are off unless the user passes them | decided |
 | Failed cmd | `run_cli` reports an error outcome naming the shell cmd that failed, then exits with its exit status | decided |
 | How a cmd function is called | `fn(tool_params=..., <param_1>=..., <param_2>=...)`, every argument by keyword under its `param_name` (the named argument `base-ref` becomes `base_ref`) | decided |

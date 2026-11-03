@@ -20,7 +20,7 @@ from huginn import _manage_output, params
 ##
 
 
-class TestWriteLine_Streams(unittest.TestCase):
+class TestRouteMsg_Streams(unittest.TestCase):
 
     def setUp(
         self,
@@ -34,7 +34,7 @@ class TestWriteLine_Streams(unittest.TestCase):
         stdout_buffer = io.StringIO()
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
-            _manage_output.write_line("narration")
+            _manage_output.route_msg("narration")
         self.assertEqual(stdout_buffer.getvalue(), "")
         self.assertIn("narration", stderr_buffer.getvalue())
 
@@ -43,14 +43,14 @@ class TestWriteLine_Streams(unittest.TestCase):
     ) -> None:
         stdout_buffer = io.StringIO()
         with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(io.StringIO()):
-            _manage_output.write_line(
+            _manage_output.route_msg(
                 "result",
                 is_result=True,
             )
         self.assertIn("result", stdout_buffer.getvalue())
 
 
-class TestWriteLine_Timestamps(unittest.TestCase):
+class TestRouteMsg_TimeStamps(unittest.TestCase):
 
     def setUp(
         self,
@@ -63,7 +63,7 @@ class TestWriteLine_Timestamps(unittest.TestCase):
     ) -> None:
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
-            _manage_output.write_line("plain")
+            _manage_output.route_msg("plain")
         self.assertEqual(stderr_buffer.getvalue(), "plain\n")
 
     def test_prefix_when_enabled(
@@ -71,18 +71,18 @@ class TestWriteLine_Timestamps(unittest.TestCase):
     ) -> None:
         _manage_output.set_params(
             tool_params=params.ToolParams(),
-            output_params=params.OutputParams(show_timestamps=True),
+            output_params=params.OutputParams(show_time_stamps=True),
         )
         stderr_buffer = io.StringIO()
-        with mock.patch.object(_manage_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
+        with mock.patch.object(_manage_output, "_get_time_stamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(stderr_buffer):
-                _manage_output.write_line("stamped")
+                _manage_output.route_msg("stamped")
         self.assertEqual(stderr_buffer.getvalue(), "[2026-01-02 03:04:05] stamped\n")
 
 
-class TestWriteLine_Log(unittest.TestCase):
+class TestRouteMsg_Log(unittest.TestCase):
 
-    log_path: Path
+    log_file_path: Path
 
     def setUp(
         self,
@@ -91,7 +91,7 @@ class TestWriteLine_Log(unittest.TestCase):
         self.addCleanup(_manage_output.reset_params)
         temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(temporary_directory.cleanup)
-        self.log_path = Path(temporary_directory.name) / "logs" / "tool.log"
+        self.log_file_path = Path(temporary_directory.name) / "logs" / "tool.log"
 
     def _start_logging(
         self,
@@ -100,19 +100,19 @@ class TestWriteLine_Log(unittest.TestCase):
     ) -> None:
         _manage_output.set_params(
             tool_params=params.ToolParams(dry_run=dry_run),
-            output_params=params.OutputParams(log_path=self.log_path),
+            output_params=params.OutputParams(log_file_path=self.log_file_path),
         )
 
     def test_appends_plain_lines(
         self,
     ) -> None:
         self._start_logging(dry_run=False)
-        with mock.patch.object(_manage_output, "get_timestamp", return_value="2026-01-02 03:04:05"):
+        with mock.patch.object(_manage_output, "_get_time_stamp", return_value="2026-01-02 03:04:05"):
             with contextlib.redirect_stderr(io.StringIO()):
-                _manage_output.write_line("[#FFFFFF]○[/] first")
-                _manage_output.write_line("[bold]second[/bold]")
+                _manage_output.route_msg("[#A660D0]○ first[/]")
+                _manage_output.route_msg("[bold]second[/bold]")
         self.assertEqual(
-            self.log_path.read_text().splitlines(),
+            self.log_file_path.read_text().splitlines(),
             [
                 "[2026-01-02 03:04:05] ○ first",
                 "[2026-01-02 03:04:05] second",
@@ -124,15 +124,15 @@ class TestWriteLine_Log(unittest.TestCase):
     ) -> None:
         self._start_logging(dry_run=True)
         with contextlib.redirect_stderr(io.StringIO()):
-            _manage_output.write_line("nothing happens")
-        self.assertFalse(self.log_path.exists())
+            _manage_output.route_msg("nothing happens")
+        self.assertFalse(self.log_file_path.exists())
 
     def test_off_by_default(
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
-            _manage_output.write_line("nowhere")
-        self.assertFalse(self.log_path.exists())
+            _manage_output.route_msg("nowhere")
+        self.assertFalse(self.log_file_path.exists())
 
 
 class TestEscapeMarkup_Text(unittest.TestCase):
@@ -142,7 +142,7 @@ class TestEscapeMarkup_Text(unittest.TestCase):
     ) -> None:
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
-            _manage_output.write_line(_manage_output.escape_markup("[bold]x[/bold]"))
+            _manage_output.route_msg(_manage_output.escape_markup("[bold]x[/bold]"))
         self.assertEqual(stderr_buffer.getvalue(), "[bold]x[/bold]\n")
 
 

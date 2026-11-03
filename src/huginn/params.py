@@ -42,9 +42,9 @@ class ToolParams:
 
 @dataclass(frozen=True)
 class OutputParams:
-    """How a tool sets up its output: timestamps on terminal lines, and the log file."""
-    show_timestamps: bool = False
-    log_path: Path | None = None
+    """How a tool sets up its output: time stamps on terminal lines, and the log file."""
+    show_time_stamps: bool = False
+    log_file_path: Path | None = None
 
 
 ## } MODULE

@@ -8,20 +8,24 @@
 from dataclasses import dataclass
 from enum import Enum, StrEnum
 
+## third-party
+from rich import markup as rich_markup
+
 ##
 ## === PALETTE
 ##
 
 
 class Colour(StrEnum):
-    WHITE = "#FFFFFF"
-    GREEN = "#32CD32"
-    YELLOW = "#FFE600"
+    """Mid-brightness colours, so every message reads on both light and dark terminal themes."""
+    PURPLE = "#A660D0"
+    GREEN = "#239023"
+    YELLOW = "#8C7E00"
     BLUE = "#2A71F6"
-    ORANGE = "#E48500"
+    ORANGE = "#B86B00"
     RED = "#FF4500"
     GREY = "#818181"
-    CYAN = "#00CED1"
+    CYAN = "#008D8F"
 
 
 class Symbol(StrEnum):
@@ -34,7 +38,7 @@ class Symbol(StrEnum):
 
 @dataclass(frozen=True)
 class MessageStyle:
-    """Colour, symbol, and legend description for one kind of line; a line with neither prints as plain text."""
+    """Colour, symbol, and legend description for one kind of message; a message with neither prints as plain text."""
     colour: Colour | None
     symbol: Symbol | None
     description: str
@@ -42,23 +46,26 @@ class MessageStyle:
     def render(
         self,
         *,
-        text_markup: str,
-        colour_whole_line: bool,
+        text: str,
     ) -> str:
         """
-        Return the markup for a line in this style; either the whole line or only the symbol is coloured.
+        Return the message drawn in this style, as markup: the symbol before the text, the whole message in the colour.
 
-        A line that takes its symbol and colour from different styles, e.g. a change skipped in dry-run, is drawn by
-        a copy of one style with the colour of the other. Without a symbol or colour the text renders plain.
+        `text` is raw text and always prints exactly as written, even where it looks like markup, so a tool never
+        has to think about styling. A message that takes its symbol and colour from different styles, e.g. a change
+        skipped in dry-run, is drawn by a copy of one style with the colour of the other.
         """
-        symbol_text = ""
-        if self.symbol is not None:
-            symbol_text = f"{self.symbol} "
-        if self.colour is None:
-            return f"{symbol_text}{text_markup}"
-        if colour_whole_line:
-            return f"[{self.colour}]{symbol_text}{text_markup}[/]"
-        return f"[{self.colour}]{symbol_text.strip()}[/] {text_markup}"
+        text_markup = rich_markup.escape(text)
+        if self.symbol is None:
+            if self.colour is None:
+                return text_markup
+            else:
+                return f"[{self.colour}]{text_markup}[/]"
+        else:
+            if self.colour is None:
+                return f"{self.symbol} {text_markup}"
+            else:
+                return f"[{self.colour}]{self.symbol} {text_markup}[/]"
 
 
 ##
@@ -67,7 +74,7 @@ class MessageStyle:
 ##
 
 TASK_STYLE = MessageStyle(
-    colour=Colour.WHITE,
+    colour=Colour.PURPLE,
     symbol=Symbol.OPEN_CIRCLE,
     description="start of a task",
 )
@@ -78,7 +85,7 @@ TASK_STYLE = MessageStyle(
 ##
 
 NOTE_STYLE = MessageStyle(
-    colour=Colour.WHITE,
+    colour=Colour.PURPLE,
     symbol=Symbol.HOOKED_ARROW,
     description="note about the work",
 )
@@ -158,7 +165,7 @@ class OutcomeContent(Enum):
 
 @dataclass(frozen=True)
 class MessageGroup:
-    """One concept with every kind of line it covers; the help legend is built from these."""
+    """One concept with every kind of message it covers; the help legend is built from these."""
     title: str
     message_styles: tuple[MessageStyle, ...]
 

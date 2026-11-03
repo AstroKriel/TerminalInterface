@@ -89,23 +89,23 @@ class TestLogFunctions_Output(unittest.TestCase):
         stdout_text, _ = self._capture(lambda: manage_log.log_result(long_result))
         self.assertEqual(stdout_text, f"{long_result}\n")
 
-    def test_log_result_has_no_timestamp(
+    def test_log_result_has_no_time_stamp(
         self,
     ) -> None:
         _manage_output.set_params(
             tool_params=params.ToolParams(),
-            output_params=params.OutputParams(show_timestamps=True),
+            output_params=params.OutputParams(show_time_stamps=True),
         )
         stdout_text, _ = self._capture(lambda: manage_log.log_result("data"))
         self.assertEqual(stdout_text, "data\n")
 
-    def test_escape_markup_keeps_brackets(
+    def test_raw_text_prints_exactly_as_written(
         self,
     ) -> None:
-        stdout_text, _ = self._capture(
-            lambda: manage_log.log_result(manage_log.escape_markup("[News] title")),
-        )
+        stdout_text, _ = self._capture(lambda: manage_log.log_result("[News] title"))
         self.assertEqual(stdout_text, "[News] title\n")
+        _, stderr_text = self._capture(lambda: manage_log.log_task("checking [red]pins[/]"))
+        self.assertEqual(stderr_text, "○ checking [red]pins[/]\n")
 
     def test_exit_with_error_exits_with_status_one(
         self,
