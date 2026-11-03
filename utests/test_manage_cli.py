@@ -462,6 +462,33 @@ class TestRunCli_Dispatch(unittest.TestCase):
         self.assertTrue(log_lines[0].endswith("] $ tool go"))
         self.assertTrue(log_lines[1].endswith("] ○ logged"))
 
+    def test_run_header_keeps_the_cmd_as_typed(
+        self,
+    ) -> None:
+
+        def take_message(
+            *,
+            message: str,
+        ) -> None:
+            return None
+
+        message_arg = cmd_args.PositionalArgument(
+            param_name="message",
+            description="text to use",
+            input_value_type=cmd_args.InputValueTypes.TEXT,
+        )
+        go_cmd = _make_go_cmd(
+            take_message,
+            args=[message_arg],
+        )
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(go_cmd)])
+        manage_cli.run_cli(
+            command_line_tool=command_line_tool,
+            argv=["go", "fix [bold] and [/x]"],
+        )
+        log_lines = _get_log_file_path().read_text().splitlines()
+        self.assertTrue(log_lines[0].endswith("] $ tool go 'fix [bold] and [/x]'"))
+
     def test_dry_run_writes_no_log(
         self,
     ) -> None:

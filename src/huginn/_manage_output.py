@@ -6,7 +6,6 @@
 
 ## stdlib
 import datetime
-import shlex
 from pathlib import Path
 
 ## third-party
@@ -104,10 +103,10 @@ class LogFileError(Exception):
     """The log file could not be written, so the run stops before anything else is done."""
 
 
-def _append_to_log_file(
+def append_to_log_file(
     msg_rendered: str,
 ) -> None:
-    """Append one time-stamped line to the log file; nothing is written in dry-run or when no log file is set."""
+    """Append one time-stamped line to the log file only; nothing is written in dry-run or when no log file is set."""
     msg_plain = rich_Text.from_markup(msg_rendered).plain
     if _active_tool_params.dry_run or (_active_log_file_path is None):
         return
@@ -125,16 +124,6 @@ def _append_to_log_file(
         ) from os_error
 
 
-def log_run_header(
-    cmd_parts: list[str],
-) -> None:
-    """Start a run in the log with the cmd as typed, e.g. `$ git_helpers sync`, so runs can be told apart."""
-    cmd = shlex.join(cmd_parts)
-    msg_text = f"$ {cmd}"
-    msg_rendered = escape_markup(msg_text)
-    _append_to_log_file(msg_rendered)
-
-
 def route_msg(
     msg_rendered: str,
     *,
@@ -147,7 +136,7 @@ def route_msg(
     The log comes first, so a message that cannot be logged is never shown as if its action went ahead. A hidden
     action is left off the console but still logged; the log file is never written in dry-run.
     """
-    _append_to_log_file(msg_rendered)
+    append_to_log_file(msg_rendered)
     action_is_hidden = is_action and _active_tool_params.hide_actions
     if not action_is_hidden:
         _print_to_console(

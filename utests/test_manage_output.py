@@ -106,26 +106,18 @@ class TestRouteMsg_Log(unittest.TestCase):
             ],
         )
 
-    def test_run_header_is_the_cmd_as_typed(
+    def test_append_writes_the_log_file_only(
         self,
     ) -> None:
         self._start_logging(dry_run=False)
+        stderr_buffer = io.StringIO()
         with mock.patch.object(_manage_output, "_get_time_stamp", return_value="2026-01-02 03:04:05"):
-            _manage_output.log_run_header(["tool", "commit", "-m", "a message"])
+            with contextlib.redirect_stderr(stderr_buffer):
+                _manage_output.append_to_log_file("[bold]only in the log[/bold]")
+        self.assertEqual(stderr_buffer.getvalue(), "")
         self.assertEqual(
             self.log_file_path.read_text().splitlines(),
-            ["[2026-01-02 03:04:05] $ tool commit -m 'a message'"],
-        )
-
-    def test_run_header_keeps_square_brackets(
-        self,
-    ) -> None:
-        self._start_logging(dry_run=False)
-        with mock.patch.object(_manage_output, "_get_time_stamp", return_value="2026-01-02 03:04:05"):
-            _manage_output.log_run_header(["tool", "commit", "-m", "fix [bold] and [/x]"])
-        self.assertEqual(
-            self.log_file_path.read_text().splitlines(),
-            ["[2026-01-02 03:04:05] $ tool commit -m 'fix [bold] and [/x]'"],
+            ["[2026-01-02 03:04:05] only in the log"],
         )
 
     def test_not_written_in_dry_run(
@@ -133,7 +125,7 @@ class TestRouteMsg_Log(unittest.TestCase):
     ) -> None:
         self._start_logging(dry_run=True)
         with contextlib.redirect_stderr(io.StringIO()):
-            _manage_output.log_run_header(["tool", "go"])
+            _manage_output.append_to_log_file("not logged")
             _manage_output.route_msg("nothing happens")
         self.assertFalse(self.log_file_path.exists())
 
