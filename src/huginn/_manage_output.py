@@ -51,6 +51,11 @@ def reset_params() -> None:
     )
 
 
+def get_active_tool_params() -> params.ToolParams:
+    """The tool params for the rest of the process; the defaults until `set_params` is called."""
+    return _active_tool_params
+
+
 ##
 ## === ROUTING
 ## a rendered message goes to the terminal and, when a log file is set, to the log file.

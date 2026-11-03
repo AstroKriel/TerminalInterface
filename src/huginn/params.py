@@ -19,11 +19,7 @@ from typing import Self
 
 @dataclass(frozen=True)
 class ToolParams:
-    """
-    The values of the flags of a tool for one run, e.g. `--dry-run`; a cmd gets its own arguments separately.
-
-    A tool with flags of its own subclasses it as `<ToolName>Params` and declares one field per flag.
-    """
+    """The values of the built-in flags for one run, e.g. `--dry-run`; huginn reads them, so a cmd never needs them."""
     dry_run: bool = False
     hide_actions: bool = False
 

@@ -1,6 +1,6 @@
 # manage_shell
 
-Design notes for `huginn.manage_shell`: the command runners. The mutating runners take `tool_params` from [`<terminal-interface>/design-plan/params.md`](params.md). The output functions and message types are in [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md).
+Design notes for `huginn.manage_shell`: the command runners. The mutating runners read `dry_run` from the active tool params (see [`<terminal-interface>/design-plan/params.md`](params.md)). The output functions and message types are in [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md).
 
 ---
 
@@ -13,8 +13,8 @@ Every runner is named `<verb>_cmd_and_<what happens to the output>` (`cmd` is th
 
 | Function | Output | On failure | In dry-run | Returns | State |
 |---|---|---|---|---|---|
-| `run_cmd_and_show_output(*, tool_params, cmd_parts, working_directory=None, raise_error=True)` | shown live | raises `CalledProcessError`; returns `False` with `raise_error=False` | printed, skipped, counts as success | `True` iff it succeeded | decided |
-| `run_cmd_and_capture_output(*, tool_params, cmd_parts, working_directory=None)` | captured | raises `CalledProcessError` | printed, skipped | stdout, stripped | decided |
+| `run_cmd_and_show_output(*, cmd_parts, working_directory=None, raise_error=True)` | shown live | raises `CalledProcessError`; returns `False` with `raise_error=False` | printed, skipped, counts as success | `True` iff it succeeded | decided |
+| `run_cmd_and_capture_output(*, cmd_parts, working_directory=None)` | captured | raises `CalledProcessError` | printed, skipped | stdout, stripped | decided |
 | `query_cmd_and_capture_output(*, cmd_parts, working_directory=None, raise_error=True)` | captured | raises `CalledProcessError`; returns `""` with `raise_error=False` | runs | stdout, stripped | decided |
 | `query_cmd_and_capture_outcome(*, cmd_parts, working_directory=None)` | captured | never raises | runs | a `CommandOutcome`, output unstripped | decided |
 | `query_cmd_and_discard_output(*, cmd_parts, working_directory=None)` | discarded, nothing printed | never raises | runs | exit status | decided |

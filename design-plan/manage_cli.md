@@ -11,28 +11,26 @@ A tool is described as nested frozen dataclasses, one per concept, so the struct
 ```text
 CommandLineTool
 ├── name, description
-├── flags: list[FlagArgument]
 ├── cmd_groups: list[CommandGroup]
 │   └── CommandGroup(title, cmds: list[Command])
-│       └── Command(name, description, fn, arguments: list[PositionalArgument | NamedArgument | FlagArgument])
+│       └── Command(name, description, fn, args: list[CommandArgument])
 ├── hidden_cmds: list[Command]
-├── tool_params_type: type[ToolParams]
 └── output_params: OutputParams(show_time_stamps, log_file_path)
 ```
 
 | Part | Detail | State |
 |---|---|---|
-| Arguments | `Command.args` and `CommandLineTool.flags` hold the arg kinds from `cmd_args`: `PositionalArgument`, `NamedArgument`, and `FlagArgument` (see [`<terminal-interface>/design-plan/cmd_args.md`](cmd_args.md)) | decided |
+| Arguments | `Command.args` holds the arg kinds from `cmd_args`: `PositionalArgument`, `NamedArgument`, and `FlagArgument` (see [`<terminal-interface>/design-plan/cmd_args.md`](cmd_args.md)) | decided |
 | Defaults | the same rule as for args: a field has a default only when it means "nothing extra", e.g. empty `args` or `hidden_cmds` | decided |
 | `Command` | one cmd: `name`, `description`, `fn`, and `args` | decided |
 | Definition checks | each argument, cmd, and tool checks itself when made, so a mistake in a command table fails when the tool starts; see [Definition Checks](#definition-checks) | decided |
 | `CommandGroup` | cmds listed together in help under one `title`; a `str` enum title prints its value | decided |
 | Hidden cmds | `hidden_cmds` on the tool: registered and runnable, left out of help | decided |
-| Tool params | `tool_params_type` names `ToolParams` or a subclass; `run_cli` builds it with `from_parsed_args` (see [`<terminal-interface>/design-plan/params.md`](params.md)) | decided |
+| Tool params | `run_cli` builds a `ToolParams` from the built-in flags with `from_parsed_args` (see [`<terminal-interface>/design-plan/params.md`](params.md)) | decided |
 | Output params | `output_params` holds an `OutputParams` (`show_time_stamps`, `log_file_path`); `run_cli` hands it to the output together with the tool params | decided |
-| Built-in flags | every tool gets `--dry-run` and `--hide-actions`; both are off unless the user passes them | decided |
+| Built-in flags | every tool gets `--dry-run` and `--hide-actions`, and no other tool flags; both are off unless the user passes them. huginn reads them itself, so a cmd never receives them. A flag a cmd needs, e.g. `--allow-dirty`, is a `FlagArgument` of that cmd | decided |
 | Failed cmd | `run_cli` reports an error outcome naming the shell cmd that failed, then exits with its exit status | decided |
-| How a cmd function is called | `fn(tool_params=..., <param_1>=..., <param_2>=...)`, every argument by keyword under its `param_name` (the named argument `base-ref` becomes `base_ref`) | decided |
+| How a cmd function is called | `fn(<param_1>=..., <param_2>=...)`, every argument of the cmd by keyword under its `param_name` (the named argument `base-ref` becomes `base_ref`) | decided |
 | Type name | `CommandLineTool`; a variable holding one is named `command_line_tool` | decided |
 
 Calling by keyword means a cmd function declares its parameters keyword-only and names them after the arguments they receive, so a mismatch fails loudly instead of passing a value to the wrong parameter.
@@ -51,9 +49,9 @@ The checks on a single argument are in [`<terminal-interface>/design-plan/cmd_ar
 
 | Where | Check | State |
 |---|---|---|
-| `Command` | parameter names are unique across its arguments, and none is `tool_params` | decided |
-| `CommandLineTool` | no cmd argument reuses the parameter name of a tool flag, built-in flags included | decided |
-| Left to argparse | two flags with the same form, a tool redefining a built-in flag, and two cmds with the same name: argparse fails with a clear message when it builds the arg parser | decided |
+| `Command` | parameter names are unique across its arguments | decided |
+| `CommandLineTool` | no cmd argument reuses the parameter name of a built-in flag | decided |
+| Left to argparse | two flags with the same form, and two cmds with the same name: argparse fails with a clear message when it builds the arg parser | decided |
 
 ---
 
@@ -63,9 +61,9 @@ The checks on a single argument are in [`<terminal-interface>/design-plan/cmd_ar
 |---|---|---|
 | When shown | on `-h` or `--help`, and when no command is given | decided |
 | Header | tool name and description | decided |
-| Usage | `<tool_name> [--dry-run] [--hide-actions] [<extra-flags>] <command> [args]`, built from `flags` | decided |
+| Usage | `<tool_name> [--dry-run] [--hide-actions] <command> [args]` | decided |
 | Cmd groups | one heading per group title, each cmd with its description, in declaration order | decided |
-| Flags | the built-in flags and each extra flag with its description; a flag with a short name shows both forms, e.g. `-o, --output` | decided |
+| Flags | the built-in flags, each with its description | decided |
 | Output legend | one line per message type, generated from the message types | decided |
 | Indent | four spaces before every row | decided |
 | Separator | spaces only, never tabs, so the layout is the same width on every machine | decided |

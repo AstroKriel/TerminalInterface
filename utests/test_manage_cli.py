@@ -7,7 +7,6 @@
 ## stdlib
 import argparse
 import contextlib
-import dataclasses
 import datetime
 import io
 import re
@@ -26,16 +25,8 @@ from huginn import _manage_output, _message_styles, cmd_args, manage_cli, manage
 ##
 
 
-def _do_nothing(
-    *,
-    tool_params: params.ToolParams,
-) -> None:
+def _do_nothing() -> None:
     return None
-
-
-@dataclasses.dataclass(frozen=True)
-class _ExampleToolParams(params.ToolParams):
-    allow_dirty: bool = False
 
 
 def _get_help(
@@ -79,18 +70,14 @@ def _make_command_line_tool(
     *,
     cmd_groups: list[manage_cli.CommandGroup],
     hidden_cmds: list[manage_cli.Command] | None = None,
-    flags: list[cmd_args.FlagArgument] | None = None,
 ) -> manage_cli.CommandLineTool:
     if hidden_cmds is None:
         hidden_cmds = []
-    if flags is None:
-        flags = []
     return manage_cli.CommandLineTool(
         name="tool",
         description="a tool",
         cmd_groups=cmd_groups,
         hidden_cmds=hidden_cmds,
-        flags=flags,
     )
 
 
@@ -110,8 +97,6 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         received: dict[str, str | None] = {}
 
         def record_args(
-            *,
-            tool_params: params.ToolParams,
             **arg_values: str | None,
         ) -> None:
             received.update(arg_values)
@@ -122,10 +107,7 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
             fn=record_args,
             args=args,
         )
-        cmd.call(
-            tool_params=params.ToolParams(),
-            parsed_args=argparse.Namespace(dry_run=False, **parsed_values),
-        )
+        cmd.call(parsed_args=argparse.Namespace(dry_run=False, **parsed_values))
         return received
 
     def test_positional_arg_is_passed_by_name(
@@ -180,7 +162,6 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
 
         def record_base(
             *,
-            tool_params: params.ToolParams,
             base: str | None,
         ) -> None:
             received.append(base)
@@ -209,7 +190,6 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
 
         def record_paths(
             *,
-            tool_params: params.ToolParams,
             paths: list[str],
         ) -> None:
             received.append(paths)
@@ -241,7 +221,6 @@ class TestArgument_InputValueType(unittest.TestCase):
 
         def record_date(
             *,
-            tool_params: params.ToolParams,
             since_date: datetime.date,
         ) -> None:
             received.append(since_date)
@@ -269,7 +248,6 @@ class TestArgument_InputValueType(unittest.TestCase):
 
         def record_date(
             *,
-            tool_params: params.ToolParams,
             since_date: datetime.date,
         ) -> None:
             received.append(since_date)
@@ -317,21 +295,6 @@ class TestCommandDefinitions_Checks(unittest.TestCase):
                 ],
             )
 
-    def test_cmd_arg_cannot_be_named_tool_params(
-        self,
-    ) -> None:
-        with self.assertRaises(ValueError):
-            _make_go_cmd(
-                _do_nothing,
-                args=[
-                    cmd_args.PositionalArgument(
-                        param_name="tool_params",
-                        description="clashes with the tool params",
-                        input_value_type=cmd_args.InputValueTypes.TEXT,
-                    ),
-                ],
-            )
-
     def test_cmd_arg_cannot_reuse_a_tool_flag_param_name(
         self,
     ) -> None:
@@ -362,7 +325,6 @@ class TestTypedNames_ShortName(unittest.TestCase):
 
         def record_output(
             *,
-            tool_params: params.ToolParams,
             output: str,
         ) -> None:
             received.append(output)
@@ -390,22 +352,6 @@ class TestTypedNames_ShortName(unittest.TestCase):
             )
         self.assertEqual(received, ["notes", "notes"])
 
-    def test_help_lists_both_forms(
-        self,
-    ) -> None:
-        verbose_flag = cmd_args.FlagArgument(
-            long_arg_name="verbose",
-            short_arg_name="v",
-            description="say more",
-        )
-        command_line_tool = _make_command_line_tool(
-            cmd_groups=[_make_cmd_group(_make_go_cmd(_do_nothing))],
-            flags=[verbose_flag],
-        )
-        help_lines = _get_help(command_line_tool).splitlines()
-        self.assertTrue(any(_line.strip().startswith("-v, --verbose") for _line in help_lines))
-
-
 class TestRunCli_Dispatch(unittest.TestCase):
 
     def setUp(
@@ -414,16 +360,13 @@ class TestRunCli_Dispatch(unittest.TestCase):
         _manage_output.reset_params()
         self.addCleanup(_manage_output.reset_params)
 
-    def test_dispatches_with_default_tool_params(
+    def test_built_in_flags_set_the_active_tool_params(
         self,
     ) -> None:
         received: list[params.ToolParams] = []
 
-        def record_tool_params(
-            *,
-            tool_params: params.ToolParams,
-        ) -> None:
-            received.append(tool_params)
+        def record_tool_params() -> None:
+            received.append(_manage_output.get_active_tool_params())
 
         go_cmd = _make_go_cmd(record_tool_params)
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(go_cmd)])
@@ -433,72 +376,55 @@ class TestRunCli_Dispatch(unittest.TestCase):
         )
         self.assertEqual(received, [params.ToolParams(dry_run=True)])
 
-    def test_extra_flag_reaches_tool_params(
+    def test_cmd_flag_reaches_the_cmd_by_name(
         self,
     ) -> None:
-        received: list[params.ToolParams] = []
+        received: list[bool] = []
 
-        def record_tool_params(
+        def record_allow_dirty(
             *,
-            tool_params: params.ToolParams,
+            allow_dirty: bool,
         ) -> None:
-            received.append(tool_params)
+            received.append(allow_dirty)
 
-        go_cmd = _make_go_cmd(record_tool_params)
         allow_dirty_flag = cmd_args.FlagArgument(
             long_arg_name="allow-dirty",
             description="skip the check",
         )
-        command_line_tool = manage_cli.CommandLineTool(
-            name="tool",
-            description="a tool",
-            cmd_groups=[_make_cmd_group(go_cmd)],
-            flags=[allow_dirty_flag],
-            tool_params_type=_ExampleToolParams,
+        go_cmd = _make_go_cmd(
+            record_allow_dirty,
+            args=[allow_dirty_flag],
         )
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(go_cmd)])
         manage_cli.run_cli(
             command_line_tool=command_line_tool,
-            argv=["--allow-dirty", "go"],
+            argv=["go", "--allow-dirty"],
         )
-        self.assertEqual(
-            received,
-            [
-                _ExampleToolParams(
-                    dry_run=False,
-                    allow_dirty=True,
-                ),
-            ],
-        )
+        self.assertEqual(received, [True])
 
     def test_hidden_cmd_can_be_run(
         self,
     ) -> None:
-        received: list[params.ToolParams] = []
+        received: list[str] = []
 
-        def record_tool_params(
-            *,
-            tool_params: params.ToolParams,
-        ) -> None:
-            received.append(tool_params)
+        def record_run() -> None:
+            received.append("ran")
 
         command_line_tool = _make_command_line_tool(
             cmd_groups=[],
-            hidden_cmds=[_make_go_cmd(record_tool_params)],
+            hidden_cmds=[_make_go_cmd(record_run)],
         )
         manage_cli.run_cli(
             command_line_tool=command_line_tool,
             argv=["go"],
         )
-        self.assertEqual(received, [params.ToolParams()])
+        self.assertEqual(received, ["ran"])
 
     def test_failed_cmd_exits_with_its_return_code(
         self,
     ) -> None:
 
-        def fail(
-            *,
-            tool_params: params.ToolParams,
-        ) -> None:
+        def fail() -> None:
             raise subprocess.CalledProcessError(
                 returncode=3,
                 cmd=["false"],
@@ -521,10 +447,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         self.addCleanup(temporary_directory.cleanup)
         log_file_path = Path(temporary_directory.name) / "tool.log"
 
-        def narrate(
-            *,
-            tool_params: params.ToolParams,
-        ) -> None:
+        def narrate() -> None:
             manage_log.log_task("logged")
 
         command_line_tool = manage_cli.CommandLineTool(
@@ -547,10 +470,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         self.addCleanup(temporary_directory.cleanup)
         log_file_path = Path(temporary_directory.name) / "tool.log"
 
-        def inspect(
-            *,
-            tool_params: params.ToolParams,
-        ) -> None:
+        def inspect() -> None:
             manage_log.log_task("inspecting")
             manage_shell.query_cmd_and_capture_output(cmd_parts=["true"])
 
@@ -573,14 +493,8 @@ class TestRunCli_Dispatch(unittest.TestCase):
         self,
     ) -> None:
 
-        def push(
-            *,
-            tool_params: params.ToolParams,
-        ) -> None:
-            manage_shell.run_cmd_and_show_output(
-                tool_params=tool_params,
-                cmd_parts=["git", "push"],
-            )
+        def push() -> None:
+            manage_shell.run_cmd_and_show_output(cmd_parts=["git", "push"])
 
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(push))])
         stderr_buffer = io.StringIO()
@@ -693,21 +607,6 @@ class TestHelp_Output(unittest.TestCase):
         help_text = _get_help(command_line_tool)
         self.assertIn("visible", help_text)
         self.assertNotIn("secret", help_text)
-
-    def test_lists_extra_flags(
-        self,
-    ) -> None:
-        allow_dirty_flag = cmd_args.FlagArgument(
-            long_arg_name="allow-dirty",
-            description="skip the check",
-        )
-        command_line_tool = _make_command_line_tool(
-            cmd_groups=[],
-            flags=[allow_dirty_flag],
-        )
-        help_text = _get_help(command_line_tool)
-        self.assertIn("usage: tool [--dry-run] [--hide-actions] [--allow-dirty] <command> [args]", help_text)
-        self.assertIn("    --allow-dirty   skip the check", help_text.splitlines())
 
     def test_legend_labels_a_plain_result_as_plain(
         self,

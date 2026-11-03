@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ## local
-from huginn import _manage_output, _message_styles, params
+from huginn import _manage_output, _message_styles
 
 ##
 ## === COMMAND RUNNERS
@@ -70,7 +70,6 @@ def _write_cmd(
 
 def run_cmd_and_show_output(
     *,
-    tool_params: params.ToolParams,
     cmd_parts: list[str],
     working_directory: Path | None = None,
     raise_error: bool = True,
@@ -80,7 +79,7 @@ def run_cmd_and_show_output(
 
     A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
     """
-    if tool_params.dry_run:
+    if _manage_output.get_active_tool_params().dry_run:
         _write_cmd(
             action=_message_styles.Action.CHANGE,
             cmd_parts=cmd_parts,
@@ -105,7 +104,6 @@ def run_cmd_and_show_output(
 
 def run_cmd_and_capture_output(
     *,
-    tool_params: params.ToolParams,
     cmd_parts: list[str],
     working_directory: Path | None = None,
 ) -> str:
@@ -115,7 +113,7 @@ def run_cmd_and_capture_output(
     In dry-run the empty string is a placeholder for an unknown value; anything that depends on it should report a
     skipped outcome instead of carrying on with it.
     """
-    if tool_params.dry_run:
+    if _manage_output.get_active_tool_params().dry_run:
         _write_cmd(
             action=_message_styles.Action.CHANGE,
             cmd_parts=cmd_parts,

@@ -6,7 +6,6 @@
 
 ## stdlib
 import contextlib
-import dataclasses
 import io
 import subprocess
 import tempfile
@@ -18,30 +17,20 @@ from unittest import mock
 from huginn import _manage_output, manage_shell, params
 
 ##
-## === TEST SUITE
+## === HELPERS
 ##
 
 
-class TestToolParams_Runners(unittest.TestCase):
+def _turn_on_dry_run() -> None:
+    _manage_output.set_params(
+        tool_params=params.ToolParams(dry_run=True),
+        output_params=params.OutputParams(),
+    )
 
-    def test_subclass_passes_through_runners(
-        self,
-    ) -> None:
 
-        @dataclasses.dataclass(frozen=True)
-        class ExampleToolParams(params.ToolParams):
-            allow_dirty: bool = False
-
-        example_tool_params = ExampleToolParams(
-            dry_run=True,
-            allow_dirty=True,
-        )
-        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
-            manage_shell.run_cmd_and_show_output(
-                tool_params=example_tool_params,
-                cmd_parts=["git", "push"],
-            )
-        mock_run.assert_not_called()
+##
+## === TEST SUITE
+##
 
 
 class TestPrintedCmds_Quoting(unittest.TestCase):
@@ -101,12 +90,10 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     def test_dry_run_skips_logs_and_counts_as_success(
         self,
     ) -> None:
+        _turn_on_dry_run()
         stderr_buffer = io.StringIO()
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
-            cmd_has_succeeded = manage_shell.run_cmd_and_show_output(
-                tool_params=params.ToolParams(dry_run=True),
-                cmd_parts=["git", "push"],
-            )
+            cmd_has_succeeded = manage_shell.run_cmd_and_show_output(cmd_parts=["git", "push"])
         mock_run.assert_not_called()
         self.assertTrue(cmd_has_succeeded)
         self.assertEqual(stderr_buffer.getvalue(), "→ (dry-run) skipped: git push\n")
@@ -114,11 +101,9 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     def test_dry_run_line_uses_the_change_symbol_in_the_skipped_colour(
         self,
     ) -> None:
+        _turn_on_dry_run()
         with mock.patch.object(_manage_output, "route_msg") as mock_route_msg:
-            manage_shell.run_cmd_and_show_output(
-                tool_params=params.ToolParams(dry_run=True),
-                cmd_parts=["git", "push"],
-            )
+            manage_shell.run_cmd_and_show_output(cmd_parts=["git", "push"])
         msg_rendered = mock_route_msg.call_args.args[0]
         self.assertEqual(msg_rendered, "[#B86B00]→ (dry-run) skipped: git push[/]")
 
@@ -128,10 +113,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         stderr_buffer = io.StringIO()
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
             mock_run.return_value = mock.MagicMock(returncode=0)
-            cmd_has_succeeded = manage_shell.run_cmd_and_show_output(
-                tool_params=params.ToolParams(),
-                cmd_parts=["git", "status"],
-            )
+            cmd_has_succeeded = manage_shell.run_cmd_and_show_output(cmd_parts=["git", "status"])
         mock_run.assert_called_once()
         self.assertTrue(cmd_has_succeeded)
         self.assertEqual(stderr_buffer.getvalue(), "→ git status\n")
@@ -140,17 +122,13 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
-            manage_shell.run_cmd_and_show_output(
-                tool_params=params.ToolParams(),
-                cmd_parts=["false"],
-            )
+            manage_shell.run_cmd_and_show_output(cmd_parts=["false"])
 
     def test_failure_returns_false_when_not_raising(
         self,
     ) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
             cmd_has_succeeded = manage_shell.run_cmd_and_show_output(
-                tool_params=params.ToolParams(),
                 cmd_parts=["false"],
                 raise_error=False,
             )
@@ -159,12 +137,18 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
 
 class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
 
+    def setUp(
+        self,
+    ) -> None:
+        _manage_output.reset_params()
+        self.addCleanup(_manage_output.reset_params)
+
     def test_returns_empty_string_in_dry_run(
         self,
     ) -> None:
+        _turn_on_dry_run()
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
             captured_output = manage_shell.run_cmd_and_capture_output(
-                tool_params=params.ToolParams(dry_run=True),
                 cmd_parts=["git", "rev-list", "--count", "HEAD"],
             )
         mock_run.assert_not_called()
@@ -179,7 +163,6 @@ class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
                 returncode=0,
             )
             captured_output = manage_shell.run_cmd_and_capture_output(
-                tool_params=params.ToolParams(),
                 cmd_parts=["git", "rev-list", "--count", "HEAD"],
                 working_directory=Path("/tmp"),
             )

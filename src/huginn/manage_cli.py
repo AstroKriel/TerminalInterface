@@ -24,9 +24,6 @@ from huginn import _manage_output, _message_styles, cmd_args, manage_log, params
 ## a tool holds groups of cmds, and each cmd holds its arguments, defined in `cmd_args`.
 ##
 
-_RESERVED_PARAM_NAME = "tool_params"
-
-
 @dataclass(frozen=True)
 class Command:
     """One cmd of a tool, run as `<tool> <name> [arguments]`: its description, its arguments, and the function it calls."""
@@ -39,10 +36,6 @@ class Command:
         self,
     ) -> None:
         param_names = [_arg.param_name for _arg in self.args]
-        if _RESERVED_PARAM_NAME in param_names:
-            raise ValueError(
-                f"{type(self).__name__}: argument parameter names for `{self.name}` must not be `{_RESERVED_PARAM_NAME}`, which every cmd function already receives; got `{_RESERVED_PARAM_NAME}`.",
-            )
         repeated_param_names = sorted(
             {_param_name
              for _param_name in param_names
@@ -58,18 +51,14 @@ class Command:
     def call(
         self,
         *,
-        tool_params: params.ToolParams,
         parsed_args: argparse.Namespace,
     ) -> None:
-        """Call `fn` with `tool_params` and each argument by its parameter name, all as keywords."""
+        """Call `fn` with each argument by its parameter name, as keywords."""
         arg_values = {
             _arg.param_name: getattr(parsed_args, _arg.param_name)
             for _arg in self.args
         }
-        self.fn(
-            tool_params=tool_params,
-            **arg_values,
-        )
+        self.fn(**arg_values)
 
 
 @dataclass(frozen=True)
@@ -84,30 +73,24 @@ class CommandLineTool:
     """
     One command line tool: what it is, the cmds it offers, and how one run of it is set up.
 
+    Every tool has the same two flags, `--dry-run` and `--hide-actions`, handled by huginn; anything a cmd needs on
+    top is an argument of that cmd.
+
     Fields
     ---
-    - `flags`:
-        Flags beyond `--dry-run` and `--hide-actions`, which every tool has.
-
     - `hidden_cmds`:
         Cmds that can be run but are left out of help.
-
-    - `tool_params_type`:
-        `ToolParams` or a subclass with one field per extra flag; built from the parsed flags with
-        `from_parsed_args`.
     """
     name: str
     description: str
     cmd_groups: list[CommandGroup]
     hidden_cmds: list[Command] = field(default_factory=list)
-    flags: list[cmd_args.FlagArgument] = field(default_factory=list)
-    tool_params_type: type[params.ToolParams] = params.ToolParams
     output_params: params.OutputParams = params.OutputParams()
 
     def __post_init__(
         self,
     ) -> None:
-        flags_by_param_name = {_flag.param_name: _flag for _flag in self.all_flags}
+        flags_by_param_name = {_flag.param_name: _flag for _flag in _BUILT_IN_FLAGS}
         for cmd in self.all_cmds:
             clashing_param_names = sorted(
                 {
@@ -125,12 +108,6 @@ class CommandLineTool:
                 raise ValueError(
                     f"{type(self).__name__}: argument parameter names for cmd `{cmd.name}` must differ from the flags of the tool; got {clash_descriptions}.",
                 )
-
-    @property
-    def all_flags(
-        self,
-    ) -> list[cmd_args.FlagArgument]:
-        return [*_BUILT_IN_FLAGS, *self.flags]
 
     @property
     def all_cmds(
@@ -169,7 +146,6 @@ class _CommandLineToolHelp:
     ) -> None:
         self.command_line_tool = command_line_tool
         self.console = rich_Console(highlight=False)
-        self.all_flags = command_line_tool.all_flags
         legend_labels = [
             self._get_legend_label(_message_style)
             for _message_group in _message_styles.MESSAGE_GROUPS
@@ -177,7 +153,7 @@ class _CommandLineToolHelp:
         ]
         all_labels = [
             *[_cmd.name for _cmd_group in command_line_tool.cmd_groups for _cmd in _cmd_group.cmds],
-            *[self._get_flag_label(_flag) for _flag in self.all_flags],
+            *[self._get_flag_label(_flag) for _flag in _BUILT_IN_FLAGS],
             *legend_labels,
         ]
         self.column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
@@ -225,7 +201,7 @@ class _CommandLineToolHelp:
     def _print_header(
         self,
     ) -> None:
-        usage_flags = " ".join(f"[--{_flag.long_arg_name}]" for _flag in self.all_flags)
+        usage_flags = " ".join(f"[--{_flag.long_arg_name}]" for _flag in _BUILT_IN_FLAGS)
         usage_markup = _manage_output.escape_markup(
             f"{self.command_line_tool.name} {usage_flags} <command> [args]",
         )
@@ -255,7 +231,7 @@ class _CommandLineToolHelp:
     ) -> None:
         self.console.print()
         self.console.print("[bold]Flags[/bold]")
-        for flag in self.all_flags:
+        for flag in _BUILT_IN_FLAGS:
             self._print_row(
                 label=self._get_flag_label(flag),
                 label_style=_message_styles.Colour.CYAN,
@@ -308,7 +284,7 @@ def _build_arg_parser(
         "--help",
         action="store_true",
     )
-    for flag in command_line_tool.all_flags:
+    for flag in _BUILT_IN_FLAGS:
         flag.add_to_arg_parser(arg_parser)
     cmd_arg_parsers = arg_parser.add_subparsers(
         dest="cmd",
@@ -333,18 +309,14 @@ def run_cli(
         command_line_tool_help = _CommandLineToolHelp(command_line_tool)
         command_line_tool_help.print_help()
         return
-    tool_params = command_line_tool.tool_params_type.from_parsed_args(parsed_args)
     _manage_output.set_params(
-        tool_params=tool_params,
+        tool_params=params.ToolParams.from_parsed_args(parsed_args),
         output_params=command_line_tool.output_params,
     )
     cmds_by_name = {_cmd.name: _cmd for _cmd in command_line_tool.all_cmds}
     selected_cmd = cmds_by_name[parsed_args.cmd]
     try:
-        selected_cmd.call(
-            tool_params=tool_params,
-            parsed_args=parsed_args,
-        )
+        selected_cmd.call(parsed_args=parsed_args)
     except subprocess.CalledProcessError as process_error:
         failed_cmd = shlex.join(process_error.cmd)
         manage_log.exit_with_error(

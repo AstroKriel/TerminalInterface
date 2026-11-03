@@ -6,21 +6,10 @@
 
 ## stdlib
 import argparse
-import dataclasses
 import unittest
 
 ## local
 from huginn import params
-
-##
-## === HELPERS
-##
-
-
-@dataclasses.dataclass(frozen=True)
-class _ExampleToolParams(params.ToolParams):
-    allow_dirty: bool = False
-
 
 ##
 ## === TEST SUITE
@@ -39,32 +28,25 @@ class TestToolParams_Defaults(unittest.TestCase):
 
 class TestToolParams_FromParsedArguments(unittest.TestCase):
 
-    def test_subclass_fields_fill_from_flags_of_the_same_name(
+    def test_fields_fill_from_flags_of_the_same_name(
         self,
     ) -> None:
         parsed_args = argparse.Namespace(
             dry_run=True,
             hide_actions=False,
-            allow_dirty=True,
             cmd="go",
         )
         self.assertEqual(
-            _ExampleToolParams.from_parsed_args(parsed_args),
-            _ExampleToolParams(
-                dry_run=True,
-                allow_dirty=True,
-            ),
+            params.ToolParams.from_parsed_args(parsed_args),
+            params.ToolParams(dry_run=True),
         )
 
     def test_field_with_no_flag_raises(
         self,
     ) -> None:
-        parsed_args = argparse.Namespace(
-            dry_run=False,
-            hide_actions=False,
-        )
+        parsed_args = argparse.Namespace(dry_run=False)
         with self.assertRaises(AttributeError):
-            _ExampleToolParams.from_parsed_args(parsed_args)
+            params.ToolParams.from_parsed_args(parsed_args)
 
 
 class TestOutputParams_Defaults(unittest.TestCase):
