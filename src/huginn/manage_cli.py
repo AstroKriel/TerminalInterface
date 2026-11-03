@@ -129,10 +129,6 @@ class CommandLineTool:
 ## === HELP
 ##
 
-_HELP_INDENT = "    "
-_MESSAGE_GROUP_INDENT = "  "
-_HELP_GAP_WIDTH = 2
-
 
 @final
 class _CommandLineToolHelp:
@@ -141,20 +137,34 @@ class _CommandLineToolHelp:
     def __init__(
         self,
         command_line_tool: CommandLineTool,
+        *,
+        row_indentation: int = 4,
+        col_separation: int = 2,
     ) -> None:
         self.command_line_tool = command_line_tool
+        self.row_indentation = row_indentation
         self.console = rich_Console(highlight=False)
-        legend_labels = [
-            self._get_legend_label(_message_style)
+        message_group_title_widths = [
+            len(_message_group.title) for _message_group in _message_styles.MESSAGE_GROUPS
+        ]
+        self.message_group_col_width = max(message_group_title_widths) + col_separation
+        legend_label_widths = [
+            self.message_group_col_width + len(self._get_legend_label(_message_style))
             for _message_group in _message_styles.MESSAGE_GROUPS
             for _message_style in _message_group.message_styles
         ]
-        all_labels = [
-            *[_cmd.name for _cmd in command_line_tool.all_cmds],
-            *[self._get_flag_label(_flag) for _flag in _BUILT_IN_FLAGS],
-            *legend_labels,
+        all_label_widths = [
+            *[len(_cmd.name) for _cmd in command_line_tool.all_cmds],
+            *[len(self._get_flag_label(_flag)) for _flag in _BUILT_IN_FLAGS],
+            *legend_label_widths,
         ]
-        self.column_width = max(len(_label) for _label in all_labels) + _HELP_GAP_WIDTH
+        self.col_width = max(all_label_widths) + col_separation
+
+    @staticmethod
+    def _get_padding(
+        num_spaces: int,
+    ) -> str:
+        return " " * num_spaces
 
     @staticmethod
     def _get_title_text(
@@ -186,15 +196,22 @@ class _CommandLineToolHelp:
         label: str,
         label_style: str | None,
         description: str,
+        label_prefix: str = "",
     ) -> None:
-        padding = " " * (self.column_width - len(label))
+        """Print one row; `label_prefix` prints plain in front of the styled `label`, inside the same column."""
+        row_indent = self._get_padding(self.row_indentation)
+        full_label_width = len(label_prefix) + len(label)
+        col_padding = self._get_padding(self.col_width - full_label_width)
+        label_prefix_markup = _manage_output.escape_markup(label_prefix)
         label_markup = _manage_output.escape_markup(label)
         if label_style is None:
             styled_label = label_markup
         else:
             styled_label = f"[{label_style}]{label_markup}[/]"
         description_markup = _manage_output.escape_markup(description)
-        self.console.print(f"{_HELP_INDENT}{styled_label}{padding}{description_markup}")
+        self.console.print(
+            f"{row_indent}{label_prefix_markup}{styled_label}{col_padding}{description_markup}",
+        )
 
     def _print_header(
         self,
@@ -242,8 +259,15 @@ class _CommandLineToolHelp:
         self.console.print()
         self.console.print("[bold]Output legend[/bold]")
         for message_group in _message_styles.MESSAGE_GROUPS:
-            self.console.print(f"{_MESSAGE_GROUP_INDENT}[dim]{message_group.title}[/dim]")
-            for message_style in message_group.message_styles:
+            for style_index, message_style in enumerate(message_group.message_styles):
+                if style_index == 0:
+                    message_group_name = message_group.title
+                else:
+                    message_group_name = ""
+                message_group_padding = self._get_padding(
+                    self.message_group_col_width - len(message_group_name),
+                )
+                legend_label_prefix = f"{message_group_name}{message_group_padding}"
                 legend_colour = None
                 if message_style.colour is not None:
                     legend_colour = message_style.colour
@@ -251,6 +275,7 @@ class _CommandLineToolHelp:
                     label=self._get_legend_label(message_style),
                     label_style=legend_colour,
                     description=message_style.description,
+                    label_prefix=legend_label_prefix,
                 )
         self.console.print()
 

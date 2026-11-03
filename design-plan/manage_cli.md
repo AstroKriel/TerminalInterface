@@ -61,10 +61,10 @@ The checks on a single argument are in [`<terminal-interface>/design-plan/cmd_ar
 | Usage | `<tool_name> [--dry-run] [--hide-actions] <command> [args]` | decided |
 | Cmd groups | one heading per group title, each cmd with its description, in declaration order | decided |
 | Flags | the built-in flags, each with its description | decided |
-| Output legend | one line per message type, generated from the message types | decided |
-| Indent | four spaces before every row | decided |
+| Output legend | one line per message type, generated from the message types; the label column holds the group name, plain and on the first row of its group only, then the symbol and colour name in that colour, e.g. `Actions   → blue` | decided |
+| Indent | four spaces before every row, set by `row_indentation` on the help screen | decided |
 | Separator | spaces only, never tabs, so the layout is the same width on every machine | decided |
-| Column width | computed per help screen: the longest label on the screen (command, flag, or legend label) plus two spaces; every section shares it, so descriptions line up across the whole screen | decided |
+| Column width | computed per help screen: the longest label on the screen (command, flag, or legend label, group name included) plus `col_separation` spaces, two by default; every section shares it, so descriptions line up across the whole screen | decided |
 
 The column width is never hardcoded, so a long command name widens the column instead of breaking the alignment.
 

@@ -658,21 +658,41 @@ class TestHelp_Output(unittest.TestCase):
         result_description = _message_styles.OutcomeContent.RESULT.value.description
         self.assertRegex(
             _get_help(_make_command_line_tool(cmd_groups=[])),
-            re.compile(rf"^ {{4}}plain +{re.escape(result_description)}$", flags=re.MULTILINE),
+            re.compile(rf"^ {{4}} +plain +{re.escape(result_description)}$", flags=re.MULTILINE),
         )
 
-    def test_legend_lists_each_group_under_its_title(
+    def test_legend_names_each_group_on_its_first_row_only(
         self,
     ) -> None:
         help_lines = _get_help(_make_command_line_tool(cmd_groups=[])).splitlines()
         for message_group in _message_styles.MESSAGE_GROUPS:
-            title_index = help_lines.index(f"  {message_group.title}")
-            for line_offset, message_style in enumerate(message_group.message_styles, start=1):
+            first_row_index = next(
+                _line_index for _line_index, _line in enumerate(help_lines)
+                if _line.startswith(f"    {message_group.title} ")
+            )
+            for row_offset, message_style in enumerate(message_group.message_styles):
+                if row_offset == 0:
+                    group_name_pattern = re.escape(message_group.title)
+                else:
+                    group_name_pattern = ""
                 legend_label = "plain"
                 if (message_style.symbol is not None) and (message_style.colour is not None):
                     legend_label = f"{message_style.symbol} {message_style.colour.name.lower()}"
-                legend_pattern = rf"^ {{4}}{re.escape(legend_label)} +{re.escape(message_style.description)}$"
-                self.assertRegex(help_lines[title_index + line_offset], re.compile(legend_pattern))
+                legend_pattern = (
+                    rf"^ {{4}}{group_name_pattern} +{re.escape(legend_label)} +{re.escape(message_style.description)}$"
+                )
+                self.assertRegex(help_lines[first_row_index + row_offset], re.compile(legend_pattern))
+
+    def test_legend_group_names_are_not_styled(
+        self,
+    ) -> None:
+        command_line_tool = _make_command_line_tool(cmd_groups=[])
+        command_line_tool_help = manage_cli._CommandLineToolHelp(command_line_tool)
+        with mock.patch.object(command_line_tool_help.console, "print") as mock_print:
+            command_line_tool_help.print_help()
+        printed_rows = [str(_call.args[0]) for _call in mock_print.call_args_list if _call.args]
+        tasks_row = next(_row for _row in printed_rows if "Tasks" in _row)
+        self.assertTrue(tasks_row.startswith("    Tasks "))
 
     def test_str_enum_group_titles_print_their_value(
         self,
