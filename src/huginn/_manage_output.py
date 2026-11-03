@@ -52,7 +52,6 @@ def reset_params() -> None:
 
 
 def get_active_tool_params() -> params.ToolParams:
-    """The tool params for the rest of the process; the defaults until `set_params` is called."""
     return _active_tool_params
 
 
