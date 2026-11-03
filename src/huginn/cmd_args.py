@@ -192,12 +192,14 @@ class _ArgumentWithNames(Argument):
             raise ValueError(
                 f"{type(self).__name__}: `long_arg_name` must be lowercase letters, digits, and `-`, starting with a letter; got `{self.long_arg_name}`.",
             )
-        if self.short_arg_name is not None:
+        if self.short_arg_name is None:
+            short_arg_name_is_valid = True
+        else:
             short_arg_name_is_valid = re.fullmatch(r"[A-Za-z]{1,3}", self.short_arg_name) is not None
-            if not short_arg_name_is_valid:
-                raise ValueError(
-                    f"{type(self).__name__}: `short_arg_name` for `{self.long_arg_name}` must be one to three letters; got `{self.short_arg_name}`.",
-                )
+        if not short_arg_name_is_valid:
+            raise ValueError(
+                f"{type(self).__name__}: `short_arg_name` for `{self.long_arg_name}` must be one to three letters; got `{self.short_arg_name}`.",
+            )
 
     @property
     def param_name(
