@@ -320,7 +320,8 @@ def run_cli(
     cmds_by_name = {_cmd.name: _cmd for _cmd in command_line_tool.all_cmds}
     selected_cmd = cmds_by_name[parsed_args.cmd]
     try:
-        _manage_output.log_run_header([command_line_tool.name, *argv])
+        cmd_parts = [command_line_tool.name, *argv]
+        _manage_output.log_run_header(cmd_parts)
         selected_cmd.call(parsed_args=parsed_args)
     except subprocess.CalledProcessError as process_error:
         failed_cmd = shlex.join(process_error.cmd)

@@ -108,6 +108,17 @@ class TestRouteMsg_Log(unittest.TestCase):
             ["[2026-01-02 03:04:05] $ tool commit -m 'a message'"],
         )
 
+    def test_run_header_keeps_square_brackets(
+        self,
+    ) -> None:
+        self._start_logging(dry_run=False)
+        with mock.patch.object(_manage_output, "_get_time_stamp", return_value="2026-01-02 03:04:05"):
+            _manage_output.log_run_header(["tool", "commit", "-m", "fix [bold] and [/x]"])
+        self.assertEqual(
+            self.log_file_path.read_text().splitlines(),
+            ["[2026-01-02 03:04:05] $ tool commit -m 'fix [bold] and [/x]'"],
+        )
+
     def test_not_written_in_dry_run(
         self,
     ) -> None:

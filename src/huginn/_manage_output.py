@@ -100,12 +100,13 @@ class LogFileError(Exception):
 
 
 def _append_to_log_file(
-    log_text: str,
+    msg_rendered: str,
 ) -> None:
     """Append one time-stamped line to the log file; nothing is written in dry-run or when no log file is set."""
+    msg_plain = rich_Text.from_markup(msg_rendered).plain
     if _active_tool_params.dry_run or (_active_log_file_path is None):
         return
-    msg_for_log_file = f"[{_get_time_stamp()}] {log_text}\n"
+    msg_for_log_file = f"[{_get_time_stamp()}] {msg_plain}\n"
     try:
         _active_log_file_path.parent.mkdir(
             parents=True,
@@ -123,7 +124,10 @@ def log_run_header(
     cmd_parts: list[str],
 ) -> None:
     """Start a run in the log with the cmd as typed, e.g. `$ git_helpers sync`, so runs can be told apart."""
-    _append_to_log_file(f"$ {shlex.join(cmd_parts)}")
+    cmd = shlex.join(cmd_parts)
+    msg_text = f"$ {cmd}"
+    msg_rendered = escape_markup(msg_text)
+    _append_to_log_file(msg_rendered)
 
 
 def route_msg(
@@ -138,7 +142,7 @@ def route_msg(
     The log comes first, so a message that cannot be logged is never shown as if its action went ahead. A hidden
     action is left off the console but still logged; the log file is never written in dry-run.
     """
-    _append_to_log_file(rich_Text.from_markup(msg_rendered).plain)
+    _append_to_log_file(msg_rendered)
     action_is_hidden = is_action and _active_tool_params.hide_actions
     if not action_is_hidden:
         _print_to_console(
