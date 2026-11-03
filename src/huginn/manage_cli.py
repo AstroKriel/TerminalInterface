@@ -54,11 +54,12 @@ class Command:
         parsed_args: argparse.Namespace,
     ) -> None:
         """Call `fn` with each argument by its parameter name, as keywords."""
-        arg_values = {
+        ## the subset of vars(parsed_args) that belongs to this cmd: only the args `fn` takes.
+        arg_values_by_param_name = {
             _arg.param_name: getattr(parsed_args, _arg.param_name)
             for _arg in self.args
         }
-        self.fn(**arg_values)
+        self.fn(**arg_values_by_param_name)
 
 
 @dataclass(frozen=True)

@@ -97,9 +97,9 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
         received: dict[str, str | None] = {}
 
         def record_args(
-            **arg_values: str | None,
+            **arg_values_by_param_name: str | None,
         ) -> None:
-            received.update(arg_values)
+            received.update(arg_values_by_param_name)
 
         cmd = manage_cli.Command(
             name="test-command",
