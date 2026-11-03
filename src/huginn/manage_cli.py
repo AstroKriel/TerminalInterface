@@ -20,6 +20,20 @@ from rich.console import Console as rich_Console
 from huginn import _manage_output, _message_styles, cmd_args, manage_log, params
 
 ##
+## === BUILT-IN FLAGS
+##
+
+_DRY_RUN_FLAG = cmd_args.FlagArgument(
+    long_arg_name="dry-run",
+    description="print commands without executing them",
+)
+_HIDE_ACTIONS_FLAG = cmd_args.FlagArgument(
+    long_arg_name="hide-actions",
+    description="do not print the commands run; the log still records them",
+)
+_BUILT_IN_FLAGS = (_DRY_RUN_FLAG, _HIDE_ACTIONS_FLAG)
+
+##
 ## === DATA STRUCTURES
 ## a tool holds groups of cmds, and each cmd holds its arguments, defined in `cmd_args`.
 ##
@@ -117,16 +131,6 @@ class CommandLineTool:
         grouped_cmds = [_cmd for _cmd_group in self.cmd_groups for _cmd in _cmd_group.cmds]
         return [*grouped_cmds, *self.hidden_cmds]
 
-
-_DRY_RUN_FLAG = cmd_args.FlagArgument(
-    long_arg_name="dry-run",
-    description="print commands without executing them",
-)
-_HIDE_ACTIONS_FLAG = cmd_args.FlagArgument(
-    long_arg_name="hide-actions",
-    description="do not print the commands run; the log still records them",
-)
-_BUILT_IN_FLAGS = (_DRY_RUN_FLAG, _HIDE_ACTIONS_FLAG)
 
 ##
 ## === HELP
