@@ -8,12 +8,11 @@
 import argparse
 import dataclasses
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Self
 
 ##
 ## === PARAMS
-## every params group of huginn: the user sets `ToolParams` by flags; the tool author sets `OutputParams`.
+## every params group of huginn: the user sets `ToolParams` by the built-in flags.
 ##
 
 
@@ -34,13 +33,6 @@ class ToolParams:
             for _field in dataclasses.fields(cls)
         }
         return cls(**flag_values)
-
-
-@dataclass(frozen=True)
-class OutputParams:
-    """How a tool sets up its output: time stamps on terminal lines, and the log file."""
-    show_time_stamps: bool = False
-    log_file_path: Path | None = None
 
 
 ## } MODULE

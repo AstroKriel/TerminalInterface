@@ -11,7 +11,7 @@ import unittest
 from collections.abc import Callable
 
 ## local
-from huginn import _manage_output, manage_log, params
+from huginn import _manage_output, manage_log
 
 ##
 ## === TEST SUITE
@@ -88,16 +88,6 @@ class TestLogFunctions_Output(unittest.TestCase):
         long_result = " ".join(f"word{_word_index}" for _word_index in range(40))
         stdout_text, _ = self._capture(lambda: manage_log.log_result(long_result))
         self.assertEqual(stdout_text, f"{long_result}\n")
-
-    def test_log_result_has_no_time_stamp(
-        self,
-    ) -> None:
-        _manage_output.set_params(
-            tool_params=params.ToolParams(),
-            output_params=params.OutputParams(show_time_stamps=True),
-        )
-        stdout_text, _ = self._capture(lambda: manage_log.log_result("data"))
-        self.assertEqual(stdout_text, "data\n")
 
     def test_raw_text_prints_exactly_as_written(
         self,

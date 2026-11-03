@@ -8,9 +8,11 @@
 import argparse
 import shlex
 import subprocess
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import final
 
 ## third-party
@@ -94,7 +96,6 @@ class CommandLineTool:
     name: str
     description: str
     cmd_groups: list[CommandGroup]
-    output_params: params.OutputParams = field(default_factory=params.OutputParams)
 
     def __post_init__(
         self,
@@ -268,6 +269,7 @@ class _CommandLineToolHelp:
 ## === ENTRY POINT
 ##
 
+_LOG_FOLDER_NAME = ".huginn_logs"
 
 def _build_arg_parser(
     command_line_tool: CommandLineTool,
@@ -302,18 +304,23 @@ def run_cli(
     argv: Sequence[str] | None = None,
 ) -> None:
     """Parse argv (default: `sys.argv`), build the tool params, set up output for the run, and run one cmd."""
+    if argv is None:
+        argv = sys.argv[1:]
     parsed_args = _build_arg_parser(command_line_tool).parse_args(argv)
     if parsed_args.help or (parsed_args.cmd is None):
         command_line_tool_help = _CommandLineToolHelp(command_line_tool)
         command_line_tool_help.print_help()
         return
+    tool_params = params.ToolParams.from_parsed_args(parsed_args)
+    log_file_path = Path.home() / _LOG_FOLDER_NAME / f"{command_line_tool.name}.log"
     _manage_output.set_params(
-        tool_params=params.ToolParams.from_parsed_args(parsed_args),
-        output_params=command_line_tool.output_params,
+        tool_params=tool_params,
+        log_file_path=log_file_path,
     )
     cmds_by_name = {_cmd.name: _cmd for _cmd in command_line_tool.all_cmds}
     selected_cmd = cmds_by_name[parsed_args.cmd]
     try:
+        _manage_output.log_run_header([command_line_tool.name, *argv])
         selected_cmd.call(parsed_args=parsed_args)
     except subprocess.CalledProcessError as process_error:
         failed_cmd = shlex.join(process_error.cmd)
@@ -321,6 +328,12 @@ def run_cli(
             f"`{failed_cmd}` failed with exit status {process_error.returncode}.",
             exit_code=process_error.returncode,
         )
+    except _manage_output.LogFileError as log_file_error:
+        _manage_output.set_params(
+            tool_params=tool_params,
+            log_file_path=None,
+        )
+        manage_log.exit_with_error(str(log_file_error))
 
 
 ## } MODULE

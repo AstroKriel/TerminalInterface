@@ -49,16 +49,6 @@ class TestToolParams_FromParsedArguments(unittest.TestCase):
             params.ToolParams.from_parsed_args(parsed_args)
 
 
-class TestOutputParams_Defaults(unittest.TestCase):
-
-    def test_no_time_stamps_and_no_log_file(
-        self,
-    ) -> None:
-        output_params = params.OutputParams()
-        self.assertFalse(output_params.show_time_stamps)
-        self.assertIsNone(output_params.log_file_path)
-
-
 ##
 ## === ENTRY POINT
 ##

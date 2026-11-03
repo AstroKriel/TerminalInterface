@@ -6,6 +6,7 @@
 
 ## stdlib
 import datetime
+import shlex
 from pathlib import Path
 
 ## third-party
@@ -14,14 +15,14 @@ from rich.console import Console as rich_Console
 from rich.text import Text as rich_Text
 
 ## local
-from huginn import _message_styles, params
+from huginn import params
 
 ##
 ## === ACTIVE PARAMS
 ##
 
 _active_tool_params = params.ToolParams()
-_active_output_params = params.OutputParams()
+_active_log_file_path: Path | None = None
 _CONSOLE_STDERR = rich_Console(
     highlight=False,
     stderr=True,
@@ -35,19 +36,19 @@ _CONSOLE_STDOUT = rich_Console(
 def set_params(
     *,
     tool_params: params.ToolParams,
-    output_params: params.OutputParams,
+    log_file_path: Path | None,
 ) -> None:
     """Set how output behaves for the rest of the process."""
-    global _active_tool_params, _active_output_params
+    global _active_tool_params, _active_log_file_path
     _active_tool_params = tool_params
-    _active_output_params = output_params
+    _active_log_file_path = log_file_path
 
 
 def reset_params() -> None:
-    """Return to the defaults: no time stamps, actions shown, no log file."""
+    """Return to the defaults: actions shown, no log file."""
     set_params(
         tool_params=params.ToolParams(),
-        output_params=params.OutputParams(),
+        log_file_path=None,
     )
 
 
@@ -77,41 +78,52 @@ def escape_markup(
 
 def _print_to_console(
     *,
-    time_stamp: str,
     msg_rendered: str,
     is_result: bool,
 ) -> None:
     """
-    Print to stdout for a result, as is, or to stderr for narration, with the time stamp in front when time stamps are on.
+    Print to stdout for a result, or to stderr for narration.
 
-    A result is data for the user or a pipe, so it never gets a time stamp and is never wrapped at the terminal width.
+    A result is data for the user or a pipe, so it is never wrapped at the terminal width.
     """
     if is_result:
         _CONSOLE_STDOUT.print(
             msg_rendered,
             soft_wrap=True,
         )
-    elif _active_output_params.show_time_stamps:
-        time_stamp_markup = escape_markup(f"[{time_stamp}]")
-        msg_for_console = f"[{_message_styles.Colour.GREY}]{time_stamp_markup}[/] {msg_rendered}"
-        _CONSOLE_STDERR.print(msg_for_console)
     else:
         _CONSOLE_STDERR.print(msg_rendered)
 
 
+class LogFileError(Exception):
+    """The log file could not be written, so the run stops before anything else is done."""
+
+
 def _append_to_log_file(
-    *,
-    log_file_path: Path,
-    time_stamp: str,
-    msg_rendered: str,
+    log_text: str,
 ) -> None:
-    msg_for_log_file = f"[{time_stamp}] {rich_Text.from_markup(msg_rendered).plain}\n"
-    log_file_path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-    with open(log_file_path, "a") as log_stream:
-        log_stream.write(msg_for_log_file)
+    """Append one time-stamped line to the log file; nothing is written in dry-run or when no log file is set."""
+    if _active_tool_params.dry_run or (_active_log_file_path is None):
+        return
+    msg_for_log_file = f"[{_get_time_stamp()}] {log_text}\n"
+    try:
+        _active_log_file_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+        with open(_active_log_file_path, "a") as log_stream:
+            log_stream.write(msg_for_log_file)
+    except OSError as os_error:
+        raise LogFileError(
+            f"cannot write the log file `{_active_log_file_path}`: {os_error.strerror}.",
+        ) from os_error
+
+
+def log_run_header(
+    cmd_parts: list[str],
+) -> None:
+    """Start a run in the log with the cmd as typed, e.g. `$ git_helpers sync`, so runs can be told apart."""
+    _append_to_log_file(f"$ {shlex.join(cmd_parts)}")
 
 
 def route_msg(
@@ -121,25 +133,18 @@ def route_msg(
     is_action: bool = False,
 ) -> None:
     """
-    Send one rendered message to each destination it belongs in: the console, and the log file when one is set.
+    Send one rendered message to each destination it belongs in: the log file when one is set, then the console.
 
-    A hidden action is left off the console but still logged; the log file is never written in dry-run.
+    The log comes first, so a message that cannot be logged is never shown as if its action went ahead. A hidden
+    action is left off the console but still logged; the log file is never written in dry-run.
     """
-    time_stamp = _get_time_stamp()
+    _append_to_log_file(rich_Text.from_markup(msg_rendered).plain)
     action_is_hidden = is_action and _active_tool_params.hide_actions
     if not action_is_hidden:
         _print_to_console(
-            time_stamp=time_stamp,
             msg_rendered=msg_rendered,
             is_result=is_result,
         )
-    if _active_tool_params.dry_run or (_active_output_params.log_file_path is None):
-        return
-    _append_to_log_file(
-        log_file_path=_active_output_params.log_file_path,
-        time_stamp=time_stamp,
-        msg_rendered=msg_rendered,
-    )
 
 
 ## } MODULE

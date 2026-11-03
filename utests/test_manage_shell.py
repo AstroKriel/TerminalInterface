@@ -24,7 +24,7 @@ from huginn import _manage_output, manage_shell, params
 def _turn_on_dry_run() -> None:
     _manage_output.set_params(
         tool_params=params.ToolParams(dry_run=True),
-        output_params=params.OutputParams(),
+        log_file_path=None,
     )
 
 

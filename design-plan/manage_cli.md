@@ -11,10 +11,9 @@ A tool is described as nested frozen dataclasses, one per concept, so the struct
 ```text
 CommandLineTool
 ├── name, description
-├── cmd_groups: list[CommandGroup]
-│   └── CommandGroup(title, cmds: list[Command])
-│       └── Command(name, description, fn, args: list[CommandArgument])
-└── output_params: OutputParams(show_time_stamps, log_file_path)
+└── cmd_groups: list[CommandGroup]
+    └── CommandGroup(title, cmds: list[Command])
+        └── Command(name, description, fn, args: list[CommandArgument])
 ```
 
 | Part | Detail | State |
@@ -25,7 +24,7 @@ CommandLineTool
 | Definition checks | each argument, cmd, and tool checks itself when made, so a mistake in a command table fails when the tool starts; see [Definition Checks](#definition-checks) | decided |
 | `CommandGroup` | cmds listed together in help under one `title`; a `str` enum title prints its value | decided |
 | Tool params | `run_cli` builds a `ToolParams` from the built-in flags with `from_parsed_args` (see [`<terminal-interface>/design-plan/params.md`](params.md)) | decided |
-| Output params | `output_params` holds an `OutputParams` (`show_time_stamps`, `log_file_path`); `run_cli` hands it to the output together with the tool params | decided |
+| Log file | `run_cli` points the log at `~/.huginn_logs/<name>.log`, from the `name` of the tool, and writes the run header; a log that cannot be written ends the run with an error (see [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md)) | decided |
 | Built-in flags | every tool gets `--dry-run` and `--hide-actions`, and no other tool flags; both are off unless the user passes them. huginn reads them itself, so a cmd never receives them. A flag a cmd needs, e.g. `--allow-dirty`, is a `FlagArgument` of that cmd | decided |
 | Failed cmd | `run_cli` reports an error outcome naming the shell cmd that failed, then exits with its exit status | decided |
 | How a cmd function is called | `fn(<param_1>=..., <param_2>=...)`, every argument of the cmd by keyword under its `param_name` (the named argument `base-ref` becomes `base_ref`) | decided |

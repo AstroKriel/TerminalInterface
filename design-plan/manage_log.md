@@ -1,6 +1,6 @@
 # manage_log
 
-Design notes for `huginn.manage_log`: the output functions, their message types, and how the output params shape one run.
+Design notes for `huginn.manage_log`: the output functions, their message types, and how the output of one run is set up.
 
 ---
 
@@ -34,7 +34,7 @@ The symbol says which concept a line is (open circle: task; hooked arrow: note; 
 | outcome | status | failure that does not end the run | closed circle | red | decided |
 | outcome | status | error that ends the run | closed circle | red | decided |
 | outcome | content | value an action produced | middle dot | grey | decided |
-| outcome | content | result | none | none: plain text on stdout, never time stamped or wrapped, so a pipe gets clean data | decided |
+| outcome | content | result | none | none: plain text on stdout, never wrapped, so a pipe gets clean data | decided |
 
 An inspection exists to produce a value; a change exists to alter the system and may produce a value along the way, e.g. the path of a directory it created. In dry-run a change is skipped, so a value it would have produced is unknown: anything that depends on that value reports a skipped outcome instead of carrying on with a placeholder. State: decided.
 
@@ -61,14 +61,20 @@ Narration always goes to stderr; whoever runs the tool can merge the two streams
 
 ## Output for One Run
 
-The entry point sets these once per process, from the tool params and output params (see [`<terminal-interface>/design-plan/params.md`](params.md)). Time stamps and the log file serve tools that keep a history of what they did to a machine.
+The entry point sets these once per process, from the tool params (see [`<terminal-interface>/design-plan/params.md`](params.md)) and the name of the tool. The log file keeps a history of what each tool did to a machine.
 
 | Feature | Detail | State |
 |---|---|---|
-| Time stamps | a `YYYY-MM-DD HH:MM:SS` prefix on every line printed to the terminal, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | decided |
 | Hidden actions | with `hide_actions`, action messages are left off the terminal; set by the `--hide-actions` flag, off by default; a cmd skipped in dry-run still shows, since showing it is the point of a dry run | decided |
-| Log | every message, hidden actions included, is also appended to the file at `log_file_path`, as plain text without markup | decided |
-| Log format | `[<time stamp>] <line>`, one line per entry, always time stamped whether or not the terminal shows time stamps | decided |
+| Log | every message, hidden actions included, is also appended to `~/.huginn_logs/<tool name>.log`, as plain text without markup; always on for a tool run through `run_cli`, with nothing for the tool author to set | decided |
+| Log location | one folder in the home folder for every huginn tool, outside every repo, so git never sees it; one file per tool, named after `CommandLineTool.name`, e.g. `git_helpers.log` | decided |
+| Log format | `[<time stamp>] <line>`, one line per entry; the time stamp is `YYYY-MM-DD HH:MM:SS`, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | decided |
+| Run header | each run starts with one line giving the command as typed, after a `$ `, e.g. `$ git_helpers sync --allow-dirty`, so runs can be told apart in the one file; the `$ ` keeps it apart from a plain result line | decided |
+| Log cannot be written | the run stops with an error naming the log file and exits with status 1; a run that cannot be recorded is not done quietly, and there is no way to turn the log off | decided |
+| No action goes unlogged | a message is logged before it is shown, and an action is shown before it runs, so when the log fails, the action it belongs to never starts and is never shown as started | decided |
 | Log in dry-run | nothing is written: the log is a history of what was done to the machine, and a dry-run does nothing | decided |
+| Log growth | the file is only ever appended to; no rotation until a log grows large enough to need it | decided |
+| Terminal time stamps | none; the log carries the times | decided |
+| Tests | tests point the home folder at a temporary folder, so they never write to the real log | decided |
 
-Time stamps and the log file are off unless a tool turns them on, so tools that do not need them see no change. A script that never calls the entry point gets the defaults: no time stamps, no log file.
+A script that never calls the entry point writes no log file.

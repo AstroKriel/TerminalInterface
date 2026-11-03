@@ -49,35 +49,13 @@ class TestRouteMsg_Streams(unittest.TestCase):
             )
         self.assertIn("result", stdout_buffer.getvalue())
 
-
-class TestRouteMsg_TimeStamps(unittest.TestCase):
-
-    def setUp(
-        self,
-    ) -> None:
-        _manage_output.reset_params()
-        self.addCleanup(_manage_output.reset_params)
-
-    def test_off_by_default(
+    def test_terminal_lines_have_no_time_stamp(
         self,
     ) -> None:
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
             _manage_output.route_msg("plain")
         self.assertEqual(stderr_buffer.getvalue(), "plain\n")
-
-    def test_prefix_when_enabled(
-        self,
-    ) -> None:
-        _manage_output.set_params(
-            tool_params=params.ToolParams(),
-            output_params=params.OutputParams(show_time_stamps=True),
-        )
-        stderr_buffer = io.StringIO()
-        with mock.patch.object(_manage_output, "_get_time_stamp", return_value="2026-01-02 03:04:05"):
-            with contextlib.redirect_stderr(stderr_buffer):
-                _manage_output.route_msg("stamped")
-        self.assertEqual(stderr_buffer.getvalue(), "[2026-01-02 03:04:05] stamped\n")
 
 
 class TestRouteMsg_Log(unittest.TestCase):
@@ -100,7 +78,7 @@ class TestRouteMsg_Log(unittest.TestCase):
     ) -> None:
         _manage_output.set_params(
             tool_params=params.ToolParams(dry_run=dry_run),
-            output_params=params.OutputParams(log_file_path=self.log_file_path),
+            log_file_path=self.log_file_path,
         )
 
     def test_appends_plain_lines(
@@ -119,13 +97,35 @@ class TestRouteMsg_Log(unittest.TestCase):
             ],
         )
 
+    def test_run_header_is_the_cmd_as_typed(
+        self,
+    ) -> None:
+        self._start_logging(dry_run=False)
+        with mock.patch.object(_manage_output, "_get_time_stamp", return_value="2026-01-02 03:04:05"):
+            _manage_output.log_run_header(["tool", "commit", "-m", "a message"])
+        self.assertEqual(
+            self.log_file_path.read_text().splitlines(),
+            ["[2026-01-02 03:04:05] $ tool commit -m 'a message'"],
+        )
+
     def test_not_written_in_dry_run(
         self,
     ) -> None:
         self._start_logging(dry_run=True)
         with contextlib.redirect_stderr(io.StringIO()):
+            _manage_output.log_run_header(["tool", "go"])
             _manage_output.route_msg("nothing happens")
         self.assertFalse(self.log_file_path.exists())
+
+    def test_unwritable_log_raises_before_the_terminal_shows_anything(
+        self,
+    ) -> None:
+        self.log_file_path.parent.write_text("a file where the log folder should be")
+        self._start_logging(dry_run=False)
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(_manage_output.LogFileError):
+            _manage_output.route_msg("→ git push")
+        self.assertEqual(stderr_buffer.getvalue(), "")
 
     def test_off_by_default(
         self,

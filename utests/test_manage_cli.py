@@ -9,6 +9,7 @@ import argparse
 import contextlib
 import datetime
 import io
+import os
 import re
 import subprocess
 import tempfile
@@ -16,6 +17,7 @@ import unittest
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
+from unittest import mock
 
 ## local
 from huginn import _manage_output, _message_styles, cmd_args, manage_cli, manage_log, manage_shell, params
@@ -23,6 +25,19 @@ from huginn import _manage_output, _message_styles, cmd_args, manage_cli, manage
 ##
 ## === HELPERS
 ##
+
+
+def setUpModule() -> None:
+    """Point the home folder at a temporary folder, so no run writes to the real log."""
+    temporary_home = tempfile.TemporaryDirectory()
+    unittest.addModuleCleanup(temporary_home.cleanup)
+    home_patch = mock.patch.dict(os.environ, {"HOME": temporary_home.name})
+    home_patch.start()
+    unittest.addModuleCleanup(home_patch.stop)
+
+
+def _get_log_file_path() -> Path:
+    return Path.home() / ".huginn_logs" / "tool.log"
 
 
 def _do_nothing() -> None:
@@ -348,6 +363,7 @@ class TestTypedNames_ShortName(unittest.TestCase):
             )
         self.assertEqual(received, ["notes", "notes"])
 
+
 class TestRunCli_Dispatch(unittest.TestCase):
 
     def setUp(
@@ -355,6 +371,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
     ) -> None:
         _manage_output.reset_params()
         self.addCleanup(_manage_output.reset_params)
+        _get_log_file_path().unlink(missing_ok=True)
 
     def test_built_in_flags_set_the_active_tool_params(
         self,
@@ -418,46 +435,80 @@ class TestRunCli_Dispatch(unittest.TestCase):
         self.assertEqual(exit_context.exception.code, 3)
         self.assertEqual(stderr_buffer.getvalue(), "● error: `false` failed with exit status 3.\n")
 
-    def test_log_is_started_from_the_tool(
+    def test_run_logs_its_header_then_its_messages(
         self,
     ) -> None:
-        temporary_directory = tempfile.TemporaryDirectory()
-        self.addCleanup(temporary_directory.cleanup)
-        log_file_path = Path(temporary_directory.name) / "tool.log"
 
         def narrate() -> None:
             manage_log.log_task("logged")
 
-        command_line_tool = manage_cli.CommandLineTool(
-            name="tool",
-            description="a tool",
-            cmd_groups=[_make_cmd_group(_make_go_cmd(narrate))],
-            output_params=params.OutputParams(log_file_path=log_file_path),
-        )
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(narrate))])
         with contextlib.redirect_stderr(io.StringIO()):
             manage_cli.run_cli(
                 command_line_tool=command_line_tool,
                 argv=["go"],
             )
-        self.assertIn("○ logged", log_file_path.read_text())
+        log_lines = _get_log_file_path().read_text().splitlines()
+        self.assertEqual(len(log_lines), 2)
+        self.assertTrue(log_lines[0].endswith("] $ tool go"))
+        self.assertTrue(log_lines[1].endswith("] ○ logged"))
+
+    def test_dry_run_writes_no_log(
+        self,
+    ) -> None:
+
+        def narrate() -> None:
+            manage_log.log_task("not logged")
+
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(narrate))])
+        with contextlib.redirect_stderr(io.StringIO()):
+            manage_cli.run_cli(
+                command_line_tool=command_line_tool,
+                argv=["--dry-run", "go"],
+            )
+        self.assertFalse(_get_log_file_path().exists())
+
+    def test_unwritable_log_stops_the_run_before_the_cmd(
+        self,
+    ) -> None:
+        received: list[str] = []
+
+        def record_run() -> None:
+            received.append("ran")
+
+        temporary_home = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_home.cleanup)
+        home_patch = mock.patch.dict(os.environ, {"HOME": temporary_home.name})
+        home_patch.start()
+        self.addCleanup(home_patch.stop)
+        _get_log_file_path().parent.write_text("a file where the log folder should be")
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(record_run))])
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
+            manage_cli.run_cli(
+                command_line_tool=command_line_tool,
+                argv=["go"],
+            )
+        self.assertEqual(received, [])
+        self.assertEqual(exit_context.exception.code, 1)
+        self.assertIn(f"cannot write the log file `{_get_log_file_path()}`", stderr_buffer.getvalue())
+
+    def test_help_writes_no_log(
+        self,
+    ) -> None:
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(_do_nothing))])
+        _get_help(command_line_tool)
+        self.assertFalse(_get_log_file_path().exists())
 
     def test_hidden_actions_are_left_off_the_terminal_but_logged(
         self,
     ) -> None:
-        temporary_directory = tempfile.TemporaryDirectory()
-        self.addCleanup(temporary_directory.cleanup)
-        log_file_path = Path(temporary_directory.name) / "tool.log"
 
         def inspect() -> None:
             manage_log.log_task("inspecting")
             manage_shell.query_cmd_and_capture_output(cmd_parts=["true"])
 
-        command_line_tool = manage_cli.CommandLineTool(
-            name="tool",
-            description="a tool",
-            cmd_groups=[_make_cmd_group(_make_go_cmd(inspect))],
-            output_params=params.OutputParams(log_file_path=log_file_path),
-        )
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(inspect))])
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
             manage_cli.run_cli(
@@ -465,7 +516,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
                 argv=["--hide-actions", "go"],
             )
         self.assertEqual(stderr_buffer.getvalue(), "○ inspecting\n")
-        self.assertIn("→ true", log_file_path.read_text())
+        self.assertIn("→ true", _get_log_file_path().read_text())
 
     def test_hidden_actions_still_show_dry_run_skips(
         self,
