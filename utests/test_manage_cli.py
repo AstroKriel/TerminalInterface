@@ -63,8 +63,7 @@ def _make_cmd_group(
 def _make_go_cmd(
     fn: Callable[..., None],
     *,
-    arguments: list[cmd_args.PositionalArgument | cmd_args.NamedArgument | cmd_args.FlagArgument]
-    | None = None,
+    arguments: list[cmd_args.CommandArgument] | None = None,
 ) -> manage_cli.Command:
     if arguments is None:
         arguments = []
@@ -105,7 +104,7 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
     def _call_with(
         self,
         *,
-        arguments: list[cmd_args.PositionalArgument | cmd_args.NamedArgument | cmd_args.FlagArgument],
+        arguments: list[cmd_args.CommandArgument],
         parsed_values: dict[str, str | None],
     ) -> dict[str, str | None]:
         received: dict[str, str | None] = {}

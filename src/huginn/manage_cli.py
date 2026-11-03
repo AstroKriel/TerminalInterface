@@ -33,8 +33,7 @@ class Command:
     name: str
     description: str
     fn: Callable[..., None]
-    arguments: list[cmd_args.PositionalArgument | cmd_args.NamedArgument
-                    | cmd_args.FlagArgument] = field(default_factory=list)
+    arguments: list[cmd_args.CommandArgument] = field(default_factory=list)
 
     def __post_init__(
         self,

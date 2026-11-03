@@ -12,7 +12,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeAlias
+
+##
+## === TYPE ALIASES
+##
+
+CommandArgument: TypeAlias = "PositionalArgument | NamedArgument | FlagArgument"
 
 ##
 ## === INPUT VALUE TYPES
