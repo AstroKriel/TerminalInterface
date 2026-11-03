@@ -118,7 +118,12 @@ class TestCommand_ArgumentMapping(unittest.TestCase):
             fn=record_args,
             args=args,
         )
-        cmd.call(parsed_args=argparse.Namespace(dry_run=False, **parsed_values))
+        cmd.call(
+            parsed_args=argparse.Namespace(
+                dry_run=False,
+                **parsed_values,
+            ),
+        )
         return received
 
     def test_positional_arg_is_passed_by_name(

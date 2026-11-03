@@ -40,6 +40,7 @@ _BUILT_IN_FLAGS = (_DRY_RUN_FLAG, _HIDE_ACTIONS_FLAG)
 ## a tool holds groups of cmds, and each cmd holds its arguments, defined in `cmd_args`.
 ##
 
+
 @dataclass(frozen=True)
 class Command:
     """One cmd of a tool, run as `<tool> <name> [arguments]`: its description, its arguments, and the function it calls."""
@@ -59,9 +60,8 @@ class Command:
         }
         param_names_are_repeated = len(repeated_param_names) > 0
         if param_names_are_repeated:
-            sorted_repeated_param_names = sorted(repeated_param_names)
             repeated_param_names_text = ", ".join(
-                f"`{_param_name}`" for _param_name in sorted_repeated_param_names
+                f"`{_param_name}`" for _param_name in sorted(repeated_param_names)
             )
             raise ValueError(
                 f"{type(self).__name__}: argument parameter names for `{self.name}` must be unique; got {repeated_param_names_text} more than once.",
@@ -110,10 +110,9 @@ class CommandLineTool:
             ]
             param_names_are_clashing = len(clashing_param_names) > 0
             if param_names_are_clashing:
-                sorted_clashing_param_names = sorted(clashing_param_names)
                 clash_descriptions = ", ".join(
                     f"`{_param_name}`, which is also `--{flags_by_param_name[_param_name].long_arg_name}`"
-                    for _param_name in sorted_clashing_param_names
+                    for _param_name in sorted(clashing_param_names)
                 )
                 raise ValueError(
                     f"{type(self).__name__}: argument parameter names for cmd `{cmd.name}` must differ from the flags of the tool; got {clash_descriptions}.",
@@ -270,6 +269,7 @@ class _CommandLineToolHelp:
 ##
 
 _LOG_FOLDER_NAME = ".huginn_logs"
+
 
 def _build_arg_parser(
     command_line_tool: CommandLineTool,

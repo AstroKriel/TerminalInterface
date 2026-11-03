@@ -73,7 +73,8 @@ class TestMessageStyle_Render(unittest.TestCase):
     ) -> None:
         self.assertEqual(_message_styles.TASK_STYLE.render(text="task"), "[#A660D0]○ task[/]")
         self.assertEqual(
-            _message_styles.OutcomeStatus.SUCCESS.value.render(text="done"), "[#239023]● done[/]"
+            _message_styles.OutcomeStatus.SUCCESS.value.render(text="done"),
+            "[#239023]● done[/]",
         )
 
     def test_renders_plain_without_symbol_or_colour(
