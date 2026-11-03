@@ -160,25 +160,25 @@ class OutcomeContent(Enum):
 class MessageGroup:
     """One concept with every kind of line it covers; the help legend is built from these."""
     title: str
-    grouped_message_styles: tuple[MessageStyle, ...]
+    message_styles: tuple[MessageStyle, ...]
 
 
 MESSAGE_GROUPS: list[MessageGroup] = [
     MessageGroup(
         title="Tasks",
-        grouped_message_styles=(TASK_STYLE, ),
+        message_styles=(TASK_STYLE, ),
     ),
     MessageGroup(
         title="Notes",
-        grouped_message_styles=(NOTE_STYLE, ),
+        message_styles=(NOTE_STYLE, ),
     ),
     MessageGroup(
         title="Actions",
-        grouped_message_styles=tuple(_action.value for _action in Action),
+        message_styles=tuple(_action.value for _action in Action),
     ),
     MessageGroup(
         title="Outcomes",
-        grouped_message_styles=(
+        message_styles=(
             *[_outcome_status.value for _outcome_status in OutcomeStatus],
             *[_outcome_content.value for _outcome_content in OutcomeContent],
         ),

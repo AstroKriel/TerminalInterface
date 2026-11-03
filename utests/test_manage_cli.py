@@ -725,7 +725,7 @@ class TestHelp_Output(unittest.TestCase):
         help_lines = _get_help(_make_command_line_tool(cmd_groups=[])).splitlines()
         for message_group in _message_styles.MESSAGE_GROUPS:
             title_index = help_lines.index(f"  {message_group.title}")
-            for line_offset, message_style in enumerate(message_group.grouped_message_styles, start=1):
+            for line_offset, message_style in enumerate(message_group.message_styles, start=1):
                 legend_label = "plain"
                 if (message_style.symbol is not None) and (message_style.colour is not None):
                     legend_label = f"{message_style.symbol} {message_style.colour.name.lower()}"

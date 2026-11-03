@@ -174,7 +174,7 @@ class _CommandLineToolHelp:
         legend_labels = [
             self._get_legend_label(_message_style)
             for _message_group in _message_styles.MESSAGE_GROUPS
-            for _message_style in _message_group.grouped_message_styles
+            for _message_style in _message_group.message_styles
         ]
         all_labels = [
             *[_cmd.name for _cmd_group in command_line_tool.cmd_groups for _cmd in _cmd_group.cmds],
@@ -264,7 +264,7 @@ class _CommandLineToolHelp:
         self.console.print("[bold]Output legend[/bold]")
         for message_group in _message_styles.MESSAGE_GROUPS:
             self.console.print(f"{_MESSAGE_GROUP_INDENT}[dim]{message_group.title}[/dim]")
-            for message_style in message_group.grouped_message_styles:
+            for message_style in message_group.message_styles:
                 legend_colour = None
                 if message_style.colour is not None:
                     legend_colour = message_style.colour

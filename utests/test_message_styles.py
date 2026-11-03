@@ -30,20 +30,20 @@ class TestLegend_Groups(unittest.TestCase):
         self,
     ) -> None:
         tasks_group, notes_group, actions_group, outcomes_group = _message_styles.MESSAGE_GROUPS
-        self.assertEqual(tasks_group.grouped_message_styles, (_message_styles.TASK_STYLE, ))
-        self.assertEqual(notes_group.grouped_message_styles, (_message_styles.NOTE_STYLE, ))
+        self.assertEqual(tasks_group.message_styles, (_message_styles.TASK_STYLE, ))
+        self.assertEqual(notes_group.message_styles, (_message_styles.NOTE_STYLE, ))
         for action in _message_styles.Action:
-            self.assertIn(action.value, actions_group.grouped_message_styles)
+            self.assertIn(action.value, actions_group.message_styles)
         for outcome_status in _message_styles.OutcomeStatus:
-            self.assertIn(outcome_status.value, outcomes_group.grouped_message_styles)
+            self.assertIn(outcome_status.value, outcomes_group.message_styles)
         for outcome_content in _message_styles.OutcomeContent:
-            self.assertIn(outcome_content.value, outcomes_group.grouped_message_styles)
+            self.assertIn(outcome_content.value, outcomes_group.message_styles)
 
     def test_every_message_style_has_a_description(
         self,
     ) -> None:
         for message_group in _message_styles.MESSAGE_GROUPS:
-            for message_style in message_group.grouped_message_styles:
+            for message_style in message_group.message_styles:
                 self.assertNotEqual(message_style.description, "")
 
     def test_result_has_no_symbol_or_colour(
