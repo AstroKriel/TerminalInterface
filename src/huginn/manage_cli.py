@@ -86,7 +86,7 @@ class CommandLineTool:
     description: str
     cmd_groups: list[CommandGroup]
     hidden_cmds: list[Command] = field(default_factory=list)
-    output_params: params.OutputParams = params.OutputParams()
+    output_params: params.OutputParams = field(default_factory=params.OutputParams)
 
     def __post_init__(
         self,
