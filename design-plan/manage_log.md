@@ -65,6 +65,7 @@ The entry point sets these once per process, from the tool params (see [`<termin
 
 | Feature | Detail | State |
 |---|---|---|
+| Wrapping | in a terminal, narration wraps at the terminal width; elsewhere, e.g. in a job, it is never wrapped, so each message stays one line; a result is never wrapped | decided |
 | Hidden actions | with `hide_actions`, action messages are left off the terminal; set by the `--hide-actions` flag, off by default; a cmd skipped in dry-run still shows, since showing it is the point of a dry run | decided |
 | Log | every message, hidden actions included, is also appended to `~/.huginn_logs/<tool name>.log`, as plain text without markup; always on for a tool run through `run_cli`, with nothing for the tool author to set | decided |
 | Log location | one folder in the home folder for every huginn tool, outside every repo, so git never sees it; one file per tool, named after `CommandLineTool.name`, e.g. `git_helpers.log` | decided |

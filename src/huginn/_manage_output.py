@@ -84,7 +84,8 @@ def _print_to_console(
     """
     Print to stdout for a result, or to stderr for narration.
 
-    A result is data for the user or a pipe, so it is never wrapped at the terminal width.
+    A result is data for the user or a pipe, so it is never wrapped at the terminal width. Narration wraps at the
+    terminal width in a terminal, and is never wrapped elsewhere, e.g. in a job, so each message stays one line.
     """
     if is_result:
         _CONSOLE_STDOUT.print(
@@ -92,7 +93,11 @@ def _print_to_console(
             soft_wrap=True,
         )
     else:
-        _CONSOLE_STDERR.print(msg_rendered)
+        narration_is_unwrapped = not _CONSOLE_STDERR.is_terminal
+        _CONSOLE_STDERR.print(
+            msg_rendered,
+            soft_wrap=narration_is_unwrapped,
+        )
 
 
 class LogFileError(Exception):

@@ -57,6 +57,15 @@ class TestRouteMsg_Streams(unittest.TestCase):
             _manage_output.route_msg("plain")
         self.assertEqual(stderr_buffer.getvalue(), "plain\n")
 
+    def test_narration_outside_a_terminal_is_never_wrapped(
+        self,
+    ) -> None:
+        long_narration = " ".join(f"word{_word_index}" for _word_index in range(40))
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer):
+            _manage_output.route_msg(long_narration)
+        self.assertEqual(stderr_buffer.getvalue(), f"{long_narration}\n")
+
 
 class TestRouteMsg_Log(unittest.TestCase):
 
