@@ -14,18 +14,16 @@ CommandLineTool
 ├── cmd_groups: list[CommandGroup]
 │   └── CommandGroup(title, cmds: list[Command])
 │       └── Command(name, description, fn, args: list[CommandArgument])
-├── hidden_cmds: list[Command]
 └── output_params: OutputParams(show_time_stamps, log_file_path)
 ```
 
 | Part | Detail | State |
 |---|---|---|
 | Arguments | `Command.args` holds the arg kinds from `cmd_args`: `PositionalArgument`, `NamedArgument`, and `FlagArgument` (see [`<terminal-interface>/design-plan/cmd_args.md`](cmd_args.md)) | decided |
-| Defaults | the same rule as for args: a field has a default only when it means "nothing extra", e.g. empty `args` or `hidden_cmds` | decided |
+| Defaults | the same rule as for args: a field has a default only when it means "nothing extra", e.g. empty `args` | decided |
 | `Command` | one cmd: `name`, `description`, `fn`, and `args` | decided |
 | Definition checks | each argument, cmd, and tool checks itself when made, so a mistake in a command table fails when the tool starts; see [Definition Checks](#definition-checks) | decided |
 | `CommandGroup` | cmds listed together in help under one `title`; a `str` enum title prints its value | decided |
-| Hidden cmds | `hidden_cmds` on the tool: registered and runnable, left out of help | decided |
 | Tool params | `run_cli` builds a `ToolParams` from the built-in flags with `from_parsed_args` (see [`<terminal-interface>/design-plan/params.md`](params.md)) | decided |
 | Output params | `output_params` holds an `OutputParams` (`show_time_stamps`, `log_file_path`); `run_cli` hands it to the output together with the tool params | decided |
 | Built-in flags | every tool gets `--dry-run` and `--hide-actions`, and no other tool flags; both are off unless the user passes them. huginn reads them itself, so a cmd never receives them. A flag a cmd needs, e.g. `--allow-dirty`, is a `FlagArgument` of that cmd | decided |

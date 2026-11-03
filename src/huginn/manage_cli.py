@@ -90,16 +90,10 @@ class CommandLineTool:
 
     Every tool has the same two flags, `--dry-run` and `--hide-actions`, handled by huginn; anything a cmd needs on
     top is an argument of that cmd.
-
-    Fields
-    ---
-    - `hidden_cmds`:
-        Cmds that can be run but are left out of help.
     """
     name: str
     description: str
     cmd_groups: list[CommandGroup]
-    hidden_cmds: list[Command] = field(default_factory=list)
     output_params: params.OutputParams = field(default_factory=params.OutputParams)
 
     def __post_init__(
@@ -128,8 +122,7 @@ class CommandLineTool:
     def all_cmds(
         self,
     ) -> list[Command]:
-        grouped_cmds = [_cmd for _cmd_group in self.cmd_groups for _cmd in _cmd_group.cmds]
-        return [*grouped_cmds, *self.hidden_cmds]
+        return [_cmd for _cmd_group in self.cmd_groups for _cmd in _cmd_group.cmds]
 
 
 ##
@@ -157,7 +150,7 @@ class _CommandLineToolHelp:
             for _message_style in _message_group.message_styles
         ]
         all_labels = [
-            *[_cmd.name for _cmd_group in command_line_tool.cmd_groups for _cmd in _cmd_group.cmds],
+            *[_cmd.name for _cmd in command_line_tool.all_cmds],
             *[self._get_flag_label(_flag) for _flag in _BUILT_IN_FLAGS],
             *legend_labels,
         ]

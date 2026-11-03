@@ -69,15 +69,11 @@ def _make_go_cmd(
 def _make_command_line_tool(
     *,
     cmd_groups: list[manage_cli.CommandGroup],
-    hidden_cmds: list[manage_cli.Command] | None = None,
 ) -> manage_cli.CommandLineTool:
-    if hidden_cmds is None:
-        hidden_cmds = []
     return manage_cli.CommandLineTool(
         name="tool",
         description="a tool",
         cmd_groups=cmd_groups,
-        hidden_cmds=hidden_cmds,
     )
 
 
@@ -402,24 +398,6 @@ class TestRunCli_Dispatch(unittest.TestCase):
         )
         self.assertEqual(received, [True])
 
-    def test_hidden_cmd_can_be_run(
-        self,
-    ) -> None:
-        received: list[str] = []
-
-        def record_run() -> None:
-            received.append("ran")
-
-        command_line_tool = _make_command_line_tool(
-            cmd_groups=[],
-            hidden_cmds=[_make_go_cmd(record_run)],
-        )
-        manage_cli.run_cli(
-            command_line_tool=command_line_tool,
-            argv=["go"],
-        )
-        self.assertEqual(received, ["ran"])
-
     def test_failed_cmd_exits_with_its_return_code(
         self,
     ) -> None:
@@ -586,27 +564,6 @@ class TestHelp_Output(unittest.TestCase):
         )
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(long_cmd)])
         self.assertIn("    a-much-longer-command-name  long one", _get_help(command_line_tool).splitlines())
-
-    def test_omits_hidden_cmds(
-        self,
-    ) -> None:
-        visible_cmd = manage_cli.Command(
-            name="visible",
-            description="shown",
-            fn=_do_nothing,
-        )
-        secret_cmd = manage_cli.Command(
-            name="secret",
-            description="not shown",
-            fn=_do_nothing,
-        )
-        command_line_tool = _make_command_line_tool(
-            cmd_groups=[_make_cmd_group(visible_cmd)],
-            hidden_cmds=[secret_cmd],
-        )
-        help_text = _get_help(command_line_tool)
-        self.assertIn("visible", help_text)
-        self.assertNotIn("secret", help_text)
 
     def test_legend_labels_a_plain_result_as_plain(
         self,
