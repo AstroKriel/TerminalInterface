@@ -42,7 +42,7 @@ run_cli(command_line_tool=command_line_tool)
 
 ## Definition Checks
 
-The checks on a single argument are in [`<terminal-interface>/design-plan/cmd_args.md`](cmd_args.md). The checks here involve more than one argument, and use the same message form: the type before the colon, then the field, what it must be and why, and what it got, e.g. ``CommandLineTool: argument parameter names for cmd `go` must differ from the flags of the tool; got `dry_run`, which is also `--dry-run`.`` Checks that argparse already makes clearly are left to it.
+The checks on a single argument are in [`<terminal-interface>/design-plan/cmd_args.md`](cmd_args.md). The checks here involve more than one argument, and use the same message form: the type before the colon, then the field, what it must be and why, and what it got, e.g. ``CommandLineTool: argument parameter names for cmd `go` must differ from the built-in flags; got `dry_run`, which is also `--dry-run`.`` Checks that argparse already makes clearly are left to it.
 
 | Where | Check | State |
 |---|---|---|
@@ -54,18 +54,18 @@ The checks on a single argument are in [`<terminal-interface>/design-plan/cmd_ar
 
 ## Help Output
 
+The help answers three questions, one section each: how to use the tool, what else can be passed to any cmd, and how to read what the tool prints.
+
 | Section | Contents | State |
 |---|---|---|
 | When shown | on `-h` or `--help`, and when no command is given | decided |
-| Header | tool name and description | decided |
-| Usage | `<tool_name> [--dry-run] [--hide-actions] <command> [args]` | decided |
-| Cmd groups | one heading per group title, each cmd with its description, in declaration order | decided |
+| Tool usage | the tool name and description; the usage line, `<tool_name> [--dry-run] [--hide-actions] <command> [args]`; then one heading per cmd group title, each cmd with its description, in declaration order | decided |
 | Flags | the built-in flags, each with its description | decided |
-| Output legend | one line per message type, generated from the message types; the label column holds the group name, plain and on the first row of its group only, then the symbol and colour name in that colour, e.g. `Actions   → blue` | decided |
+| Style legend | headed "Style legend"; one line per message type, generated from the message types; the label column holds the group name, plain and on the first row of its group only, then the symbol and colour name in that colour, e.g. `Actions   → blue` | decided |
 | Indent | four spaces before every row, set by `row_indentation` on the help screen | decided |
 | Separator | spaces only, never tabs, so the layout is the same width on every machine | decided |
-| Column width | computed per help screen: the longest label on the screen (command, flag, or legend label, group name included) plus `col_separation` spaces, two by default; every section shares it, so descriptions line up across the whole screen | decided |
+| Column width | computed per help screen: the longest label on the screen (command, flag, or style legend label, group name included) plus `col_separation` spaces, two by default; every section shares it, so descriptions line up across the whole screen | decided |
 
 The column width is never hardcoded, so a long command name widens the column instead of breaking the alignment.
 
-The third generalisation: generating the legend from the message types removes the second copy of the colour values that the existing help kept.
+The third generalisation: generating the style legend from the message types removes the second copy of the colour values that the existing help kept.

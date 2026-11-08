@@ -320,7 +320,7 @@ class TestCommandDefinitions_Checks(unittest.TestCase):
             "Command: argument parameter names for `go` must be unique; got `output` more than once.",
         )
 
-    def test_cmd_arg_cannot_reuse_a_tool_flag_param_name(
+    def test_cmd_arg_cannot_reuse_a_built_in_flag_param_name(
         self,
     ) -> None:
         dry_run_cmd = _make_go_cmd(
@@ -328,7 +328,7 @@ class TestCommandDefinitions_Checks(unittest.TestCase):
             args=[
                 cmd_args.PositionalArgument(
                     param_name="dry_run",
-                    description="clashes with the built-in flag",
+                    description="reuses a built-in flag name",
                     input_value_type=cmd_args.InputValueTypes.TEXT,
                 ),
             ],
@@ -337,7 +337,7 @@ class TestCommandDefinitions_Checks(unittest.TestCase):
             _make_command_line_tool(cmd_groups=[_make_cmd_group(dry_run_cmd)])
         self.assertEqual(
             str(error_context.exception),
-            "CommandLineTool: argument parameter names for cmd `go` must differ from the flags of the tool; got `dry_run`, which is also `--dry-run`.",
+            "CommandLineTool: argument parameter names for cmd `go` must differ from the built-in flags; got `dry_run`, which is also `--dry-run`.",
         )
 
 
@@ -674,9 +674,9 @@ class TestHelp_Output(unittest.TestCase):
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
         dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
         task_description = _message_styles.TASK_STYLE.description
-        legend_line = next(_line for _line in help_lines if task_description in _line)
+        style_legend_line = next(_line for _line in help_lines if task_description in _line)
         self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index("print commands"))
-        self.assertEqual(alpha_line.index("does alpha"), legend_line.index(task_description))
+        self.assertEqual(alpha_line.index("does alpha"), style_legend_line.index(task_description))
 
     def test_longest_label_sets_the_column(
         self,
@@ -689,7 +689,7 @@ class TestHelp_Output(unittest.TestCase):
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(long_cmd)])
         self.assertIn("    a-much-longer-command-name  long one", _get_help(command_line_tool).splitlines())
 
-    def test_legend_labels_a_plain_result_as_plain(
+    def test_style_legend_labels_a_plain_result_as_plain(
         self,
     ) -> None:
         result_description = _message_styles.OutcomeContent.RESULT.value.description
@@ -698,7 +698,7 @@ class TestHelp_Output(unittest.TestCase):
             re.compile(rf"^ {{4}} +plain +{re.escape(result_description)}$", flags=re.MULTILINE),
         )
 
-    def test_legend_names_each_group_on_its_first_row_only(
+    def test_style_legend_names_each_group_on_its_first_row_only(
         self,
     ) -> None:
         help_lines = _get_help(_make_command_line_tool(cmd_groups=[])).splitlines()
@@ -712,15 +712,15 @@ class TestHelp_Output(unittest.TestCase):
                     group_name_pattern = re.escape(message_group.title)
                 else:
                     group_name_pattern = ""
-                legend_label = "plain"
+                style_label = "plain"
                 if (message_style.symbol is not None) and (message_style.colour is not None):
-                    legend_label = f"{message_style.symbol} {message_style.colour.name.lower()}"
-                legend_pattern = (
-                    rf"^ {{4}}{group_name_pattern} +{re.escape(legend_label)} +{re.escape(message_style.description)}$"
+                    style_label = f"{message_style.symbol} {message_style.colour.name.lower()}"
+                style_legend_pattern = (
+                    rf"^ {{4}}{group_name_pattern} +{re.escape(style_label)} +{re.escape(message_style.description)}$"
                 )
-                self.assertRegex(help_lines[first_row_index + row_offset], re.compile(legend_pattern))
+                self.assertRegex(help_lines[first_row_index + row_offset], re.compile(style_legend_pattern))
 
-    def test_legend_group_names_are_not_styled(
+    def test_style_legend_group_names_are_not_styled(
         self,
     ) -> None:
         command_line_tool = _make_command_line_tool(cmd_groups=[])

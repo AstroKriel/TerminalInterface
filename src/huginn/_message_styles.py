@@ -38,7 +38,7 @@ class Symbol(StrEnum):
 
 @dataclass(frozen=True)
 class MessageStyle:
-    """Colour, symbol, and legend description for one kind of message; a message with neither prints as plain text."""
+    """Colour, symbol, and style legend description for one kind of message; a message with neither prints as plain text."""
     colour: Colour | None
     symbol: Symbol | None
     description: str
@@ -165,7 +165,7 @@ class OutcomeContent(Enum):
 
 @dataclass(frozen=True)
 class MessageGroup:
-    """One concept with every kind of message it covers; the help legend is built from these."""
+    """One concept with every kind of message it covers; the style legend is built from these."""
     title: str
     message_styles: tuple[MessageStyle, ...]
 

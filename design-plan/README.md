@@ -68,7 +68,7 @@ TerminalInterface/
 ├── src/
 │   └── huginn/
 │       ├── cmd_args.py  # the args of a cmd: input value types, positional arguments, named arguments, and flags
-│       ├── _message_styles.py  # private: palette and message kinds, each style drawing its own lines, and the groups the help legend is built from
+│       ├── _message_styles.py  # private: palette and message kinds, each style drawing its own lines, and the groups the style legend is built from
 │       ├── _manage_output.py  # private: the built-in params, the active state of a run, the consoles, and routing each message to the terminal and the log file
 │       ├── manage_log.py  # output functions
 │       ├── manage_shell.py  # command runners

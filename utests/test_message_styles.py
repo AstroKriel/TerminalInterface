@@ -16,7 +16,7 @@ from huginn import _message_styles
 ##
 
 
-class TestLegend_Groups(unittest.TestCase):
+class TestStyleLegend_Groups(unittest.TestCase):
 
     def test_groups_follow_the_concepts(
         self,

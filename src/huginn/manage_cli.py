@@ -102,19 +102,26 @@ class CommandLineTool:
     def __post_init__(
         self,
     ) -> None:
-        flags_by_param_name = {_flag.param_name: _flag for _flag in _BUILT_IN_FLAGS}
+        built_in_flags_by_param_name = {
+            _built_in_flag.param_name: _built_in_flag
+            for _built_in_flag in _BUILT_IN_FLAGS
+        }
         for cmd in self.all_cmds:
-            clashing_param_names = [
-                _arg.param_name for _arg in cmd.args if _arg.param_name in flags_by_param_name
+            ## the args of this cmd that take a param name a built-in flag already has
+            reused_param_names = [
+                _cmd_arg.param_name
+                for _cmd_arg in cmd.args
+                if _cmd_arg.param_name in built_in_flags_by_param_name
             ]
-            param_names_are_clashing = len(clashing_param_names) > 0
-            if param_names_are_clashing:
-                clash_descriptions = ", ".join(
-                    f"`{_param_name}`, which is also `--{flags_by_param_name[_param_name].long_arg_name}`"
-                    for _param_name in sorted(clashing_param_names)
+            param_names_are_reused = len(reused_param_names) > 0
+            if param_names_are_reused:
+                ## pair each reused param name with the built-in flag that has it, e.g. `dry_run` with `--dry-run`
+                reused_param_names_text = ", ".join(
+                    f"`{_param_name}`, which is also `--{built_in_flags_by_param_name[_param_name].long_arg_name}`"
+                    for _param_name in sorted(reused_param_names)
                 )
                 raise ValueError(
-                    f"{type(self).__name__}: argument parameter names for cmd `{cmd.name}` must differ from the flags of the tool; got {clash_descriptions}.",
+                    f"{type(self).__name__}: argument parameter names for cmd `{cmd.name}` must differ from the built-in flags; got {reused_param_names_text}.",
                 )
 
     @property
@@ -131,7 +138,12 @@ class CommandLineTool:
 
 @final
 class _CommandLineToolHelp:
-    """The help screen of one tool; every row shares one column width."""
+    """
+    The help screen of one tool, laid out as a table.
+
+    Each row is a label and a description, and every row shares one label column width, so the descriptions line up.
+    Each row prints as one line.
+    """
 
     def __init__(
         self,
@@ -147,15 +159,15 @@ class _CommandLineToolHelp:
             len(_message_group.title) for _message_group in _message_styles.MESSAGE_GROUPS
         ]
         self.message_group_col_width = max(message_group_title_widths) + col_separation
-        legend_label_widths = [
-            self.message_group_col_width + len(self._get_legend_label(_message_style))
+        style_label_widths = [
+            self.message_group_col_width + len(self._get_style_label(_message_style))
             for _message_group in _message_styles.MESSAGE_GROUPS
             for _message_style in _message_group.message_styles
         ]
         all_label_widths = [
             *[len(_cmd.name) for _cmd in command_line_tool.all_cmds],
-            *[len(self._get_flag_label(_flag)) for _flag in _BUILT_IN_FLAGS],
-            *legend_label_widths,
+            *[len(self._get_flag_label(_built_in_flag)) for _built_in_flag in _BUILT_IN_FLAGS],
+            *style_label_widths,
         ]
         self.col_width = max(all_label_widths) + col_separation
 
@@ -181,7 +193,7 @@ class _CommandLineToolHelp:
         return ", ".join(flag.arg_names)
 
     @staticmethod
-    def _get_legend_label(
+    def _get_style_label(
         message_style: _message_styles.MessageStyle,
     ) -> str:
         """The symbol and colour name, e.g. `● green`; `plain` for a line with neither."""
@@ -189,7 +201,7 @@ class _CommandLineToolHelp:
             return "plain"
         return f"{message_style.symbol} {message_style.colour.name.lower()}"
 
-    def _print_row(
+    def _print_line(
         self,
         *,
         label: str,
@@ -197,95 +209,94 @@ class _CommandLineToolHelp:
         description: str,
         label_prefix: str = "",
     ) -> None:
-        """Print one row; `label_prefix` prints plain in front of the styled `label`, inside the same column."""
-        row_indent = self._get_spaces(self.row_indentation)
-        full_label_width = len(label_prefix) + len(label)
-        col_padding = self._get_spaces(self.col_width - full_label_width)
-        label_prefix_markup = _manage_output.escape_markup(label_prefix)
+        """
+        Print one row of the table as a line.
+
+        `label_prefix` prints plain in front of the styled `label`, inside the same column.
+        """
+        indent = self._get_spaces(self.row_indentation)
+        label_width = len(label_prefix) + len(label)
+        description_padding = self._get_spaces(self.col_width - label_width)
+        label_prefix_rendered = _manage_output.escape_markup(label_prefix)
         label_markup = _manage_output.escape_markup(label)
         if label_style is None:
-            styled_label = label_markup
+            label_rendered = label_markup
         else:
-            styled_label = f"[{label_style}]{label_markup}[/]"
-        description_markup = _manage_output.escape_markup(description)
-        self.console.print(
-            f"{row_indent}{label_prefix_markup}{styled_label}{col_padding}{description_markup}",
-        )
+            label_rendered = f"[{label_style}]{label_markup}[/]"
+        description_rendered = _manage_output.escape_markup(description)
+        line_rendered = f"{indent}{label_prefix_rendered}{label_rendered}{description_padding}{description_rendered}"
+        self.console.print(line_rendered)
 
-    def _print_header(
+    def _print_tool_usage(
         self,
     ) -> None:
-        usage_flags = " ".join(f"[--{_flag.long_arg_name}]" for _flag in _BUILT_IN_FLAGS)
-        usage_markup = _manage_output.escape_markup(
-            f"{self.command_line_tool.name} {usage_flags} <command> [args]",
+        tool_name_markup = _manage_output.escape_markup(self.command_line_tool.name)
+        tool_description_markup = _manage_output.escape_markup(self.command_line_tool.description)
+        built_in_flags_text = " ".join(
+            f"[--{_built_in_flag.long_arg_name}]" for _built_in_flag in _BUILT_IN_FLAGS
         )
-        name_markup = _manage_output.escape_markup(self.command_line_tool.name)
-        description_markup = _manage_output.escape_markup(self.command_line_tool.description)
+        tool_usage_markup = _manage_output.escape_markup(
+            f"{self.command_line_tool.name} {built_in_flags_text} <command> [args]",
+        )
         self.console.print()
-        self.console.print(f"[bold]{name_markup}[/bold]: {description_markup}")
+        self.console.print(f"[bold]{tool_name_markup}[/bold]: {tool_description_markup}")
         self.console.print()
-        self.console.print(f"[dim]usage:[/dim] {usage_markup}")
-
-    def _print_cmd_groups(
-        self,
-    ) -> None:
+        self.console.print(f"[dim]usage:[/dim] {tool_usage_markup}")
         for cmd_group in self.command_line_tool.cmd_groups:
             self.console.print()
-            title_markup = _manage_output.escape_markup(self._get_title_text(cmd_group.title))
-            self.console.print(f"[bold]{title_markup}[/bold]")
+            cmd_group_title_text = self._get_title_text(cmd_group.title)
+            cmd_group_title_markup = _manage_output.escape_markup(cmd_group_title_text)
+            self.console.print(f"[bold]{cmd_group_title_markup}[/bold]")
             for cmd in cmd_group.cmds:
-                self._print_row(
+                self._print_line(
                     label=cmd.name,
                     label_style=_message_styles.Colour.CYAN,
                     description=cmd.description,
                 )
 
-    def _print_flags(
+    def _print_built_in_flags(
         self,
     ) -> None:
         self.console.print()
         self.console.print("[bold]Flags[/bold]")
-        for flag in _BUILT_IN_FLAGS:
-            self._print_row(
-                label=self._get_flag_label(flag),
+        for built_in_flag in _BUILT_IN_FLAGS:
+            self._print_line(
+                label=self._get_flag_label(built_in_flag),
                 label_style=_message_styles.Colour.CYAN,
-                description=flag.description,
+                description=built_in_flag.description,
             )
 
-    def _print_legend(
+    def _print_style_legend(
         self,
     ) -> None:
         self.console.print()
-        self.console.print("[bold]Output legend[/bold]")
+        self.console.print("[bold]Style legend[/bold]")
         for message_group in _message_styles.MESSAGE_GROUPS:
             for style_index, message_style in enumerate(message_group.message_styles):
-                if style_index == 0:
+                is_first_style_in_group = style_index == 0
+                if is_first_style_in_group:
                     message_group_name = message_group.title
                 else:
                     message_group_name = ""
-                message_group_padding = self._get_padding(
+                label_padding = self._get_spaces(
                     self.message_group_col_width - len(message_group_name),
                 )
-                legend_label_prefix = f"{message_group_name}{message_group_padding}"
-                legend_colour = None
-                if message_style.colour is not None:
-                    legend_colour = message_style.colour
-                self._print_row(
-                    label=self._get_legend_label(message_style),
-                    label_style=legend_colour,
+                group_name_prefix = f"{message_group_name}{label_padding}"
+                self._print_line(
+                    label=self._get_style_label(message_style),
+                    label_style=message_style.colour,
                     description=message_style.description,
-                    label_prefix=legend_label_prefix,
+                    label_prefix=group_name_prefix,
                 )
         self.console.print()
 
     def print_help(
         self,
     ) -> None:
-        """Print the header, the cmds by group, the flags, and the output legend."""
-        self._print_header()
-        self._print_cmd_groups()
-        self._print_flags()
-        self._print_legend()
+        """Print how to use the tool, the built-in flags, and the style legend."""
+        self._print_tool_usage()
+        self._print_built_in_flags()
+        self._print_style_legend()
 
 
 ##
