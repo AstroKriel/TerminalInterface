@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 ## local
-from huginn import _manage_output, manage_shell, params
+from huginn import _manage_output, manage_shell
 
 ##
 ## === HELPERS
@@ -22,10 +22,7 @@ from huginn import _manage_output, manage_shell, params
 
 
 def _turn_on_dry_run() -> None:
-    _manage_output.set_params(
-        tool_params=params.ToolParams(dry_run=True),
-        log_file_path=None,
-    )
+    _manage_output.set_built_in_params(_manage_output.BuiltInParams(dry_run=True))
 
 
 ##
@@ -38,8 +35,8 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_output.reset_params()
-        self.addCleanup(_manage_output.reset_params)
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
 
     def _print_query(
         self,
@@ -84,8 +81,8 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_output.reset_params()
-        self.addCleanup(_manage_output.reset_params)
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
 
     def test_dry_run_skips_logs_and_counts_as_success(
         self,
@@ -140,8 +137,8 @@ class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_output.reset_params()
-        self.addCleanup(_manage_output.reset_params)
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
 
     def test_returns_empty_string_in_dry_run(
         self,

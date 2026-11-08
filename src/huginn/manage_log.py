@@ -6,11 +6,32 @@
 
 ## stdlib
 import sys
+from pathlib import Path
 from typing import NoReturn
 
 ## local
 from huginn import _manage_output, _message_styles
 from huginn._message_styles import OutcomeStatus as OutcomeStatus
+
+##
+## === LOG FILE
+## every tool and script sets its log file path before its first message: a path, or `None` to log nothing.
+##
+
+
+def set_log_file_path(
+    *,
+    log_file_path: Path | None,
+) -> None:
+    _manage_output.set_log_file_path(log_file_path=log_file_path)
+
+
+def get_home_log_file_path(
+    *,
+    tool_name: str,
+) -> Path:
+    return Path.home() / ".huginn_logs" / f"{tool_name}.log"
+
 
 ##
 ## === OUTPUT

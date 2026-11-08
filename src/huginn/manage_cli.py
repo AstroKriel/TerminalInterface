@@ -12,14 +12,13 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import final
 
 ## third-party
 from rich.console import Console as rich_Console
 
 ## local
-from huginn import _manage_output, _message_styles, cmd_args, manage_log, params
+from huginn import _manage_output, _message_styles, cmd_args, manage_log
 
 ##
 ## === BUILT-IN FLAGS
@@ -161,7 +160,7 @@ class _CommandLineToolHelp:
         self.col_width = max(all_label_widths) + col_separation
 
     @staticmethod
-    def _get_padding(
+    def _get_spaces(
         num_spaces: int,
     ) -> str:
         return " " * num_spaces
@@ -199,9 +198,9 @@ class _CommandLineToolHelp:
         label_prefix: str = "",
     ) -> None:
         """Print one row; `label_prefix` prints plain in front of the styled `label`, inside the same column."""
-        row_indent = self._get_padding(self.row_indentation)
+        row_indent = self._get_spaces(self.row_indentation)
         full_label_width = len(label_prefix) + len(label)
-        col_padding = self._get_padding(self.col_width - full_label_width)
+        col_padding = self._get_spaces(self.col_width - full_label_width)
         label_prefix_markup = _manage_output.escape_markup(label_prefix)
         label_markup = _manage_output.escape_markup(label)
         if label_style is None:
@@ -293,8 +292,6 @@ class _CommandLineToolHelp:
 ## === ENTRY POINT
 ##
 
-_LOG_FOLDER_NAME = ".huginn_logs"
-
 
 def _build_arg_parser(
     command_line_tool: CommandLineTool,
@@ -309,8 +306,8 @@ def _build_arg_parser(
         "--help",
         action="store_true",
     )
-    for flag in _BUILT_IN_FLAGS:
-        flag.add_to_arg_parser(arg_parser)
+    for built_in_flag in _BUILT_IN_FLAGS:
+        built_in_flag.add_to_arg_parser(arg_parser)
     cmd_arg_parsers = arg_parser.add_subparsers(
         dest="cmd",
         required=False,
@@ -328,7 +325,7 @@ def run_cli(
     command_line_tool: CommandLineTool,
     argv: Sequence[str] | None = None,
 ) -> None:
-    """Parse argv (default: `sys.argv`), build the tool params, set up output for the run, and run one cmd."""
+    """Parse argv (default: `sys.argv`), build the built-in params, set up output for the run, and run one cmd."""
     if argv is None:
         argv = sys.argv[1:]
     parsed_args = _build_arg_parser(command_line_tool).parse_args(argv)
@@ -336,20 +333,11 @@ def run_cli(
         command_line_tool_help = _CommandLineToolHelp(command_line_tool)
         command_line_tool_help.print_help()
         return
-    tool_params = params.ToolParams.from_parsed_args(parsed_args)
-    log_file_path = Path.home() / _LOG_FOLDER_NAME / f"{command_line_tool.name}.log"
-    _manage_output.set_params(
-        tool_params=tool_params,
-        log_file_path=log_file_path,
-    )
+    built_in_params = _manage_output.BuiltInParams.from_parsed_args(parsed_args)
+    _manage_output.set_built_in_params(built_in_params)
     cmds_by_name = {_cmd.name: _cmd for _cmd in command_line_tool.all_cmds}
     selected_cmd = cmds_by_name[parsed_args.cmd]
     try:
-        cmd_parts = [command_line_tool.name, *argv]
-        cmd = shlex.join(cmd_parts)
-        msg_text = f"$ {cmd}"
-        msg_rendered = _manage_output.escape_markup(msg_text)
-        _manage_output.append_to_log_file(msg_rendered)
         selected_cmd.call(parsed_args=parsed_args)
     except subprocess.CalledProcessError as process_error:
         failed_cmd = shlex.join(process_error.cmd)
@@ -358,10 +346,7 @@ def run_cli(
             exit_code=process_error.returncode,
         )
     except _manage_output.LogFileError as log_file_error:
-        _manage_output.set_params(
-            tool_params=tool_params,
-            log_file_path=None,
-        )
+        _manage_output.set_log_file_path(log_file_path=None)
         manage_log.exit_with_error(str(log_file_error))
 
 

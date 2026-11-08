@@ -5,19 +5,54 @@
 ##
 
 ## stdlib
+import argparse
 import contextlib
 import io
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 ## local
-from huginn import _manage_output, params
+from huginn import _manage_output
 
 ##
 ## === TEST SUITE
 ##
+
+
+class TestBuiltInParams_Defaults(unittest.TestCase):
+
+    def test_every_flag_is_off(
+        self,
+    ) -> None:
+        built_in_params = _manage_output.BuiltInParams()
+        self.assertFalse(built_in_params.dry_run)
+        self.assertFalse(built_in_params.hide_actions)
+
+
+class TestBuiltInParams_FromParsedArguments(unittest.TestCase):
+
+    def test_fields_fill_from_flags_of_the_same_name(
+        self,
+    ) -> None:
+        parsed_args = argparse.Namespace(
+            dry_run=True,
+            hide_actions=False,
+            cmd="go",
+        )
+        self.assertEqual(
+            _manage_output.BuiltInParams.from_parsed_args(parsed_args),
+            _manage_output.BuiltInParams(dry_run=True),
+        )
+
+    def test_field_with_no_flag_raises(
+        self,
+    ) -> None:
+        parsed_args = argparse.Namespace(dry_run=False)
+        with self.assertRaises(AttributeError):
+            _manage_output.BuiltInParams.from_parsed_args(parsed_args)
 
 
 class TestRouteMsg_Streams(unittest.TestCase):
@@ -25,8 +60,8 @@ class TestRouteMsg_Streams(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_output.reset_params()
-        self.addCleanup(_manage_output.reset_params)
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
 
     def test_narration_goes_to_stderr(
         self,
@@ -74,23 +109,24 @@ class TestRouteMsg_Log(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_output.reset_params()
-        self.addCleanup(_manage_output.reset_params)
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
         temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(temporary_directory.cleanup)
         self.log_file_path = Path(temporary_directory.name) / "logs" / "tool.log"
+        argv_patch = mock.patch.object(sys, "argv", ["/usr/bin/tool", "go", "fix [bold]"])
+        argv_patch.start()
+        self.addCleanup(argv_patch.stop)
 
     def _start_logging(
         self,
         *,
         dry_run: bool,
     ) -> None:
-        _manage_output.set_params(
-            tool_params=params.ToolParams(dry_run=dry_run),
-            log_file_path=self.log_file_path,
-        )
+        _manage_output.set_built_in_params(_manage_output.BuiltInParams(dry_run=dry_run))
+        _manage_output.set_log_file_path(log_file_path=self.log_file_path)
 
-    def test_appends_plain_lines(
+    def test_appends_the_invoked_cmd_then_plain_lines(
         self,
     ) -> None:
         self._start_logging(dry_run=False)
@@ -101,10 +137,23 @@ class TestRouteMsg_Log(unittest.TestCase):
         self.assertEqual(
             self.log_file_path.read_text().splitlines(),
             [
+                "[2026-01-02 03:04:05] $ tool go 'fix [bold]'",
                 "[2026-01-02 03:04:05] ○ first",
                 "[2026-01-02 03:04:05] second",
             ],
         )
+
+    def test_unset_log_file_path_raises_before_the_terminal_shows_anything(
+        self,
+    ) -> None:
+        stderr_buffer = io.StringIO()
+        with (
+                mock.patch.object(_manage_output._active_state, "log_file_path_is_set", False),
+                contextlib.redirect_stderr(stderr_buffer),
+                self.assertRaises(_manage_output.LogFileError),
+        ):
+            _manage_output.route_msg("→ git push")
+        self.assertEqual(stderr_buffer.getvalue(), "")
 
     def test_append_writes_the_log_file_only(
         self,
@@ -116,7 +165,7 @@ class TestRouteMsg_Log(unittest.TestCase):
                 _manage_output.append_to_log_file("[bold]only in the log[/bold]")
         self.assertEqual(stderr_buffer.getvalue(), "")
         self.assertEqual(
-            self.log_file_path.read_text().splitlines(),
+            self.log_file_path.read_text().splitlines()[1:],
             ["[2026-01-02 03:04:05] only in the log"],
         )
 
@@ -139,9 +188,10 @@ class TestRouteMsg_Log(unittest.TestCase):
             _manage_output.route_msg("→ git push")
         self.assertEqual(stderr_buffer.getvalue(), "")
 
-    def test_off_by_default(
+    def test_none_logs_nothing(
         self,
     ) -> None:
+        _manage_output.set_log_file_path(log_file_path=None)
         with contextlib.redirect_stderr(io.StringIO()):
             _manage_output.route_msg("nowhere")
         self.assertFalse(self.log_file_path.exists())

@@ -20,7 +20,7 @@ outcome              how a task or action ended, reported afterwards
 └── content          optional: a value (what an action produced) or a result (for the user, on stdout)
 ```
 
-The symbol says which concept a line is (open circle: task; hooked arrow: note; right arrow: action; closed circle or middle dot: outcome) and the colour says which type or status. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `symbol`, `description`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private `_message_styles`: `TASK_STYLE`; `NOTE_STYLE`; `Action` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `OutcomeContent` (`VALUE`, `RESULT`). There are no named combinations: a change skipped in dry-run is drawn by a copy of the change style with the skipped colour, and the legend lists only the building blocks. `MESSAGE_GROUPS` lists everything by concept, and the help legend is generated from it, so the legend cannot drift from the output. A style draws a message itself, with `MessageStyle.render`, and the private `_manage_output` sends it to each destination it belongs in with `route_msg`, or to the log file only with `append_to_log_file`, as for the run header. A style always colours the whole message, symbol and text together. Every colour is mid-brightness, so a message reads on both light and dark terminal themes; there is no white.
+The symbol says which concept a line is (open circle: task; hooked arrow: note; right arrow: action; closed circle or middle dot: outcome) and the colour says which type or status. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `symbol`, `description`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private `_message_styles`: `TASK_STYLE`; `NOTE_STYLE`; `Action` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `OutcomeContent` (`VALUE`, `RESULT`). There are no named combinations: a change skipped in dry-run is drawn by a copy of the change style with the skipped colour, and the legend lists only the building blocks. `MESSAGE_GROUPS` lists everything by concept, and the help legend is generated from it, so the legend cannot drift from the output. A style draws a message itself, with `MessageStyle.render`, and the private `_manage_output` sends it to each destination it belongs in with `route_msg`. A style always colours the whole message, symbol and text together. Every colour is mid-brightness, so a message reads on both light and dark terminal themes; there is no white.
 
 | Concept | Facet | Value | Symbol | Colour | State |
 |---|---|---|---|---|---|
@@ -59,23 +59,39 @@ Narration always goes to stderr; whoever runs the tool can merge the two streams
 
 ---
 
+## Built-In Params
+
+`BuiltInParams` holds the values of the built-in flags for one run. It is defined in the private `_manage_output`, beside the one active copy that huginn reads.
+
+| Detail | Choice | State |
+|---|---|---|
+| Base type | `BuiltInParams(dry_run: bool = False, hide_actions: bool = False)`, frozen; every flag is off unless the user passes it | decided |
+| Building from flags | `from_parsed_args` fills every field from the flag of the same name; a field with no matching flag raises `AttributeError` | decided |
+| Who builds it | `run_cli` builds it once from the parsed flags (see [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md)) and sets it as the active built-in params | decided |
+| Who reads it | huginn only: the output reads `hide_actions` and `dry_run`, and the mutating runners in `manage_shell` read `dry_run`; a cmd function never receives it | decided |
+| What goes in it | a setting the user passes as a built-in flag and huginn itself acts on; a flag only a cmd acts on is an argument of that cmd | decided |
+
+This is the first generalisation: the existing layer carried a tool-specific flag in a type named `Config`, which also said nothing about what it configured.
+
+---
+
 ## Output for One Run
 
-The entry point sets these once per process, from the tool params (see [`<terminal-interface>/design-plan/params.md`](params.md)) and the name of the tool. The log file keeps a history of what each tool did to a machine.
+The entry point sets the built-in params once per process; the tool or script sets the log file path. The log file keeps a history of what each tool or script did.
 
 | Feature | Detail | State |
 |---|---|---|
 | Wrapping | in a terminal, narration wraps at the terminal width; elsewhere, e.g. in a job, it is never wrapped, so each message stays one line; a result is never wrapped | decided |
 | Hidden actions | with `hide_actions`, action messages are left off the terminal; set by the `--hide-actions` flag, off by default; a cmd skipped in dry-run still shows, since showing it is the point of a dry run | decided |
-| Log | every message, hidden actions included, is also appended to `~/.huginn_logs/<tool name>.log`, as plain text without markup; always on for a tool run through `run_cli`, with nothing for the tool author to set | decided |
-| Log location | one folder in the home folder for every huginn tool, outside every repo, so git never sees it; one file per tool, named after `CommandLineTool.name`, e.g. `git_helpers.log` | decided |
+| Log | every message, hidden actions included, is also appended to the log file at the set path, as plain text without markup | decided |
+| Setting the log file path | one call for tools and scripts alike, `manage_log.set_log_file_path(log_file_path=...)`, before the first message: a path logs there, and `None` logs nothing. `run_cli` never sets it. Logging before the path is set raises `LogFileError`, even in dry-run, so a forgotten call shows up on the first run | decided |
+| Home log | `manage_log.get_home_log_file_path(tool_name=...)` gives `~/.huginn_logs/<tool name>.log`: one folder outside every repo, so git never sees it. An installed tool, e.g. `git_helpers`, sets it in its `main` before `run_cli` | decided |
+| Log in a job | a job script passes its working folder to the script, e.g. a sim folder, and the script logs there, e.g. `<sim folder>/<name>.log`; parallel jobs then never share one file | decided |
 | Log format | `[<time stamp>] <line>`, one line per entry; the time stamp is `YYYY-MM-DD HH:MM:SS`, from `datetime.now().isoformat(sep=" ", timespec="seconds")` | decided |
-| Run header | each run starts with one line giving the command as typed, after a `$ `, e.g. `$ git_helpers sync --allow-dirty`, so runs can be told apart in the one file; the `$ ` keeps it apart from a plain result line | decided |
-| Log cannot be written | the run stops with an error naming the log file and exits with status 1; a run that cannot be recorded is not done quietly, and there is no way to turn the log off | decided |
+| Invoked cmd | each run starts with one line giving the invoked cmd, the command that started the process, from `sys.argv`, after a `$ `, e.g. `$ git_helpers sync --allow-dirty`, so runs can be told apart in one file; the `$ ` keeps it apart from a plain result line. It is written with the first message, so a dry run or a run that logs nothing leaves the file alone | decided |
+| Log cannot be written | the run stops with an error naming the log file and exits with status 1; a run that cannot be recorded is not done quietly | decided |
 | No action goes unlogged | a message is logged before it is shown, and an action is shown before it runs, so when the log fails, the action it belongs to never starts and is never shown as started | decided |
 | Log in dry-run | nothing is written: the log is a history of what was done to the machine, and a dry-run does nothing | decided |
 | Log growth | the file is only ever appended to; no rotation until a log grows large enough to need it | decided |
 | Terminal time stamps | none; the log carries the times | decided |
-| Tests | tests point the home folder at a temporary folder, so they never write to the real log | decided |
-
-A script that never calls the entry point writes no log file.
+| Tests | tests set the log file path to a temporary folder, or to `None`, so they never write to a real log | decided |

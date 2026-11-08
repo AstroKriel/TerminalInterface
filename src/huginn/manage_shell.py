@@ -79,7 +79,7 @@ def run_cmd_and_show_output(
 
     A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
     """
-    if _manage_output.get_active_tool_params().dry_run:
+    if _manage_output.get_active_built_in_params().dry_run:
         _write_cmd(
             action=_message_styles.Action.CHANGE,
             cmd_parts=cmd_parts,
@@ -113,7 +113,7 @@ def run_cmd_and_capture_output(
     In dry-run the empty string is a placeholder for an unknown value; anything that depends on it should report a
     skipped outcome instead of carrying on with it.
     """
-    if _manage_output.get_active_tool_params().dry_run:
+    if _manage_output.get_active_built_in_params().dry_run:
         _write_cmd(
             action=_message_styles.Action.CHANGE,
             cmd_parts=cmd_parts,

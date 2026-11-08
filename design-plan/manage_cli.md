@@ -23,8 +23,8 @@ CommandLineTool
 | `Command` | one cmd: `name`, `description`, `fn`, and `args` | decided |
 | Definition checks | each argument, cmd, and tool checks itself when made, so a mistake in a command table fails when the tool starts; see [Definition Checks](#definition-checks) | decided |
 | `CommandGroup` | cmds listed together in help under one `title`; a `str` enum title prints its value | decided |
-| Tool params | `run_cli` builds a `ToolParams` from the built-in flags with `from_parsed_args` (see [`<terminal-interface>/design-plan/params.md`](params.md)) | decided |
-| Log file | `run_cli` points the log at `~/.huginn_logs/<name>.log`, from the `name` of the tool, and writes the run header; a log that cannot be written ends the run with an error (see [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md)) | decided |
+| Built-in params | `run_cli` builds a `BuiltInParams` from the built-in flags with `from_parsed_args` (see [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md#built-in-params)) | decided |
+| Log file | `run_cli` never sets the log file path; the tool sets it before `run_cli`, usually to `manage_log.get_home_log_file_path`. A log file path that was not set, or a log file that cannot be written, ends the run with an error (see [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md)) | decided |
 | Built-in flags | every tool gets `--dry-run` and `--hide-actions`, and no other tool flags; both are off unless the user passes them. huginn reads them itself, so a cmd never receives them. A flag a cmd needs, e.g. `--allow-dirty`, is a `FlagArgument` of that cmd | decided |
 | Failed cmd | `run_cli` reports an error outcome naming the shell cmd that failed, then exits with its exit status | decided |
 | How a cmd function is called | `fn(<param_1>=..., <param_2>=...)`, every argument of the cmd by keyword under its `param_name` (the named argument `base-ref` becomes `base_ref`) | decided |
@@ -36,7 +36,7 @@ Calling by keyword means a cmd function declares its parameters keyword-only and
 run_cli(command_line_tool=command_line_tool)
 ```
 
-`run_cli` builds the arg parser, registers every cmd and its arguments, parses, builds the tool params, sets the output for the run, dispatches, and exits with the return code of a failed shell cmd when one raises. State: decided.
+`run_cli` builds the arg parser, registers every cmd and its arguments, parses, builds the built-in params, sets the output for the run, dispatches, and exits with the return code of a failed shell cmd when one raises. State: decided.
 
 ---
 

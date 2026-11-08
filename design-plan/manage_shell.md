@@ -1,6 +1,6 @@
 # manage_shell
 
-Design notes for `huginn.manage_shell`: the command runners. The mutating runners read `dry_run` from the active tool params (see [`<terminal-interface>/design-plan/params.md`](params.md)). The output functions and message types are in [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md).
+Design notes for `huginn.manage_shell`: the command runners. The mutating runners read `dry_run` from the active built-in params (see [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md#built-in-params)). The output functions and message types are in [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md).
 
 ---
 

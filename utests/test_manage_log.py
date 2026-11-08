@@ -23,8 +23,8 @@ class TestLogFunctions_Output(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_output.reset_params()
-        self.addCleanup(_manage_output.reset_params)
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
 
     def _capture(
         self,

@@ -5,23 +5,94 @@
 ##
 
 ## stdlib
+import argparse
+import dataclasses
 import datetime
+import shlex
+import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 ## third-party
 from rich import markup as rich_markup
 from rich.console import Console as rich_Console
 from rich.text import Text as rich_Text
 
-## local
-from huginn import params
-
 ##
-## === ACTIVE PARAMS
+## === BUILT-IN PARAMS
 ##
 
-_active_tool_params = params.ToolParams()
-_active_log_file_path: Path | None = None
+
+@dataclass(frozen=True)
+class BuiltInParams:
+    """The values of the built-in flags for one run, e.g. `--dry-run`; huginn reads them, so a cmd never needs them."""
+    dry_run: bool = False
+    hide_actions: bool = False
+
+    @classmethod
+    def from_parsed_args(
+        cls,
+        parsed_args: argparse.Namespace,
+    ) -> Self:
+        """Fill every field from the flag of the same name; a field with no flag raises `AttributeError`."""
+        flag_values = {_field.name: getattr(parsed_args, _field.name) for _field in dataclasses.fields(cls)}
+        return cls(**flag_values)
+
+
+##
+## === ACTIVE STATE
+##
+
+
+@dataclass
+class _ActiveState:
+    """
+    What huginn tracks for the current run.
+
+    This covers the built-in params the user passed, the log file path set by the tool or script, and whether the
+    invoked cmd of this run was written to that log file yet.
+    """
+    built_in_params: BuiltInParams = dataclasses.field(default_factory=BuiltInParams)
+    log_file_path_is_set: bool = False
+    log_file_path: Path | None = None
+    invoked_cmd_was_written_to_log_file: bool = False
+
+
+_active_state = _ActiveState()
+
+
+def set_built_in_params(
+    built_in_params: BuiltInParams,
+) -> None:
+    _active_state.built_in_params = built_in_params
+
+
+def set_log_file_path(
+    *,
+    log_file_path: Path | None,
+) -> None:
+    """Log to `log_file_path` from here on, or to nothing for `None`; a new log file starts with the invoked cmd."""
+    _active_state.log_file_path_is_set = True
+    _active_state.log_file_path = log_file_path
+    _active_state.invoked_cmd_was_written_to_log_file = False
+
+
+def reset_active_state() -> None:
+    """Return to the defaults: actions shown, and no log file."""
+    global _active_state
+    _active_state = _ActiveState(log_file_path_is_set=True)
+
+
+def get_active_built_in_params() -> BuiltInParams:
+    return _active_state.built_in_params
+
+
+##
+## === ROUTING
+## a rendered message goes to the terminal and, unless the log file is `None`, to the log file.
+##
+
 _CONSOLE_STDERR = rich_Console(
     highlight=False,
     stderr=True,
@@ -30,35 +101,6 @@ _CONSOLE_STDOUT = rich_Console(
     highlight=False,
     stderr=False,
 )
-
-
-def set_params(
-    *,
-    tool_params: params.ToolParams,
-    log_file_path: Path | None,
-) -> None:
-    """Set how output behaves for the rest of the process."""
-    global _active_tool_params, _active_log_file_path
-    _active_tool_params = tool_params
-    _active_log_file_path = log_file_path
-
-
-def reset_params() -> None:
-    """Return to the defaults: actions shown, no log file."""
-    set_params(
-        tool_params=params.ToolParams(),
-        log_file_path=None,
-    )
-
-
-def get_active_tool_params() -> params.ToolParams:
-    return _active_tool_params
-
-
-##
-## === ROUTING
-## a rendered message goes to the terminal and, when a log file is set, to the log file.
-##
 
 
 def _get_time_stamp() -> str:
@@ -100,28 +142,47 @@ def _print_to_console(
 
 
 class LogFileError(Exception):
-    """The log file could not be written, so the run stops before anything else is done."""
+    """No log file path was set, or the log file could not be written, so the run stops before anything else is done."""
 
 
 def append_to_log_file(
     msg_rendered: str,
 ) -> None:
-    """Append one time-stamped line to the log file only; nothing is written in dry-run or when no log file is set."""
-    msg_plain = rich_Text.from_markup(msg_rendered).plain
-    if _active_tool_params.dry_run or (_active_log_file_path is None):
+    """
+    Append one time-stamped line to the log file only, after the invoked cmd when it is the first line of this run.
+
+    Nothing is written in dry-run or when the log file is `None`. Logging before the log file path is set raises,
+    even in dry-run, so a tool or script that forgot to set it finds out on its first message.
+    """
+    if not _active_state.log_file_path_is_set:
+        raise LogFileError(
+            "no log file path set; call `manage_log.set_log_file_path` with a path, or with `None` to log nothing.",
+        )
+    log_file_path = _active_state.log_file_path
+    if _active_state.built_in_params.dry_run or (log_file_path is None):
         return
-    msg_for_log_file = f"[{_get_time_stamp()}] {msg_plain}\n"
+    msg_plain = rich_Text.from_markup(msg_rendered).plain
+    log_lines: list[str] = []
+    if not _active_state.invoked_cmd_was_written_to_log_file:
+        invoked_cmd_parts = [Path(sys.argv[0]).name, *sys.argv[1:]]
+        invoked_cmd = shlex.join(invoked_cmd_parts)
+        msg_text = f"$ {invoked_cmd}"
+        log_lines.append(msg_text)
+    log_lines.append(msg_plain)
+    time_stamp = _get_time_stamp()
+    msg_for_log_file = "".join(f"[{time_stamp}] {_log_line}\n" for _log_line in log_lines)
     try:
-        _active_log_file_path.parent.mkdir(
+        log_file_path.parent.mkdir(
             parents=True,
             exist_ok=True,
         )
-        with open(_active_log_file_path, "a") as log_stream:
+        with open(log_file_path, "a") as log_stream:
             log_stream.write(msg_for_log_file)
     except OSError as os_error:
         raise LogFileError(
-            f"cannot write the log file `{_active_log_file_path}`: {os_error.strerror}.",
+            f"cannot write the log file `{log_file_path}`: {os_error.strerror}.",
         ) from os_error
+    _active_state.invoked_cmd_was_written_to_log_file = True
 
 
 def route_msg(
@@ -131,13 +192,13 @@ def route_msg(
     is_action: bool = False,
 ) -> None:
     """
-    Send one rendered message to each destination it belongs in: the log file when one is set, then the console.
+    Send one rendered message to each destination it belongs in: the log file unless it is `None`, then the console.
 
     The log comes first, so a message that cannot be logged is never shown as if its action went ahead. A hidden
     action is left off the console but still logged; the log file is never written in dry-run.
     """
     append_to_log_file(msg_rendered)
-    action_is_hidden = is_action and _active_tool_params.hide_actions
+    action_is_hidden = is_action and _active_state.built_in_params.hide_actions
     if not action_is_hidden:
         _print_to_console(
             msg_rendered=msg_rendered,

@@ -12,6 +12,7 @@ import io
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from collections.abc import Callable
@@ -20,7 +21,7 @@ from pathlib import Path
 from unittest import mock
 
 ## local
-from huginn import _manage_output, _message_styles, cmd_args, manage_cli, manage_log, manage_shell, params
+from huginn import _manage_output, _message_styles, cmd_args, manage_cli, manage_log, manage_shell
 
 ##
 ## === HELPERS
@@ -37,7 +38,11 @@ def setUpModule() -> None:
 
 
 def _get_log_file_path() -> Path:
-    return Path.home() / ".huginn_logs" / "tool.log"
+    return manage_log.get_home_log_file_path(tool_name="tool")
+
+
+def _set_home_log_file_path() -> None:
+    manage_log.set_log_file_path(log_file_path=_get_log_file_path())
 
 
 def _do_nothing() -> None:
@@ -378,25 +383,29 @@ class TestRunCli_Dispatch(unittest.TestCase):
     def setUp(
         self,
     ) -> None:
-        _manage_output.reset_params()
-        self.addCleanup(_manage_output.reset_params)
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
         _get_log_file_path().unlink(missing_ok=True)
+        argv_patch = mock.patch.object(sys, "argv", ["tool", "go"])
+        argv_patch.start()
+        self.addCleanup(argv_patch.stop)
+        _set_home_log_file_path()
 
-    def test_built_in_flags_set_the_active_tool_params(
+    def test_built_in_flags_set_the_active_built_in_params(
         self,
     ) -> None:
-        received: list[params.ToolParams] = []
+        received: list[_manage_output.BuiltInParams] = []
 
-        def record_tool_params() -> None:
-            received.append(_manage_output.get_active_tool_params())
+        def record_built_in_params() -> None:
+            received.append(_manage_output.get_active_built_in_params())
 
-        go_cmd = _make_go_cmd(record_tool_params)
+        go_cmd = _make_go_cmd(record_built_in_params)
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(go_cmd)])
         manage_cli.run_cli(
             command_line_tool=command_line_tool,
             argv=["--dry-run", "go"],
         )
-        self.assertEqual(received, [params.ToolParams(dry_run=True)])
+        self.assertEqual(received, [_manage_output.BuiltInParams(dry_run=True)])
 
     def test_cmd_flag_reaches_the_cmd_by_name(
         self,
@@ -444,7 +453,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         self.assertEqual(exit_context.exception.code, 3)
         self.assertEqual(stderr_buffer.getvalue(), "● error: `false` failed with exit status 3.\n")
 
-    def test_run_logs_its_header_then_its_messages(
+    def test_run_logs_its_invoked_cmd_then_its_messages(
         self,
     ) -> None:
 
@@ -462,7 +471,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         self.assertTrue(log_lines[0].endswith("] $ tool go"))
         self.assertTrue(log_lines[1].endswith("] ○ logged"))
 
-    def test_run_header_keeps_the_cmd_as_typed(
+    def test_invoked_cmd_keeps_the_cmd_as_typed(
         self,
     ) -> None:
 
@@ -470,7 +479,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
             *,
             message: str,
         ) -> None:
-            return None
+            manage_log.log_task(message)
 
         message_arg = cmd_args.PositionalArgument(
             param_name="message",
@@ -482,10 +491,12 @@ class TestRunCli_Dispatch(unittest.TestCase):
             args=[message_arg],
         )
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(go_cmd)])
-        manage_cli.run_cli(
-            command_line_tool=command_line_tool,
-            argv=["go", "fix [bold] and [/x]"],
-        )
+        argv = ["go", "fix [bold] and [/x]"]
+        with mock.patch.object(sys, "argv", ["tool", *argv]), contextlib.redirect_stderr(io.StringIO()):
+            manage_cli.run_cli(
+                command_line_tool=command_line_tool,
+                argv=argv,
+            )
         log_lines = _get_log_file_path().read_text().splitlines()
         self.assertTrue(log_lines[0].endswith("] $ tool go 'fix [bold] and [/x]'"))
 
@@ -510,6 +521,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         received: list[str] = []
 
         def record_run() -> None:
+            manage_log.log_task("starting")
             received.append("ran")
 
         temporary_home = tempfile.TemporaryDirectory()
@@ -518,6 +530,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         home_patch.start()
         self.addCleanup(home_patch.stop)
         _get_log_file_path().parent.write_text("a file where the log folder should be")
+        _set_home_log_file_path()
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(record_run))])
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
@@ -528,6 +541,30 @@ class TestRunCli_Dispatch(unittest.TestCase):
         self.assertEqual(received, [])
         self.assertEqual(exit_context.exception.code, 1)
         self.assertIn(f"cannot write the log file `{_get_log_file_path()}`", stderr_buffer.getvalue())
+
+    def test_unset_log_file_path_stops_the_run_before_the_cmd(
+        self,
+    ) -> None:
+        received: list[str] = []
+
+        def record_run() -> None:
+            manage_log.log_task("starting")
+            received.append("ran")
+
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(record_run))])
+        stderr_buffer = io.StringIO()
+        with (
+                mock.patch.object(_manage_output._active_state, "log_file_path_is_set", False),
+                contextlib.redirect_stderr(stderr_buffer),
+                self.assertRaises(SystemExit) as exit_context,
+        ):
+            manage_cli.run_cli(
+                command_line_tool=command_line_tool,
+                argv=["go"],
+            )
+        self.assertEqual(received, [])
+        self.assertEqual(exit_context.exception.code, 1)
+        self.assertIn("no log file path set", stderr_buffer.getvalue())
 
     def test_help_writes_no_log(
         self,
