@@ -15,12 +15,6 @@ from pathlib import Path
 from typing import Any, ClassVar, TypeAlias
 
 ##
-## === TYPE ALIASES
-##
-
-CommandArgument: TypeAlias = "PositionalArgument | NamedArgument | FlagArgument"
-
-##
 ## === INPUT VALUE TYPES
 ## what kind of value the user types for an arg; a tool adds its own by subclassing `InputValueTypes`.
 ##
@@ -304,5 +298,11 @@ class FlagArgument(_ArgumentWithNames):
             help=self.description,
         )
 
+
+##
+## === TYPE ALIASES
+##
+
+CommandArgument: TypeAlias = PositionalArgument | NamedArgument | FlagArgument
 
 ## } MODULE
