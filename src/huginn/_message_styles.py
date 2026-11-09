@@ -135,7 +135,7 @@ class Action(Enum):
     RUN = MessageStyle(
         colour=Colour.BLUE,
         symbol=Symbol.RIGHT_ARROW,
-        description="a cmd that changes the system; skipped in a dry run",
+        description="a cmd or fn that changes the system; skipped in a dry run",
         label="run",
     )
     QUERY = MessageStyle(

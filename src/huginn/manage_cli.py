@@ -255,7 +255,9 @@ class _CommandLineToolHelp:
         )
         self.console.print(f"[bold]{tool_name_markup}[/bold]: {tool_description_markup}")
         self.console.print()
+        cmd_help_markup = _manage_output.escape_markup(f"{self.command_line_tool.name} <command> --help")
         self.console.print(f"[dim]usage:[/dim] {tool_usage_markup}")
+        self.console.print(f"[dim]command args:[/dim] {cmd_help_markup}")
         for cmd_group in self.command_line_tool.cmd_groups:
             self.console.print()
             cmd_group_title_text = self._get_title_text(cmd_group.title)
