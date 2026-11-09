@@ -50,13 +50,14 @@ class _ActiveState:
     """
     What huginn tracks for the current run.
 
-    This covers the built-in params the user passed, the log file path set by the tool or script, and whether the
-    invoked cmd of this run was written to that log file yet.
+    This covers the built-in params the user passed, the log file path set by the tool or script, whether the
+    invoked cmd of this run was written to that log file yet, and how many actions a dry run has skipped.
     """
     built_in_params: BuiltInParams = dataclasses.field(default_factory=BuiltInParams)
     log_file_path_is_set: bool = False
     log_file_path: Path | None = None
     invoked_cmd_was_written_to_log_file: bool = False
+    num_skipped_actions: int = 0
 
 
 _active_state = _ActiveState()
@@ -86,6 +87,14 @@ def reset_active_state() -> None:
 
 def get_active_built_in_params() -> BuiltInParams:
     return _active_state.built_in_params
+
+
+def record_skipped_action() -> None:
+    _active_state.num_skipped_actions += 1
+
+
+def get_num_skipped_actions() -> int:
+    return _active_state.num_skipped_actions
 
 
 ##
@@ -120,15 +129,16 @@ def escape_markup(
 def _print_to_console(
     *,
     msg_rendered: str,
-    is_result: bool,
+    is_return: bool,
 ) -> None:
     """
-    Print to stdout for a result, or to stderr for narration.
+    Print to stdout for a return, or to stderr for narration.
 
-    A result is data for the user or a pipe, so it is never wrapped at the terminal width. Narration wraps at the
-    terminal width in a terminal, and is never wrapped elsewhere, e.g. in a job, so each message stays one line.
+    A return is what the tool hands back, for the user or a pipe, so it is never wrapped at the terminal width.
+    Narration wraps at the terminal width in a terminal, and is never wrapped elsewhere, e.g. in a job, so each
+    message stays one line.
     """
-    if is_result:
+    if is_return:
         _CONSOLE_STDOUT.print(
             msg_rendered,
             soft_wrap=True,
@@ -192,21 +202,25 @@ def append_to_log_file(
 def route_msg(
     msg_rendered: str,
     *,
-    is_result: bool = False,
+    is_return: bool = False,
     is_action: bool = False,
+    prepend_empty_line: bool = False,
 ) -> None:
     """
     Send one rendered message to each destination it belongs in: the log file unless it is `None`, then the console.
 
     The log comes first, so a message that cannot be logged is never shown as if its action went ahead. A hidden
-    action is left off the console but still logged; the log file is never written in dry-run.
+    action is left off the console but still logged; the log file is never written in dry-run. An empty line before
+    the message goes to the console only, since every line of the log file is an entry with a time stamp.
     """
     append_to_log_file(msg_rendered)
     action_is_hidden = is_action and _active_state.built_in_params.hide_actions
     if not action_is_hidden:
+        if prepend_empty_line:
+            _CONSOLE_STDERR.print()
         _print_to_console(
             msg_rendered=msg_rendered,
-            is_result=is_result,
+            is_return=is_return,
         )
 
 

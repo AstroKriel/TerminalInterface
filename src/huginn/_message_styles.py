@@ -7,6 +7,7 @@
 ## stdlib
 from dataclasses import dataclass
 from enum import Enum, StrEnum
+from typing import ClassVar
 
 ## third-party
 from rich import markup as rich_markup
@@ -39,10 +40,27 @@ class Symbol(StrEnum):
 
 @dataclass(frozen=True)
 class MessageStyle:
-    """Colour, symbol, and style legend description for one kind of message; a message with neither prints as plain text."""
+    """
+    Colour, symbol, label, and style legend description for one kind of message.
+
+    Colour is never the only signal: the symbol says which concept a message is, and where a concept has more than
+    one kind, e.g. an outcome that is a success or a failure, the label says which, so the meaning survives in the
+    log file, which has no colour. A message with no symbol and no colour prints as plain text.
+    """
+    num_label_chars: ClassVar[int] = 7
     colour: Colour | None
     symbol: Symbol | None
     description: str
+    label: str | None = None
+
+    def __post_init__(
+        self,
+    ) -> None:
+        label_is_too_long = (self.label is not None) and (len(self.label) > self.num_label_chars)
+        if label_is_too_long:
+            raise ValueError(
+                f"{type(self).__name__}: `label` must be at most {self.num_label_chars} characters, so every label lines up; got `{self.label}`.",
+            )
 
     def render(
         self,
@@ -50,23 +68,27 @@ class MessageStyle:
         text: str,
     ) -> str:
         """
-        Return the message drawn in this style, as markup: the symbol before the text, the whole message in the colour.
+        Return the message drawn in this style, as markup: the symbol, then the label and a colon, padded to one width
+        so the text lines up, then the text, the whole message in the colour.
 
         `text` is raw text and always prints exactly as written, even where it looks like markup, so a tool never
-        has to think about styling. A message that takes its symbol and colour from different styles, e.g. a change
-        skipped in dry-run, is drawn by a copy of one style with the colour of the other.
+        has to think about styling. A message that takes parts from two styles, e.g. a change skipped in dry-run, is
+        drawn by a copy of one style with the label and colour of the other.
         """
+        msg_parts: list[str] = []
+        if self.symbol is not None:
+            msg_parts.append(self.symbol)
+        if self.label is not None:
+            label_with_colon = f"{self.label}:"
+            label_padded = label_with_colon.ljust(self.num_label_chars + 1)
+            msg_parts.append(label_padded)
         text_markup = rich_markup.escape(text)
-        if self.symbol is None:
-            if self.colour is None:
-                return text_markup
-            else:
-                return f"[{self.colour}]{text_markup}[/]"
+        msg_parts.append(text_markup)
+        msg_markup = " ".join(msg_parts)
+        if self.colour is None:
+            return msg_markup
         else:
-            if self.colour is None:
-                return f"{self.symbol} {text_markup}"
-            else:
-                return f"[{self.colour}]{self.symbol} {text_markup}[/]"
+            return f"[{self.colour}]{msg_markup}[/]"
 
 
 ##
@@ -76,8 +98,8 @@ class MessageStyle:
 
 TASK_STYLE = MessageStyle(
     colour=Colour.PURPLE,
-    symbol=Symbol.OPEN_CIRCLE,
-    description="start of a task",
+    symbol=Symbol.CLOSED_CIRCLE,
+    description="a stage of the program is starting",
 )
 
 ##
@@ -87,8 +109,8 @@ TASK_STYLE = MessageStyle(
 
 NOTE_STYLE = MessageStyle(
     colour=Colour.PURPLE,
-    symbol=Symbol.HOOKED_ARROW,
-    description="note about the work",
+    symbol=Symbol.OPEN_CIRCLE,
+    description="a remark about the current task",
 )
 
 ##
@@ -99,7 +121,7 @@ NOTE_STYLE = MessageStyle(
 PROMPT_STYLE = MessageStyle(
     colour=Colour.CYAN,
     symbol=Symbol.QUESTION_MARK,
-    description="question for the user",
+    description="a request for user input",
 )
 
 ##
@@ -113,62 +135,77 @@ class Action(Enum):
     CHANGE = MessageStyle(
         colour=Colour.BLUE,
         symbol=Symbol.RIGHT_ARROW,
-        description="change to the system",
+        description="a cmd that changes the system; skipped in a dry run",
+        label="change",
     )
     INSPECTION = MessageStyle(
         colour=Colour.GREY,
         symbol=Symbol.RIGHT_ARROW,
-        description="inspection of the system",
+        description="a cmd that only reads the system; the tool uses what it finds",
+        label="inspect",
     )
 
 
 ##
 ## === OUTCOMES
-## an outcome is how a task or action ended, reported afterwards: a status, and optionally some content.
+## an outcome is how a task or action ended, reported afterwards, with a status.
 ##
 
 
 class OutcomeStatus(Enum):
     SUCCESS = MessageStyle(
         colour=Colour.GREEN,
-        symbol=Symbol.CLOSED_CIRCLE,
-        description="success",
+        symbol=Symbol.HOOKED_ARROW,
+        description="a task or action completed successfully",
+        label="success",
     )
     WARNING = MessageStyle(
         colour=Colour.YELLOW,
-        symbol=Symbol.CLOSED_CIRCLE,
-        description="warning",
+        symbol=Symbol.HOOKED_ARROW,
+        description="a task or action completed, but something needs attention",
+        label="warning",
     )
     SKIPPED = MessageStyle(
         colour=Colour.ORANGE,
-        symbol=Symbol.CLOSED_CIRCLE,
-        description="skipped",
+        symbol=Symbol.HOOKED_ARROW,
+        description="a task or action was not run; either declined or nothing to do",
+        label="skipped",
     )
     FAILURE = MessageStyle(
         colour=Colour.RED,
-        symbol=Symbol.CLOSED_CIRCLE,
-        description="failure that does not end the run",
+        symbol=Symbol.HOOKED_ARROW,
+        description="a task or action failed, but the program continues",
+        label="failure",
     )
     ERROR = MessageStyle(
         colour=Colour.RED,
-        symbol=Symbol.CLOSED_CIRCLE,
-        description="error that ends the run",
+        symbol=Symbol.HOOKED_ARROW,
+        description="a task or action failed, and the program stops",
+        label="error",
     )
 
 
-class OutcomeContent(Enum):
-    """What an outcome carries: values under it in the narration, or a result for the user or a pipe."""
-    VALUE = MessageStyle(
-        colour=Colour.GREY,
-        symbol=Symbol.MIDDLE_DOT,
-        description="value of a note or an outcome",
-    )
-    RESULT = MessageStyle(
-        colour=None,
-        symbol=None,
-        description="result, printed plain on stdout",
-    )
+##
+## === ITEMS
+## an item is a name and its value, on its own line under the note or outcome it belongs to.
+##
 
+ITEM_STYLE = MessageStyle(
+    colour=Colour.GREY,
+    symbol=Symbol.MIDDLE_DOT,
+    description="a detail giving context to a note or outcome",
+)
+
+##
+## === RETURNS
+## a return is what the tool hands back; it goes to stdout, unstyled, so a pipe gets clean text.
+##
+
+RETURN_STYLE = MessageStyle(
+    colour=None,
+    symbol=None,
+    description="what the tool returns via stdout",
+)
 
 ##
 ## === MESSAGE GROUPS
@@ -184,27 +221,32 @@ class MessageGroup:
 
 MESSAGE_GROUPS: list[MessageGroup] = [
     MessageGroup(
-        title="Tasks",
+        title="Task",
         message_styles=(TASK_STYLE, ),
     ),
     MessageGroup(
-        title="Notes",
+        title="Note",
         message_styles=(NOTE_STYLE, ),
     ),
     MessageGroup(
-        title="Prompts",
+        title="Prompt",
         message_styles=(PROMPT_STYLE, ),
     ),
     MessageGroup(
-        title="Actions",
+        title="Action",
         message_styles=tuple(_action.value for _action in Action),
     ),
     MessageGroup(
-        title="Outcomes",
-        message_styles=(
-            *[_outcome_status.value for _outcome_status in OutcomeStatus],
-            *[_outcome_content.value for _outcome_content in OutcomeContent],
-        ),
+        title="Outcome",
+        message_styles=tuple(_outcome_status.value for _outcome_status in OutcomeStatus),
+    ),
+    MessageGroup(
+        title="Item",
+        message_styles=(ITEM_STYLE, ),
+    ),
+    MessageGroup(
+        title="Return",
+        message_styles=(RETURN_STYLE, ),
     ),
 ]
 

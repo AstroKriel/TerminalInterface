@@ -17,7 +17,7 @@ A tool moves over on its own branch. The goal is identical behaviour, so every s
 7. Set the log file path in the `main` of the tool, before `run_cli`: `manage_log.set_log_file_path(log_file_path=manage_log.get_home_log_file_path(tool_name="<tool name>"))`. In every test that calls `run_cli`, set the log file path to a temporary folder, or to `None`, so the tests never write to the real log.
 8. Check: the tests of the tool pass after the mechanical rename, and the help output before and after lists the same commands, flags, and help text in the same order.
 
-Some output changes by design and is not a regression: help columns are aligned with spaces from the longest label, the style legend is generated, the flags heading reads "Flags", a command that was hidden is now listed, and printed commands are quoted where an argument contains spaces or square brackets. A tool whose copy of the layer is older than this package also gains the newer features (dry-run styles, read-only runners) as part of the move. Every tool also gains a log file at `~/.huginn_logs/<tool name>.log`, from step 7.
+Some output changes by design and is not a regression: help columns are aligned with spaces from the longest label, the style legend is generated, the flags heading reads "Built-in flags", a command that was hidden is now listed, and printed commands are quoted where an argument contains spaces or square brackets. A tool whose copy of the layer is older than this package also gains the newer features (dry-run styles, read-only runners) as part of the move. Every tool also gains a log file at `~/.huginn_logs/<tool name>.log`, from step 7.
 
 A tool that uses its own plain-text logging moves its narration onto the output functions; anything specific to its subject, such as file actions, stays in the tool and calls the command runners.
 
@@ -30,7 +30,7 @@ A tool that uses its own plain-text logging moves its narration onto the output 
 | `run_cmd_and_capture_output(config, cmd)` | `run_cmd_and_capture_output(cmd_parts=...)` | drop `config` |
 | `query_cmd(cmd, error_on_failure=...)` | `query_cmd_and_capture_output(cmd_parts=..., raise_error=...)` | `error_on_failure` becomes `raise_error` |
 | `query_cmd_result(cmd)` | `query_cmd_and_capture_outcome(cmd_parts=...)` | none beyond the rename |
-| `probe_cmd(cmd)` | `query_cmd_and_discard_output(cmd_parts=...)` | pass `cmd_parts` by keyword |
+| `probe_cmd(cmd)` | `query_cmd_and_discard_output(cmd_parts=...)` | pass `cmd_parts` by keyword; the check is now shown, so group checks under a task, e.g. `checking the repo` |
 
 ### Output function names
 
@@ -39,8 +39,8 @@ A tool that uses its own plain-text logging moves its narration onto the output 
 | `log_msg(msg)` | `log_note(text)` | none beyond the rename; the line gains the note symbol |
 | `log_step(msg)` | `log_task(text)` | none beyond the rename |
 | `log_outcome(msg)` | `log_outcome(text, status=...)` | choose a status for every call: success, warning, skipped, or failure; this is the one change that needs judgement, not a rename |
-| `bind_var(var_name=..., var_value=...)` | `values={<name>: <value>}` on the `log_note` or `log_outcome` the value belongs to | move the value onto its message |
-| `log_result(msg)` | `log_result(text)` | none |
+| `bind_var(var_name=..., var_value=...)` | `items={<name>: <value>}` on the `log_note` or `log_outcome` the item belongs to | move the item onto its message |
+| `log_result(msg)` | `log_return(text)` | rename |
 | `kill(msg)` | `exit_with_error(text)` | none beyond the rename |
 
 ---

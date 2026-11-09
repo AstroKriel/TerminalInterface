@@ -58,11 +58,13 @@ The help answers three questions, one section each: how to use the tool, what el
 
 | Section | Contents | State |
 |---|---|---|
-| When shown | on `-h` or `--help`, and when no command is given | decided |
+| When shown | on `-h` or `--help`, which exits with status 0 | decided |
+| No command given | a usage mistake, so not the help: one error outcome that points to it, ``↪ error:   no command given; run `<tool name> --help` to see the commands``, then exit status 2, the status argparse uses for a usage error | decided |
 | Tool usage | the tool name and description; the usage line, `<tool_name> [--dry-run] [--hide-actions] <command> [args]`; then one heading per cmd group title, each cmd with its description, in declaration order | decided |
-| Flags | the built-in flags, each with its description | decided |
-| Style legend | headed "Style legend"; one line per message type, generated from the message types; the label column holds the group name, plain and on the first row of its group only, then the symbol and colour name in that colour, e.g. `Actions   → blue` | decided |
+| Built-in flags | headed "Built-in flags", so they read as the flags of the tool, apart from the flags of a cmd; each with its description | decided |
+| Style legend | headed "Style legend"; one line per message type, generated from the message types, in three columns: the concept, i.e. the group name, plain and on the first row of its group only; what a line of that type starts with in the output, its symbol and label word, empty for a result; and what it means, its description. The last two are drawn in the colour of the type, which is never named, so the legend reads the same without colour, e.g. `Action   → change:   a cmd that changes the system; skipped in a dry run` | decided |
 | Indent | four spaces before every row, set by `num_indent_spaces` on the help screen | decided |
+| Edges | no empty line before the tool name or after the style legend: spacing around output belongs to the shell; empty lines only separate the sections inside the help | decided |
 | Wrapping | in a terminal, the help wraps at the terminal width; elsewhere, e.g. piped into a file, it is never wrapped, so each row stays one line | decided |
 | Separator | spaces only, never tabs, so the layout is the same width on every machine | decided |
 | Column width | computed per help screen: the longest label on the screen (command, flag, or style legend label, group name included) plus `col_separation` spaces, two by default; every section shares it, so descriptions line up across the whole screen | decided |

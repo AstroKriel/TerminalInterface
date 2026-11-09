@@ -22,7 +22,7 @@ It grew out of a terminal layer that had been copied between tools and had drift
 
 | Belongs | Does not belong |
 |---|---|
-| Printing messages, steps, outcomes, resolved values, results, and errors | Anything that knows about the subject of one tool, such as git state or package managers |
+| Printing messages, steps, outcomes, items, returns, and errors | Anything that knows about the subject of one tool, such as git state or package managers |
 | Running commands: mutating, read-only, captured, and probing | File actions such as creating symlinks or backing up files |
 | Dry-run behaviour for mutating commands | Config files of any one tool |
 | Building a subcommand interface with grouped help and global flags | |
@@ -37,11 +37,11 @@ A feature belongs here only if it is about the terminal and at least two tools n
 | Principle | Detail | State |
 |---|---|---|
 | Show every command | each command is printed in full before it runs, styled by kind: mutating, skipped in dry-run, or read-only | decided |
-| Diagnostics and results are separate | narration always goes to stderr; results meant for the user or a pipe always go to stdout | decided |
+| Narration and returns are separate | narration always goes to stderr; a return, what the tool hands back to the user or a pipe, always goes to stdout | decided |
 | Dry-run is built in | every tool gets `--dry-run`; mutating runners print the command and skip it; read-only runners still run | decided |
 | Stable names | the functions tools already call keep their names, so adopting this package is an import change plus a mechanical rename (see [`<terminal-interface>/design-plan/adopting.md`](adopting.md)) | decided |
 | One vocabulary | params: a container of options, named by what it is for, e.g. `BuiltInParams` for the values of the built-in flags in one run, or the argparse params an argument hands to `add_argument`; a tool: one command line tool, described by `CommandLineTool` | decided |
-| Cmd and message forms | a cmd starts as `cmd_parts`, e.g. `["git", "push"]`, and is shown as `cmd`, the joined `git push`; a message starts as raw text a tool or runner supplies, e.g. `(dry-run) skipped: git push`, passed as `text` to a function about one message, such as `log_task` or `MessageStyle.render`, and held as `msg_text` where it sits beside other things, such as the cmd in `_write_cmd`; a style turns it into `msg_rendered`, markup with the text escaped and the style's symbol and colour added, e.g. `[#E48500]→ (dry-run) skipped: git push[/]`; that is then printed to the terminal as is, and for the log becomes `msg_plain`, with the markup removed, then `msg_for_log_file`, with a time stamp in front; markup is the format rich reads, and only huginn produces it | decided |
+| Cmd and message forms | a cmd starts as `cmd_parts`, e.g. `["git", "push"]`, and is shown as `cmd`, the joined `git push`; a message starts as raw text a tool or runner supplies, e.g. `sim_b: it has no input file`, passed as `text` to a function about one message, such as `log_outcome` or `MessageStyle.render`, and held as `msg_text` where it is built from other things, such as an item line `<name> = <value>`; a style turns it into `msg_rendered`, markup with the text escaped and the style's symbol, label, and colour added, e.g. `[#B86B00]↪ skipped: sim_b: it has no input file[/]`; that is then printed to the terminal as is, and for the log becomes `msg_plain`, with the markup removed, then `msg_for_log_file`, with a time stamp in front; markup is the format rich reads, and only huginn produces it | decided |
 | Light to install | one third-party dependency (`rich`), so it installs on a fresh machine through `uv` alone | decided |
 
 ---
@@ -66,7 +66,7 @@ TerminalInterface/
 ├── pyproject.toml  # one dependency: rich
 ├── README.md
 ├── design-plan/  # these notes
-├── demos/  # runnable examples: every message type, a small tool, and a job-style script
+├── demos/  # runnable examples: a small tool that keeps dated backups of one file, and every message type
 ├── src/
 │   └── huginn/
 │       ├── cmd_args.py  # the args of a cmd: input value types, positional arguments, named arguments, and flags

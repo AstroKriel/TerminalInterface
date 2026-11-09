@@ -451,7 +451,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
                 argv=["go"],
             )
         self.assertEqual(exit_context.exception.code, 3)
-        self.assertEqual(stderr_buffer.getvalue(), "● error: `false` failed with exit status 3.\n")
+        self.assertEqual(stderr_buffer.getvalue(), "↪ error:   `false` failed with exit status 3.\n")
 
     def test_run_logs_its_invoked_cmd_then_its_messages(
         self,
@@ -469,7 +469,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
         log_lines = _get_log_file_path().read_text().splitlines()
         self.assertEqual(len(log_lines), 2)
         self.assertTrue(log_lines[0].endswith("] $ tool go"))
-        self.assertTrue(log_lines[1].endswith("] ○ logged"))
+        self.assertTrue(log_lines[1].endswith("] ● logged"))
 
     def test_invoked_cmd_keeps_the_cmd_as_typed(
         self,
@@ -588,8 +588,8 @@ class TestRunCli_Dispatch(unittest.TestCase):
                 command_line_tool=command_line_tool,
                 argv=["--hide-actions", "go"],
             )
-        self.assertEqual(stderr_buffer.getvalue(), "○ inspecting\n")
-        self.assertIn("→ true", _get_log_file_path().read_text())
+        self.assertEqual(stderr_buffer.getvalue(), "● inspecting\n")
+        self.assertIn("→ inspect: true", _get_log_file_path().read_text())
 
     def test_hidden_actions_still_show_dry_run_skips(
         self,
@@ -605,7 +605,45 @@ class TestRunCli_Dispatch(unittest.TestCase):
                 command_line_tool=command_line_tool,
                 argv=["--dry-run", "--hide-actions", "go"],
             )
-        self.assertEqual(stderr_buffer.getvalue(), "→ (dry-run) skipped: git push\n")
+        self.assertIn("→ skipped: git push\n", stderr_buffer.getvalue())
+
+    def test_dry_run_is_marked_at_both_ends_with_the_skipped_count(
+        self,
+    ) -> None:
+
+        def push_twice() -> None:
+            manage_shell.run_cmd_and_show_output(cmd_parts=["git", "push"])
+            manage_shell.run_cmd_and_show_output(cmd_parts=["git", "push", "--tags"])
+
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(push_twice))])
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer):
+            manage_cli.run_cli(
+                command_line_tool=command_line_tool,
+                argv=["--dry-run", "go"],
+            )
+        self.assertEqual(
+            stderr_buffer.getvalue().splitlines(),
+            [
+                "○ dry run: changes are shown, not made",
+                "→ skipped: git push",
+                "→ skipped: git push --tags",
+                "↪ skipped: dry run; nothing was changed",
+                "    · skipped actions = 2",
+            ],
+        )
+
+    def test_real_run_is_not_marked(
+        self,
+    ) -> None:
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(_make_go_cmd(_do_nothing))])
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer):
+            manage_cli.run_cli(
+                command_line_tool=command_line_tool,
+                argv=["go"],
+            )
+        self.assertEqual(stderr_buffer.getvalue(), "")
 
 
 class TestHelp_Output(unittest.TestCase):
@@ -651,16 +689,37 @@ class TestHelp_Output(unittest.TestCase):
         help_lines = _get_help(command_line_tool).splitlines()
         self.assertLess(help_lines.index("First group"), help_lines.index("Second group"))
 
-    def test_no_cmd_prints_the_help(
+    def test_no_cmd_is_an_error_that_points_to_the_help(
         self,
     ) -> None:
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
         stdout_buffer = io.StringIO()
-        with contextlib.redirect_stdout(stdout_buffer):
+        stderr_buffer = io.StringIO()
+        with (
+                contextlib.redirect_stdout(stdout_buffer),
+                contextlib.redirect_stderr(stderr_buffer),
+                self.assertRaises(SystemExit) as exit_context,
+        ):
             manage_cli.run_cli(
                 command_line_tool=self._make_syncing_command_line_tool(),
                 argv=[],
             )
-        self.assertIn("usage: tool [--dry-run] [--hide-actions] <command> [args]", stdout_buffer.getvalue())
+        self.assertEqual(exit_context.exception.code, 2)
+        self.assertEqual(stdout_buffer.getvalue(), "")
+        self.assertEqual(
+            stderr_buffer.getvalue(),
+            "↪ error:   no command given; run `tool --help` to see the commands\n",
+        )
+
+    def test_asking_for_help_exits_cleanly(
+        self,
+    ) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            manage_cli.run_cli(
+                command_line_tool=self._make_syncing_command_line_tool(),
+                argv=["--help"],
+            )
 
     def test_separates_with_spaces_only(
         self,
@@ -685,31 +744,48 @@ class TestHelp_Output(unittest.TestCase):
     ) -> None:
         help_lines = _get_help(self._make_syncing_command_line_tool()).splitlines()
         alpha_line = next(_line for _line in help_lines if "does alpha" in _line)
-        dry_run_line = next(_line for _line in help_lines if "print commands" in _line)
+        dry_run_description = manage_cli._DRY_RUN_FLAG.description
+        dry_run_line = next(_line for _line in help_lines if dry_run_description in _line)
         task_description = _message_styles.TASK_STYLE.description
         style_legend_line = next(_line for _line in help_lines if task_description in _line)
-        self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index("print commands"))
+        self.assertEqual(alpha_line.index("does alpha"), dry_run_line.index(dry_run_description))
         self.assertEqual(alpha_line.index("does alpha"), style_legend_line.index(task_description))
 
     def test_longest_label_sets_the_column(
         self,
     ) -> None:
         long_cmd = manage_cli.Command(
-            name="a-much-longer-command-name",
+            name="a-command-name-longer-than-every-style-legend-label",
             description="long one",
             fn=_do_nothing,
         )
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(long_cmd)])
-        self.assertIn("    a-much-longer-command-name  long one", _get_help(command_line_tool).splitlines())
+        self.assertIn(
+            "    a-command-name-longer-than-every-style-legend-label  long one",
+            _get_help(command_line_tool).splitlines(),
+        )
 
-    def test_style_legend_labels_a_plain_result_as_plain(
+    def test_style_legend_shows_no_symbol_for_a_return(
         self,
     ) -> None:
-        result_description = _message_styles.OutcomeContent.RESULT.value.description
+        return_description = _message_styles.RETURN_STYLE.description
         self.assertRegex(
             _get_help(_make_command_line_tool(cmd_groups=[])),
-            re.compile(rf"^ {{4}} +plain +{re.escape(result_description)}$", flags=re.MULTILINE),
+            re.compile(rf"^ {{4}}Return +{re.escape(return_description)}$", flags=re.MULTILINE),
         )
+
+    def test_style_legend_shows_the_line_start_without_colour_names(
+        self,
+    ) -> None:
+        help_text = _get_help(_make_command_line_tool(cmd_groups=[]))
+        success_description = re.escape(_message_styles.OutcomeStatus.SUCCESS.value.description)
+        self.assertRegex(
+            help_text,
+            re.compile(rf"^ {{4}}Outcome +↪ success: +{success_description}$", flags=re.MULTILINE),
+        )
+        for colour in _message_styles.Colour:
+            colour_name = colour.name.lower()
+            self.assertNotRegex(help_text, re.compile(rf"\b{colour_name}\b"))
 
     def test_style_legend_names_each_group_on_its_first_row_only(
         self,
@@ -725,9 +801,7 @@ class TestHelp_Output(unittest.TestCase):
                     group_name_pattern = re.escape(message_group.title)
                 else:
                     group_name_pattern = ""
-                style_label = "plain"
-                if (message_style.symbol is not None) and (message_style.colour is not None):
-                    style_label = f"{message_style.symbol} {message_style.colour.name.lower()}"
+                style_label = manage_cli._CommandLineToolHelp._get_style_label(message_style)
                 style_legend_pattern = (
                     rf"^ {{4}}{group_name_pattern} +{re.escape(style_label)} +{re.escape(message_style.description)}$"
                 )
@@ -741,8 +815,8 @@ class TestHelp_Output(unittest.TestCase):
         with mock.patch.object(command_line_tool_help.console, "print") as mock_print:
             command_line_tool_help.print_help()
         printed_rows = [str(_call.args[0]) for _call in mock_print.call_args_list if _call.args]
-        tasks_row = next(_row for _row in printed_rows if "Tasks" in _row)
-        self.assertTrue(tasks_row.startswith("    Tasks "))
+        task_row = next(_row for _row in printed_rows if "Task " in _row)
+        self.assertTrue(task_row.startswith("    Task "))
 
     def test_str_enum_group_titles_print_their_value(
         self,

@@ -73,16 +73,16 @@ class TestRouteMsg_Streams(unittest.TestCase):
         self.assertEqual(stdout_buffer.getvalue(), "")
         self.assertIn("narration", stderr_buffer.getvalue())
 
-    def test_results_always_go_to_stdout(
+    def test_returns_always_go_to_stdout(
         self,
     ) -> None:
         stdout_buffer = io.StringIO()
         with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(io.StringIO()):
             _manage_output.route_msg(
-                "result",
-                is_result=True,
+                "returned",
+                is_return=True,
             )
-        self.assertIn("result", stdout_buffer.getvalue())
+        self.assertIn("returned", stdout_buffer.getvalue())
 
     def test_terminal_lines_have_no_time_stamp(
         self,

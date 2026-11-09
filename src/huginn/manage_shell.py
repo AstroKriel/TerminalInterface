@@ -45,27 +45,31 @@ def _write_cmd(
     is_skipped: bool = False,
 ) -> None:
     """
-    Write a command with the symbol of its action; a command skipped in dry-run takes the colour of the skipped status.
+    Write a command with the symbol and label of its action; a command skipped in dry-run takes the label and colour
+    of the skipped status.
 
-    A skipped command is always shown, since showing it is the point of a dry run; other actions can be hidden.
+    A skipped command is always shown, since showing it is the point of a dry run; other actions can be hidden. Each
+    skipped command is counted, so the end of the run can say how many actions were skipped.
     """
     cmd = shlex.join(cmd_parts)
     if is_skipped:
+        skipped_style = _message_styles.OutcomeStatus.SKIPPED.value
         message_style = dataclasses.replace(
             action.value,
-            colour=_message_styles.OutcomeStatus.SKIPPED.value.colour,
+            colour=skipped_style.colour,
+            label=skipped_style.label,
         )
-        msg_text = f"(dry-run) skipped: {cmd}"
     else:
         message_style = action.value
-        msg_text = cmd
     msg_rendered = message_style.render(
-        text=msg_text,
+        text=cmd,
     )
     _manage_output.route_msg(
         msg_rendered,
         is_action=not is_skipped,
     )
+    if is_skipped:
+        _manage_output.record_skipped_action()
 
 
 def run_cmd_and_show_output(
@@ -208,7 +212,11 @@ def query_cmd_and_discard_output(
     cmd_parts: list[str],
     working_directory: Path | None = None,
 ) -> int:
-    """Run a read-only command silently and return its exit code, for yes/no checks; the one runner that prints nothing."""
+    """Run a read-only command and return its exit code, for yes/no checks; the command is shown, and its output is discarded."""
+    _write_cmd(
+        action=_message_styles.Action.INSPECTION,
+        cmd_parts=cmd_parts,
+    )
     result = subprocess.run(
         cmd_parts,
         capture_output=True,

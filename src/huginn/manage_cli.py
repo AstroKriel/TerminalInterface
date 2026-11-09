@@ -26,11 +26,11 @@ from huginn import _manage_output, _message_styles, cmd_args, manage_log
 
 _DRY_RUN_FLAG = cmd_args.FlagArgument(
     long_arg_name="dry-run",
-    description="print commands without executing them",
+    description="show each change without running it",
 )
 _HIDE_ACTIONS_FLAG = cmd_args.FlagArgument(
     long_arg_name="hide-actions",
-    description="do not print the commands run; the log still records them",
+    description="leave actions off the terminal; the log still records them",
 )
 _BUILT_IN_FLAGS = (_DRY_RUN_FLAG, _HIDE_ACTIONS_FLAG)
 
@@ -197,10 +197,14 @@ class _CommandLineToolHelp:
     def _get_style_label(
         message_style: _message_styles.MessageStyle,
     ) -> str:
-        """The symbol and colour name, e.g. `● green`; `plain` for a line with neither."""
-        if (message_style.symbol is None) or (message_style.colour is None):
-            return "plain"
-        return f"{message_style.symbol} {message_style.colour.name.lower()}"
+        """What a line in this style starts with in the output: the symbol, then the label and its colon if it has one, e.g. `↪ success:`; empty for a return, which has neither."""
+        if message_style.symbol is None:
+            style_label = ""
+        elif message_style.label is None:
+            style_label = message_style.symbol
+        else:
+            style_label = f"{message_style.symbol} {message_style.label}:"
+        return style_label
 
     def _print_line(
         self,
@@ -209,6 +213,7 @@ class _CommandLineToolHelp:
         label_style: str | None,
         description: str,
         label_prefix: str = "",
+        description_style: str | None = None,
     ) -> None:
         """
         Print one row of the table as a line.
@@ -224,7 +229,11 @@ class _CommandLineToolHelp:
             label_rendered = label_markup
         else:
             label_rendered = f"[{label_style}]{label_markup}[/]"
-        description_rendered = _manage_output.escape_markup(description)
+        description_markup = _manage_output.escape_markup(description)
+        if description_style is None:
+            description_rendered = description_markup
+        else:
+            description_rendered = f"[{description_style}]{description_markup}[/]"
         line_rendered = f"{indent}{label_prefix_rendered}{label_rendered}{description_padding}{description_rendered}"
         self.console.print(line_rendered)
 
@@ -239,7 +248,6 @@ class _CommandLineToolHelp:
         tool_usage_markup = _manage_output.escape_markup(
             f"{self.command_line_tool.name} {built_in_flags_text} <command> [args]",
         )
-        self.console.print()
         self.console.print(f"[bold]{tool_name_markup}[/bold]: {tool_description_markup}")
         self.console.print()
         self.console.print(f"[dim]usage:[/dim] {tool_usage_markup}")
@@ -259,7 +267,7 @@ class _CommandLineToolHelp:
         self,
     ) -> None:
         self.console.print()
-        self.console.print("[bold]Flags[/bold]")
+        self.console.print("[bold]Built-in flags[/bold]")
         for built_in_flag in _BUILT_IN_FLAGS:
             self._print_line(
                 label=self._get_flag_label(built_in_flag),
@@ -288,8 +296,8 @@ class _CommandLineToolHelp:
                     label_style=message_style.colour,
                     description=message_style.description,
                     label_prefix=group_name_prefix,
+                    description_style=message_style.colour,
                 )
-        self.console.print()
 
     def print_help(
         self,
@@ -341,16 +349,31 @@ def run_cli(
     if argv is None:
         argv = sys.argv[1:]
     parsed_args = _build_arg_parser(command_line_tool).parse_args(argv)
-    if parsed_args.help or (parsed_args.cmd is None):
+    if parsed_args.help:
         command_line_tool_help = _CommandLineToolHelp(command_line_tool)
         command_line_tool_help.print_help()
         return
+    elif parsed_args.cmd is None:
+        ## a run with no cmd is a usage mistake, so it exits with the status argparse uses for a usage error
+        manage_log.exit_with_error(
+            f"no command given; run `{command_line_tool.name} --help` to see the commands",
+            exit_code=2,
+        )
     built_in_params = _manage_output.BuiltInParams.from_parsed_args(parsed_args)
     _manage_output.set_built_in_params(built_in_params)
     cmds_by_name = {_cmd.name: _cmd for _cmd in command_line_tool.all_cmds}
     selected_cmd = cmds_by_name[parsed_args.cmd]
     try:
+        ## a cmd never sees the dry-run flag, so huginn marks the run at both ends instead
+        if built_in_params.dry_run:
+            manage_log.log_note("dry run: changes are shown, not made")
         selected_cmd.call(parsed_args=parsed_args)
+        if built_in_params.dry_run:
+            manage_log.log_outcome(
+                "dry run; nothing was changed",
+                status=manage_log.OutcomeStatus.SKIPPED,
+                items={"skipped actions": _manage_output.get_num_skipped_actions()},
+            )
     except subprocess.CalledProcessError as process_error:
         failed_cmd = shlex.join(process_error.cmd)
         manage_log.exit_with_error(

@@ -45,13 +45,19 @@ class TestLogFunctions_Output(unittest.TestCase):
     ) -> None:
         stdout_text, stderr_text = self._capture(lambda: manage_log.log_note("this rewrites history"))
         self.assertEqual(stdout_text, "")
-        self.assertEqual(stderr_text, "↪ this rewrites history\n")
+        self.assertEqual(stderr_text, "○ this rewrites history\n")
 
     def test_log_task_includes_symbol_and_text(
         self,
     ) -> None:
         _, stderr_text = self._capture(lambda: manage_log.log_task("doing something"))
-        self.assertEqual(stderr_text, "○ doing something\n")
+        self.assertEqual(stderr_text, "● doing something\n")
+
+    def test_log_task_can_prepend_an_empty_line(
+        self,
+    ) -> None:
+        _, stderr_text = self._capture(lambda: manage_log.log_task("next section", prepend_empty_line=True))
+        self.assertEqual(stderr_text, "\n● next section\n")
 
     def test_log_outcome_prints_every_status(
         self,
@@ -60,7 +66,8 @@ class TestLogFunctions_Output(unittest.TestCase):
             _, stderr_text = self._capture(
                 lambda: manage_log.log_outcome("it ended", status=outcome_status),
             )
-            self.assertEqual(stderr_text, "● it ended\n")
+            self.assertTrue(stderr_text.startswith(f"↪ {outcome_status.value.label}: "))
+            self.assertTrue(stderr_text.endswith(" it ended\n"))
 
     def test_log_outcome_requires_a_status(
         self,
@@ -68,53 +75,53 @@ class TestLogFunctions_Output(unittest.TestCase):
         with self.assertRaises(TypeError):
             manage_log.log_outcome("it ended")  # pyright: ignore[reportCallIssue]
 
-    def test_log_outcome_prints_its_values_indented_under_it(
+    def test_log_outcome_prints_its_items_indented_under_it(
         self,
     ) -> None:
         _, stderr_text = self._capture(
             lambda: manage_log.log_outcome(
                 "saved",
                 status=manage_log.OutcomeStatus.SUCCESS,
-                values={
+                items={
                     "path": "/tmp/out.json",
                     "count": 3,
                 },
             ),
         )
-        self.assertEqual(stderr_text, "● saved\n    · path = /tmp/out.json\n    · count = 3\n")
+        self.assertEqual(stderr_text, "↪ success: saved\n    · path = /tmp/out.json\n    · count = 3\n")
 
-    def test_log_note_prints_its_values_literally(
+    def test_log_note_prints_its_items_literally(
         self,
     ) -> None:
         _, stderr_text = self._capture(
             lambda: manage_log.log_note(
                 "parameters",
-                values={"pattern": "[bold]x"},
+                items={"pattern": "[bold]x"},
             ),
         )
-        self.assertEqual(stderr_text, "↪ parameters\n    · pattern = [bold]x\n")
+        self.assertEqual(stderr_text, "○ parameters\n    · pattern = [bold]x\n")
 
-    def test_log_result_writes_plain_text_to_stdout(
+    def test_log_return_writes_plain_text_to_stdout(
         self,
     ) -> None:
-        stdout_text, stderr_text = self._capture(lambda: manage_log.log_result("ahead: 2; behind: 0"))
+        stdout_text, stderr_text = self._capture(lambda: manage_log.log_return("ahead: 2; behind: 0"))
         self.assertEqual(stderr_text, "")
         self.assertEqual(stdout_text, "ahead: 2; behind: 0\n")
 
-    def test_log_result_is_never_wrapped(
+    def test_log_return_is_never_wrapped(
         self,
     ) -> None:
-        long_result = " ".join(f"word{_word_index}" for _word_index in range(40))
-        stdout_text, _ = self._capture(lambda: manage_log.log_result(long_result))
-        self.assertEqual(stdout_text, f"{long_result}\n")
+        long_return = " ".join(f"word{_word_index}" for _word_index in range(40))
+        stdout_text, _ = self._capture(lambda: manage_log.log_return(long_return))
+        self.assertEqual(stdout_text, f"{long_return}\n")
 
     def test_raw_text_prints_exactly_as_written(
         self,
     ) -> None:
-        stdout_text, _ = self._capture(lambda: manage_log.log_result("[News] title"))
+        stdout_text, _ = self._capture(lambda: manage_log.log_return("[News] title"))
         self.assertEqual(stdout_text, "[News] title\n")
         _, stderr_text = self._capture(lambda: manage_log.log_task("checking [red]pins[/]"))
-        self.assertEqual(stderr_text, "○ checking [red]pins[/]\n")
+        self.assertEqual(stderr_text, "● checking [red]pins[/]\n")
 
     def test_exit_with_error_exits_with_status_one(
         self,
@@ -123,7 +130,7 @@ class TestLogFunctions_Output(unittest.TestCase):
         with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
             manage_log.exit_with_error("broken")
         self.assertEqual(exit_context.exception.code, 1)
-        self.assertEqual(stderr_buffer.getvalue(), "● error: broken\n")
+        self.assertEqual(stderr_buffer.getvalue(), "↪ error:   broken\n")
 
 
 class TestAsk_Answers(unittest.TestCase):
@@ -190,8 +197,8 @@ class TestAsk_Answers(unittest.TestCase):
             input_value_type=cmd_args.InputValueTypes.NUMBER,
         )
         self.assertEqual(answer, 7)
-        self.assertIn("● answer must not be empty.\n", stderr_text)
-        self.assertIn("● answer must be <number>; got `many`.\n", stderr_text)
+        self.assertIn("↪ failure: answer must not be empty.\n", stderr_text)
+        self.assertIn("↪ failure: answer must be <number>; got `many`.\n", stderr_text)
         self.assertEqual(stderr_text.count("? save it again? "), 3)
 
     def test_no_answer_ends_the_run(
@@ -209,7 +216,7 @@ class TestAsk_Answers(unittest.TestCase):
             )
         self.assertEqual(exit_context.exception.code, 1)
         self.assertIn(
-            "● error: no answer to `save it again? [y/N]`: input ended.\n",
+            "↪ error:   no answer to `save it again? [y/N]`: input ended.\n",
             stderr_buffer.getvalue(),
         )
 

@@ -17,11 +17,11 @@ Every runner is named `<verb>_cmd_and_<what happens to the output>` (`cmd` is th
 | `run_cmd_and_capture_output(*, cmd_parts, working_directory=None)` | captured | raises `CalledProcessError` | printed, skipped | stdout, stripped | decided |
 | `query_cmd_and_capture_output(*, cmd_parts, working_directory=None, raise_error=True)` | captured | raises `CalledProcessError`; returns `""` with `raise_error=False` | runs | stdout, stripped | decided |
 | `query_cmd_and_capture_outcome(*, cmd_parts, working_directory=None)` | captured | never raises | runs | a `CommandOutcome`, output unstripped | decided |
-| `query_cmd_and_discard_output(*, cmd_parts, working_directory=None)` | discarded, nothing printed | never raises | runs | exit status | decided |
+| `query_cmd_and_discard_output(*, cmd_parts, working_directory=None)` | discarded; the command is still shown, like every other runner, so a yes/no check is never hidden | never raises | runs | exit status | decided |
 
 Every runner takes keyword arguments only, and every runner accepts `working_directory`. `raise_error` follows the soft error convention: a caller that wants to continue past a failure passes `raise_error=False`. State: decided.
 
-Every runner prints its command with `shlex.join(cmd)`, which quotes an argument only when it contains spaces or shell characters, so the printed text can be copied and run as is: `["git", "commit", "-m", "a message"]` prints as `git commit -m 'a message'`. `query_cmd_and_discard_output` is the one exception: it answers yes/no checks, where printing the command would be noise. State: decided.
+Every runner prints its command with `shlex.join(cmd)`, which quotes an argument only when it contains spaces or shell characters, so the printed text can be copied and run as is: `["git", "commit", "-m", "a message"]` prints as `git commit -m 'a message'`. There is no exception: `query_cmd_and_discard_output` shows its yes/no checks too, so the terminal and the log show everything that ran. A tool that makes many checks groups them under a task, e.g. `checking the repo`, so they read as one step. State: decided.
 
 The two `capture_output` runners strip surrounding whitespace, because their output is a value for code to use; `query_cmd_and_capture_outcome` keeps it as is, because a `CommandOutcome` is a record of exactly what ran. State: decided.
 

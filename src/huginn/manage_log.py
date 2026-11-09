@@ -51,15 +51,15 @@ def _render_and_route_msg(
     _manage_output.route_msg(msg_rendered)
 
 
-def _render_and_route_values(
-    values: Mapping[str, object],
+def _render_and_route_items(
+    items: Mapping[str, object],
     *,
     num_indent_spaces: int = 4,
 ) -> None:
     indent = " " * num_indent_spaces
-    for value_name, value in values.items():
-        msg_text = f"{value_name} = {value}"
-        msg_rendered = _message_styles.OutcomeContent.VALUE.value.render(text=msg_text)
+    for item_name, item_value in items.items():
+        msg_text = f"{item_name} = {item_value}"
+        msg_rendered = _message_styles.ITEM_STYLE.render(text=msg_text)
         msg_indented = f"{indent}{msg_rendered}"
         _manage_output.route_msg(msg_indented)
 
@@ -67,24 +67,27 @@ def _render_and_route_values(
 def log_note(
     text: str,
     *,
-    values: Mapping[str, object] | None = None,
+    items: Mapping[str, object] | None = None,
 ) -> None:
-    """Note something about the work that is neither a task nor an outcome, then its values, one per line."""
+    """Note something about the current task, then its items, one per line."""
     _render_and_route_msg(
         message_style=_message_styles.NOTE_STYLE,
         text=text,
     )
-    if values is not None:
-        _render_and_route_values(values)
+    if items is not None:
+        _render_and_route_items(items)
 
 
 def log_task(
     text: str,
+    *,
+    prepend_empty_line: bool = False,
 ) -> None:
-    """Announce a task that is starting."""
-    _render_and_route_msg(
-        message_style=_message_styles.TASK_STYLE,
-        text=text,
+    """Announce a task that is starting; `prepend_empty_line` puts an empty line before it, to start a new section."""
+    msg_rendered = _message_styles.TASK_STYLE.render(text=text)
+    _manage_output.route_msg(
+        msg_rendered,
+        prepend_empty_line=prepend_empty_line,
     )
 
 
@@ -92,27 +95,27 @@ def log_outcome(
     text: str,
     *,
     status: OutcomeStatus,
-    values: Mapping[str, object] | None = None,
+    items: Mapping[str, object] | None = None,
 ) -> None:
-    """Report how a task or action ended, then its values, one per line; the status sets the colour and is never assumed."""
+    """Report how a task or action ended, then its items, one per line; the status is required, never assumed."""
     _render_and_route_msg(
         message_style=status.value,
         text=text,
     )
-    if values is not None:
-        _render_and_route_values(values)
+    if items is not None:
+        _render_and_route_items(items)
 
 
-def log_result(
+def log_return(
     text: str,
 ) -> None:
-    """Print a result for the user or a pipe: plain text on stdout, with no symbol, colour, time stamp, or wrapping."""
-    msg_rendered = _message_styles.OutcomeContent.RESULT.value.render(
+    """Hand back what the tool returns: plain text on stdout, with no symbol, colour, or wrapping."""
+    msg_rendered = _message_styles.RETURN_STYLE.render(
         text=text,
     )
     _manage_output.route_msg(
         msg_rendered,
-        is_result=True,
+        is_return=True,
     )
 
 
@@ -124,7 +127,7 @@ def exit_with_error(
     """Report an error that ends the run, then exit the process with `exit_code`."""
     _render_and_route_msg(
         message_style=OutcomeStatus.ERROR.value,
-        text=f"error: {text}",
+        text=text,
     )
     sys.exit(exit_code)
 

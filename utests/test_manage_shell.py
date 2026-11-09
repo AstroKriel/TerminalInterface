@@ -56,13 +56,13 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
     ) -> None:
         self.assertEqual(
             self._print_query(["git", "commit", "-m", "a message"]),
-            "→ git commit -m 'a message'\n",
+            "→ inspect: git commit -m 'a message'\n",
         )
 
     def test_brackets_in_args_print_literally(
         self,
     ) -> None:
-        self.assertEqual(self._print_query(["ls", "[red]"]), "→ ls '[red]'\n")
+        self.assertEqual(self._print_query(["ls", "[red]"]), "→ inspect: ls '[red]'\n")
 
 
 class TestRunners_KeywordOnly(unittest.TestCase):
@@ -93,16 +93,16 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
             cmd_has_succeeded = manage_shell.run_cmd_and_show_output(cmd_parts=["git", "push"])
         mock_run.assert_not_called()
         self.assertTrue(cmd_has_succeeded)
-        self.assertEqual(stderr_buffer.getvalue(), "→ (dry-run) skipped: git push\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ skipped: git push\n")
 
-    def test_dry_run_line_uses_the_change_symbol_in_the_skipped_colour(
+    def test_dry_run_line_uses_the_change_symbol_with_the_skipped_label_and_colour(
         self,
     ) -> None:
         _turn_on_dry_run()
         with mock.patch.object(_manage_output, "route_msg") as mock_route_msg:
             manage_shell.run_cmd_and_show_output(cmd_parts=["git", "push"])
         msg_rendered = mock_route_msg.call_args.args[0]
-        self.assertEqual(msg_rendered, "[#B86B00]→ (dry-run) skipped: git push[/]")
+        self.assertEqual(msg_rendered, "[#B86B00]→ skipped: git push[/]")
 
     def test_logs_and_executes_when_not_dry_run(
         self,
@@ -113,7 +113,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
             cmd_has_succeeded = manage_shell.run_cmd_and_show_output(cmd_parts=["git", "status"])
         mock_run.assert_called_once()
         self.assertTrue(cmd_has_succeeded)
-        self.assertEqual(stderr_buffer.getvalue(), "→ git status\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ change:  git status\n")
 
     def test_failure_raises_by_default(
         self,
@@ -244,14 +244,14 @@ class TestQueryCmdAndCaptureOutcome_Outcome(unittest.TestCase):
 
 class TestQueryCmdAndDiscardOutput_Behaviour(unittest.TestCase):
 
-    def test_prints_nothing_and_returns_the_exit_code(
+    def test_shows_the_cmd_and_returns_the_exit_code(
         self,
     ) -> None:
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
             exit_code = manage_shell.query_cmd_and_discard_output(cmd_parts=["false"])
         self.assertEqual(exit_code, 1)
-        self.assertEqual(stderr_buffer.getvalue(), "")
+        self.assertEqual(stderr_buffer.getvalue(), "→ inspect: false\n")
 
     def test_passes_working_directory(
         self,
