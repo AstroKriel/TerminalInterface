@@ -58,9 +58,9 @@ def main() -> None:
 
 ```text
 $ example_tool --dry-run pull --rebase
-○ updating the working tree
-→ (dry-run) skipped: git pull --rebase
-● up to date
+● updating the working tree
+→ skipped: git pull --rebase
+↪ success: up to date
 ```
 
 Every tool and script sets its log file path before its first message: a path to log there, or `None` to log nothing. A message before that raises `LogFileError`. `get_home_log_file_path` gives `~/.huginn_logs/<tool name>.log`; a job script can instead pass a folder of its own, so parallel jobs never share one file.
@@ -69,7 +69,7 @@ Every tool and script sets its log file path before its first message: a path to
 
 ## Demos
 
-[`demos/`](demos/) has runnable examples: `gallery.py` shows every message type once, `tool.py` is a small command line tool, and `script.py` is a job-style script that logs to a folder it is given. Each one says how to run it at the top.
+[`demos/`](demos/) has two runnable examples: `demo.py` is a small command line tool that keeps dated backups of one file, `/tmp/huginn_demo/notes.txt`, so every cmd can be tried with `--dry-run` and `--hide-actions`; `gallery.py` shows every message type once. Each one says how to run it at the top.
 
 ## Design
 
