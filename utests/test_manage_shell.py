@@ -167,6 +167,51 @@ class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
         self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))
 
 
+class TestQueryCmdAndShowOutput_Behaviour(unittest.TestCase):
+
+    def setUp(
+        self,
+    ) -> None:
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
+
+    def test_shows_the_cmd_as_a_query_and_runs_it(
+        self,
+    ) -> None:
+        stderr_buffer = io.StringIO()
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
+            mock_run.return_value = mock.MagicMock(returncode=0)
+            cmd_has_succeeded = manage_shell.query_cmd_and_show_output(
+                cmd_parts=["git", "log"],
+                working_directory=Path("/tmp"),
+            )
+        self.assertTrue(cmd_has_succeeded)
+        self.assertEqual(stderr_buffer.getvalue(), "→ query:   git log\n")
+        self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))
+
+    def test_runs_even_in_dry_run(
+        self,
+    ) -> None:
+        _turn_on_dry_run()
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(io.StringIO()):
+            mock_run.return_value = mock.MagicMock(returncode=0)
+            manage_shell.query_cmd_and_show_output(cmd_parts=["git", "log"])
+        mock_run.assert_called_once()
+        self.assertEqual(_manage_output.get_num_skipped_actions(), 0)
+
+    def test_failure_raises_unless_told_not_to(
+        self,
+    ) -> None:
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
+            manage_shell.query_cmd_and_show_output(cmd_parts=["false"])
+        with contextlib.redirect_stderr(io.StringIO()):
+            cmd_has_succeeded = manage_shell.query_cmd_and_show_output(
+                cmd_parts=["false"],
+                raise_error=False,
+            )
+        self.assertFalse(cmd_has_succeeded)
+
+
 class TestQueryCmdAndCaptureOutput_Behaviour(unittest.TestCase):
 
     def test_raises_on_failure_by_default(

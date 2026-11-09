@@ -138,6 +138,34 @@ def run_cmd_and_capture_output(
     return result.stdout.strip()
 
 
+def query_cmd_and_show_output(
+    *,
+    cmd_parts: list[str],
+    working_directory: Path | None = None,
+    raise_error: bool = True,
+) -> bool:
+    """
+    Run a read-only command with its output shown live in the terminal, e.g. a log or a diff for the user to read;
+    runs even in dry-run, since it changes nothing. `True` iff it succeeded.
+
+    A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
+    """
+    _write_cmd(
+        action=_message_styles.Action.QUERY,
+        cmd_parts=cmd_parts,
+    )
+    result = subprocess.run(
+        cmd_parts,
+        cwd=working_directory,
+    )
+    if raise_error and (result.returncode != 0):
+        raise subprocess.CalledProcessError(
+            returncode=result.returncode,
+            cmd=cmd_parts,
+        )
+    return result.returncode == 0
+
+
 def query_cmd_and_capture_output(
     *,
     cmd_parts: list[str],

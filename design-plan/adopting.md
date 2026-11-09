@@ -25,7 +25,7 @@ A tool that uses its own plain-text logging moves its narration onto the output 
 
 | Earlier name | Name here | Change at the call site |
 |---|---|---|
-| `run_cmd(config, cmd)` | `run_cmd_and_show_output(cmd_parts=...)` | drop `config` |
+| `run_cmd(config, cmd)` | `run_cmd_and_show_output(cmd_parts=...)`, or `query_cmd_and_show_output(cmd_parts=...)` when the cmd only reads, e.g. `git log` or `git diff` shown to the user | drop `config`; a read-only view must be a query, or a dry run skips it |
 | `try_run_cmd(config, cmd)` | `run_cmd_and_show_output(cmd_parts=..., raise_error=False)` | drop `config`; add `raise_error=False` |
 | `run_cmd_and_capture_output(config, cmd)` | `run_cmd_and_capture_output(cmd_parts=...)` | drop `config` |
 | `query_cmd(cmd, error_on_failure=...)` | `query_cmd_and_capture_output(cmd_parts=..., raise_error=...)` | `error_on_failure` becomes `raise_error` |

@@ -15,6 +15,7 @@ Every runner is named `<verb>_cmd_and_<what happens to the output>` (`cmd` is th
 |---|---|---|---|---|---|
 | `run_cmd_and_show_output(*, cmd_parts, working_directory=None, raise_error=True)` | shown live | raises `CalledProcessError`; returns `False` with `raise_error=False` | printed, skipped, counts as success | `True` iff it succeeded | decided |
 | `run_cmd_and_capture_output(*, cmd_parts, working_directory=None)` | captured | raises `CalledProcessError` | printed, skipped | stdout, stripped | decided |
+| `query_cmd_and_show_output(*, cmd_parts, working_directory=None, raise_error=True)` | shown live, e.g. a log or a diff for the user to read | raises `CalledProcessError`; returns `False` with `raise_error=False` | runs | `True` iff it succeeded | decided |
 | `query_cmd_and_capture_output(*, cmd_parts, working_directory=None, raise_error=True)` | captured | raises `CalledProcessError`; returns `""` with `raise_error=False` | runs | stdout, stripped | decided |
 | `query_cmd_and_capture_outcome(*, cmd_parts, working_directory=None)` | captured | never raises | runs | a `CommandOutcome`, output unstripped | decided |
 | `query_cmd_and_discard_output(*, cmd_parts, working_directory=None)` | discarded; the command is still shown, like every other runner, so a yes/no check is never hidden | never raises | runs | exit status | decided |
