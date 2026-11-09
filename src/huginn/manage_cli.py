@@ -149,12 +149,13 @@ class _CommandLineToolHelp:
         self,
         command_line_tool: CommandLineTool,
         *,
-        row_indentation: int = 4,
+        num_indent_spaces: int = 4,
         col_separation: int = 2,
     ) -> None:
         self.command_line_tool = command_line_tool
-        self.row_indentation = row_indentation
+        self.num_indent_spaces = num_indent_spaces
         self.console = rich_Console(highlight=False)
+        self.console.soft_wrap = not self.console.is_terminal
         message_group_title_widths = [
             len(_message_group.title) for _message_group in _message_styles.MESSAGE_GROUPS
         ]
@@ -214,7 +215,7 @@ class _CommandLineToolHelp:
 
         `label_prefix` prints plain in front of the styled `label`, inside the same column.
         """
-        indent = self._get_spaces(self.row_indentation)
+        indent = self._get_spaces(self.num_indent_spaces)
         label_width = len(label_prefix) + len(label)
         description_padding = self._get_spaces(self.col_width - label_width)
         label_prefix_rendered = _manage_output.escape_markup(label_prefix)

@@ -34,6 +34,7 @@ class Symbol(StrEnum):
     RIGHT_ARROW = "→"
     HOOKED_ARROW = "↪"
     MIDDLE_DOT = "·"
+    QUESTION_MARK = "?"
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,17 @@ NOTE_STYLE = MessageStyle(
 )
 
 ##
+## === PROMPTS
+## a prompt is a question for the user; the answer is typed on the same line.
+##
+
+PROMPT_STYLE = MessageStyle(
+    colour=Colour.CYAN,
+    symbol=Symbol.QUESTION_MARK,
+    description="question for the user",
+)
+
+##
 ## === ACTIONS
 ## an action is something done to the system, shown before it happens.
 ##
@@ -145,11 +157,11 @@ class OutcomeStatus(Enum):
 
 
 class OutcomeContent(Enum):
-    """What an outcome carries: a value for the narration, or a result for the user or a pipe."""
+    """What an outcome carries: values under it in the narration, or a result for the user or a pipe."""
     VALUE = MessageStyle(
         colour=Colour.GREY,
         symbol=Symbol.MIDDLE_DOT,
-        description="value that an action produced",
+        description="value of a note or an outcome",
     )
     RESULT = MessageStyle(
         colour=None,
@@ -178,6 +190,10 @@ MESSAGE_GROUPS: list[MessageGroup] = [
     MessageGroup(
         title="Notes",
         message_styles=(NOTE_STYLE, ),
+    ),
+    MessageGroup(
+        title="Prompts",
+        message_styles=(PROMPT_STYLE, ),
     ),
     MessageGroup(
         title="Actions",

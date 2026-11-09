@@ -23,15 +23,16 @@ class TestStyleLegend_Groups(unittest.TestCase):
     ) -> None:
         self.assertEqual(
             [_message_group.title for _message_group in _message_styles.MESSAGE_GROUPS],
-            ["Tasks", "Notes", "Actions", "Outcomes"],
+            ["Tasks", "Notes", "Prompts", "Actions", "Outcomes"],
         )
 
     def test_every_type_status_and_content_is_in_its_group(
         self,
     ) -> None:
-        tasks_group, notes_group, actions_group, outcomes_group = _message_styles.MESSAGE_GROUPS
+        tasks_group, notes_group, prompts_group, actions_group, outcomes_group = _message_styles.MESSAGE_GROUPS
         self.assertEqual(tasks_group.message_styles, (_message_styles.TASK_STYLE, ))
         self.assertEqual(notes_group.message_styles, (_message_styles.NOTE_STYLE, ))
+        self.assertEqual(prompts_group.message_styles, (_message_styles.PROMPT_STYLE, ))
         for action in _message_styles.Action:
             self.assertIn(action.value, actions_group.message_styles)
         for outcome_status in _message_styles.OutcomeStatus:

@@ -667,6 +667,19 @@ class TestHelp_Output(unittest.TestCase):
     ) -> None:
         self.assertNotIn("\t", _get_help(self._make_syncing_command_line_tool()))
 
+    def test_help_outside_a_terminal_is_never_wrapped(
+        self,
+    ) -> None:
+        long_description = " ".join(f"word{_word_index}" for _word_index in range(40))
+        long_cmd = manage_cli.Command(
+            name="go",
+            description=long_description,
+            fn=_do_nothing,
+        )
+        command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(long_cmd)])
+        help_lines = _get_help(command_line_tool).splitlines()
+        self.assertTrue(any(_line.endswith(long_description) for _line in help_lines))
+
     def test_descriptions_share_one_column(
         self,
     ) -> None:

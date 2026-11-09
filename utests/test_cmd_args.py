@@ -201,6 +201,26 @@ class TestArgument_Checks(unittest.TestCase):
         )
         self.assertEqual(_parse_with(optional_path_arg, []).path, Path("."))
 
+    def test_yes_or_no_is_for_prompts_only(
+        self,
+    ) -> None:
+        with self.assertRaises(ValueError) as error_context:
+            cmd_args.NamedArgument(
+                long_arg_name="overwrite",
+                description="replace what is there",
+                input_value_type=cmd_args.InputValueTypes.YES_OR_NO,
+            )
+        self.assertEqual(
+            str(error_context.exception),
+            "NamedArgument: `input_value_type` must not be `YES_OR_NO`, which is for prompts; a yes or no choice on the command line is a `FlagArgument`.",
+        )
+        with self.assertRaises(ValueError):
+            cmd_args.PositionalArgument(
+                param_name="overwrite",
+                description="replace what is there",
+                input_value_type=cmd_args.InputValueTypes.YES_OR_NO,
+            )
+
     def test_long_arg_name_must_be_bare_lowercase_words(
         self,
     ) -> None:

@@ -62,7 +62,8 @@ The help answers three questions, one section each: how to use the tool, what el
 | Tool usage | the tool name and description; the usage line, `<tool_name> [--dry-run] [--hide-actions] <command> [args]`; then one heading per cmd group title, each cmd with its description, in declaration order | decided |
 | Flags | the built-in flags, each with its description | decided |
 | Style legend | headed "Style legend"; one line per message type, generated from the message types; the label column holds the group name, plain and on the first row of its group only, then the symbol and colour name in that colour, e.g. `Actions   → blue` | decided |
-| Indent | four spaces before every row, set by `row_indentation` on the help screen | decided |
+| Indent | four spaces before every row, set by `num_indent_spaces` on the help screen | decided |
+| Wrapping | in a terminal, the help wraps at the terminal width; elsewhere, e.g. piped into a file, it is never wrapped, so each row stays one line | decided |
 | Separator | spaces only, never tabs, so the layout is the same width on every machine | decided |
 | Column width | computed per help screen: the longest label on the screen (command, flag, or style legend label, group name included) plus `col_separation` spaces, two by default; every section shares it, so descriptions line up across the whole screen | decided |
 

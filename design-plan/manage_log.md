@@ -33,7 +33,8 @@ The symbol says which concept a line is (open circle: task; hooked arrow: note; 
 | outcome | status | skipped | closed circle | orange | decided |
 | outcome | status | failure that does not end the run | closed circle | red | decided |
 | outcome | status | error that ends the run | closed circle | red | decided |
-| outcome | content | value an action produced | middle dot | grey | decided |
+| outcome | content | value under a note or an outcome, one indent deeper | middle dot | grey | decided |
+| prompt | | a question for the user (see [Prompts](#prompts)) | question mark | cyan | decided |
 | outcome | content | result | none | none: plain text on stdout, never wrapped, so a pipe gets clean data | decided |
 
 An inspection exists to produce a value; a change exists to alter the system and may produce a value along the way, e.g. the path of a directory it created. In dry-run a change is skipped, so a value it would have produced is unknown: anything that depends on that value reports a skipped outcome instead of carrying on with a placeholder. State: decided.
@@ -44,18 +45,52 @@ An inspection exists to produce a value; a change exists to alter the system and
 
 ## Output Functions
 
+A tool chooses from one function per concept of the message model: task, note, outcome, result, error, and prompt.
+
 | Function | Prints | Stream | State |
 |---|---|---|---|
-| `log_note(text)` | a note about the work, neither a task nor an outcome | narration | decided |
-| `log_task(text)` | a task starting | narration | decided |
-| `log_outcome(text, *, status)` | how a task or action ended; `status` is required, never assumed | narration | decided |
-| `log_value(*, name, value)` | a value an action produced, as `name = value` | narration | decided |
+| `log_task(text)` | a task starting, from one step to the heading of a whole run | narration | decided |
+| `log_note(text, *, values=None)` | a note about the work, neither a task nor an outcome, then its values, if any | narration | decided |
+| `log_outcome(text, *, status, values=None)` | how a task or action ended, then its values, if any; `status` is required, never assumed | narration | decided |
 | `log_result(text)` | a result for the user or a pipe | stdout | decided |
 | `exit_with_error(text, *, exit_code=1)` | an error outcome, then exits with `exit_code` | narration | decided |
+| `report_failure(text, *, raise_error)` | for code that lets its caller choose: raises with `text`, or prints a failure outcome and carries on (see [`<terminal-interface>/design-plan/jormi_log.md`](jormi_log.md#library-code)) | narration | proposed |
+| `ask(text, *, input_value_type)` | a question, then returns the answer (see [Prompts](#prompts)) | narration | decided |
 
 `OutcomeStatus` is available as `manage_log.OutcomeStatus`.
 
+`values` is a mapping of names to values, each printed on its own line under the message, one indent deeper, in the value style, e.g.:
+
+```text
+● Save wavenumbers
+    · path = <output path>
+```
+
+A value always belongs to a note or an outcome, so there is no function for a value on its own; the earlier `log_value` is gone, and a caller passes the value to the note or outcome it belongs to. State: decided.
+
 Narration always goes to stderr; whoever runs the tool can merge the two streams, e.g. with `2>&1`. A tool supplies raw text and chooses the kind of message, and huginn handles the styling: `text` always prints exactly as written, so square brackets in a news title or a file name need no care. Every message is escaped in one place, `MessageStyle.render`, before its style adds the symbol and colour; text huginn prints without a style, such as the help screen, is escaped where it is printed.
+
+---
+
+## Prompts
+
+A prompt asks the user something and returns the answer. It is a message type of its own, so it has a style, shows in the style legend, and is logged like any other message. The first caller is a tool that confirms before saving and asks for a free-text tag.
+
+| Detail | Choice | State |
+|---|---|---|
+| Where | in `manage_log`, beside the output functions, so a tool imports nothing new; a prompt is a message that also reads an answer | decided |
+| One function | `ask(text, *, input_value_type) -> Any`; the answer, trimmed of surrounding spaces, is converted by `input_value_type.convert_fn`, as for a cmd arg, e.g. `cmd_args.InputValueTypes.NUMBER`, so prompts and cmd args share one set of input value types | decided |
+| Yes or no | the input value type `InputValueTypes.YES_OR_NO`; the question ends in `[y/N]`; an answer starting with `y` or `Y` is `True`, and anything else, an empty answer included, is `False`. Yes is never the default: every current caller defaults to no, and no is the safe answer when the user only presses enter | decided |
+| Bad answer | for every other input value type, an empty answer, or one that does not convert, reports a failure outcome naming the problem, e.g. ``answer must be <number>; got `many`.``, with the placeholder as help shows it, and asks again | decided |
+| Style | `PROMPT_STYLE` in `_message_styles`, a cyan `?`, in its own "Prompts" group of `MESSAGE_GROUPS`, so the style legend lists it | decided |
+| Stream | the question goes to stderr with the other narration, and the answer is typed on the same line, so stdout stays clean for results; an answer piped in is not echoed by a terminal, so huginn prints it after the question, and the output reads the same either way | decided |
+| Log | one line per prompt: the question as shown, then the answer as typed, e.g. `? save it again? [y/N] y`; a prompt that asks again logs each attempt | decided |
+| No one to answer | the answer is read from stdin, so piped input, e.g. from `yes`, still works; when stdin ends without an answer, e.g. in a job, the prompt ends the run with an error naming the question instead of waiting or guessing | decided |
+| Log file path not set | the prompt raises `LogFileError` before it asks, so no answer is typed for a run that then stops | decided |
+| Dry-run | a prompt still asks: asking changes nothing, and the answer often decides which actions a dry run shows | decided |
+| Hidden actions | a prompt is not an action, so `--hide-actions` never hides it | decided |
+
+A missing required arg is not a prompt: argparse reports it before the cmd runs, so a tool never asks for an arg at runtime.
 
 ---
 

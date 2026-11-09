@@ -49,6 +49,12 @@ def _convert_str_to_date(
         raise argparse.ArgumentTypeError(f"date must be YYYY-MM-DD; got `{text}`.") from None
 
 
+def _convert_str_to_yes_or_no(
+    text: str,
+) -> bool:
+    return text.strip().lower().startswith("y")
+
+
 class InputValueTypes:
     """
     The basic input value types every tool can use.
@@ -75,6 +81,10 @@ class InputValueTypes:
     DIR: ClassVar[InputValueType] = InputValueType(
         placeholder_name="dir",
         convert_fn=Path,
+    )
+    YES_OR_NO: ClassVar[InputValueType] = InputValueType(
+        placeholder_name="yes-or-no",
+        convert_fn=_convert_str_to_yes_or_no,
     )
 
 
@@ -154,6 +164,15 @@ class _ArgumentWithInputValue(Argument):
     input_value_type: InputValueType
     allowed_num_input_values: AllowedNumInputValues = AllowedNumInputValues.ONE
     default_value: Any = None
+
+    def __post_init__(
+        self,
+    ) -> None:
+        super().__post_init__()
+        if self.input_value_type is InputValueTypes.YES_OR_NO:
+            raise ValueError(
+                f"{type(self).__name__}: `input_value_type` must not be `YES_OR_NO`, which is for prompts; a yes or no choice on the command line is a `FlagArgument`.",
+            )
 
     def _get_argparse_params(
         self,

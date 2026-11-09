@@ -145,6 +145,13 @@ class LogFileError(Exception):
     """No log file path was set, or the log file could not be written, so the run stops before anything else is done."""
 
 
+def _check_log_file_path_is_set() -> None:
+    if not _active_state.log_file_path_is_set:
+        raise LogFileError(
+            "no log file path set; call `manage_log.set_log_file_path` with a path, or with `None` to log nothing.",
+        )
+
+
 def append_to_log_file(
     msg_rendered: str,
 ) -> None:
@@ -154,10 +161,7 @@ def append_to_log_file(
     Nothing is written in dry-run or when the log file is `None`. Logging before the log file path is set raises,
     even in dry-run, so a tool or script that forgot to set it finds out on its first message.
     """
-    if not _active_state.log_file_path_is_set:
-        raise LogFileError(
-            "no log file path set; call `manage_log.set_log_file_path` with a path, or with `None` to log nothing.",
-        )
+    _check_log_file_path_is_set()
     log_file_path = _active_state.log_file_path
     if _active_state.built_in_params.dry_run or (log_file_path is None):
         return
@@ -204,6 +208,29 @@ def route_msg(
             msg_rendered=msg_rendered,
             is_result=is_result,
         )
+
+
+def read_answer(
+    question_rendered: str,
+) -> str | None:
+    """
+    Show a question on stderr, read the answer typed on the same line, then log both as one line.
+
+    An answer piped in is not echoed by the terminal, so it is printed after the question, and the output reads the
+    same as a typed answer. Returns `None` when input ends without an answer, e.g. in a job with nothing to read.
+    """
+    _check_log_file_path_is_set()
+    try:
+        answer = _CONSOLE_STDERR.input(f"{question_rendered} ")
+    except EOFError:
+        _CONSOLE_STDERR.print()
+        return None
+    answer_markup = escape_markup(answer)
+    answer_was_echoed = sys.stdin.isatty()
+    if not answer_was_echoed:
+        _CONSOLE_STDERR.print(answer_markup)
+    append_to_log_file(f"{question_rendered} {answer_markup}")
+    return answer
 
 
 ## } MODULE
