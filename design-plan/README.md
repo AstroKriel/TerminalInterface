@@ -66,7 +66,7 @@ TerminalInterface/
 ├── pyproject.toml  # one dependency: rich
 ├── README.md
 ├── design-plan/  # these notes
-├── demos/  # runnable examples: a small tool that keeps dated backups of one file, and every message type
+├── demos/  # runnable examples: a small tool that keeps dated backups of a notes file, and every output function
 ├── src/
 │   └── huginn/
 │       ├── cmd_args.py  # the args of a cmd: input value types, positional arguments, named arguments, and flags

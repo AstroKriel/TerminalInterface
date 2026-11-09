@@ -1,16 +1,16 @@
 ## { SCRIPT
 """
-A small command line tool built on huginn: it keeps dated backups of one file, `/tmp/huginn_demo/notes.txt`.
+A small command line tool built on huginn: it keeps dated backups of a notes file in `/tmp/huginn_demo/`.
 
 Walk through it in order, and try any step with `--dry-run` or `--hide-actions` first:
-    uv run demo.py --help
-    uv run demo.py create
-    uv run demo.py backup
-    uv run demo.py create
-    uv run demo.py backup
-    uv run demo.py status
-    uv run demo.py prune --keep 1
-    uv run demo.py remove
+    uv run demo_tool.py --help
+    uv run demo_tool.py create
+    uv run demo_tool.py backup
+    uv run demo_tool.py create
+    uv run demo_tool.py backup
+    uv run demo_tool.py status
+    uv run demo_tool.py prune --keep 1
+    uv run demo_tool.py remove
 
 Every run is logged to `~/.huginn_logs/huginn_demo.log`, except dry runs. Nothing outside `/tmp/huginn_demo/` is
 touched.
@@ -115,7 +115,7 @@ def backup() -> None:
             test_flag="-f",
     ):
         manage_log.log_outcome(
-            "there is no notes file to back up; run `demo.py create` first",
+            "there is no notes file to back up; run `demo_tool.py create` first",
             status=manage_log.OutcomeStatus.SKIPPED,
         )
         return
@@ -202,7 +202,7 @@ def remove() -> None:
 
 COMMAND_LINE_TOOL = manage_cli.CommandLineTool(
     name="huginn_demo",
-    description="keep dated backups of one file, /tmp/huginn_demo/notes.txt",
+    description="a demo of a huginn tool; keeps dated backups of a notes file in /tmp/huginn_demo",
     cmd_groups=[
         manage_cli.CommandGroup(
             title="Set up and tear down",
