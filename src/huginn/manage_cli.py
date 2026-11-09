@@ -18,7 +18,12 @@ from typing import final
 from rich.console import Console as rich_Console
 
 ## local
-from huginn import _manage_output, _message_styles, cmd_args, manage_log
+from huginn import (
+    _manage_output,
+    _message_styles,
+    cmd_args,
+    manage_log,
+)
 
 ##
 ## === BUILT-IN FLAGS

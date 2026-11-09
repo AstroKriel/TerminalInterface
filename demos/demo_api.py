@@ -13,7 +13,12 @@ removed again at the end.
 ##
 
 ## local
-from huginn import _manage_output, cmd_args, manage_log, manage_shell
+from huginn import (
+    _manage_output,
+    cmd_args,
+    manage_log,
+    manage_shell,
+)
 
 ##
 ## === PROGRAM MAIN

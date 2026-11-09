@@ -12,7 +12,11 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 ## local
-from huginn import _manage_output, _message_styles, cmd_args
+from huginn import (
+    _manage_output,
+    _message_styles,
+    cmd_args,
+)
 from huginn._message_styles import OutcomeStatus as OutcomeStatus
 
 ##

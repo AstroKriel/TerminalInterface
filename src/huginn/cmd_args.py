@@ -12,7 +12,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, ClassVar, TypeAlias
+from typing import (
+    Any,
+    ClassVar,
+    TypeAlias,
+)
 
 ##
 ## === INPUT VALUE TYPES

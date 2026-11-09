@@ -25,7 +25,12 @@ import datetime
 from pathlib import Path
 
 ## local
-from huginn import cmd_args, manage_cli, manage_log, manage_shell
+from huginn import (
+    cmd_args,
+    manage_cli,
+    manage_log,
+    manage_shell,
+)
 
 ##
 ## === NOTES FILE

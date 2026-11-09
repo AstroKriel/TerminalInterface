@@ -21,7 +21,14 @@ from pathlib import Path
 from unittest import mock
 
 ## local
-from huginn import _manage_output, _message_styles, cmd_args, manage_cli, manage_log, manage_shell
+from huginn import (
+    _manage_output,
+    _message_styles,
+    cmd_args,
+    manage_cli,
+    manage_log,
+    manage_shell,
+)
 
 ##
 ## === HELPERS

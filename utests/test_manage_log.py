@@ -15,7 +15,11 @@ from typing import Any
 from unittest import mock
 
 ## local
-from huginn import _manage_output, cmd_args, manage_log
+from huginn import (
+    _manage_output,
+    cmd_args,
+    manage_log,
+)
 
 ##
 ## === TEST SUITE
