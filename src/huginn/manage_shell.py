@@ -8,6 +8,7 @@
 import dataclasses
 import shlex
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from huginn import _manage_output, _message_styles
 
 ##
 ## === COMMAND RUNNERS
-## every runner prints its command with `shlex.join` before running it, except `query_cmd_and_discard_output`.
+## every runner prints its command with `shlex.join` before running it; `run_fn` prints a description instead.
 ##
 
 _CMD_NOT_FOUND_EXIT_CODE = 127
@@ -38,20 +39,19 @@ class CommandOutcome:
         return self.exit_code == 0
 
 
-def _write_cmd(
+def _write_action(
     *,
     action: _message_styles.Action,
-    cmd_parts: list[str],
+    text: str,
     is_skipped: bool = False,
 ) -> None:
     """
-    Write a command with the symbol and label of its action; a command skipped in dry-run takes the label and colour
-    of the skipped status.
+    Write an action with its symbol and label; an action skipped in dry-run takes the label and colour of the
+    skipped status.
 
-    A skipped command is always shown, since showing it is the point of a dry run; other actions can be hidden. Each
-    skipped command is counted, so the end of the run can say how many actions were skipped.
+    A skipped action is always shown, since showing it is the point of a dry run; other actions can be hidden. Each
+    skipped action is counted, so the end of the run can say how many actions were skipped.
     """
-    cmd = shlex.join(cmd_parts)
     if is_skipped:
         skipped_style = _message_styles.OutcomeStatus.SKIPPED.value
         message_style = dataclasses.replace(
@@ -62,7 +62,7 @@ def _write_cmd(
     else:
         message_style = action.value
     msg_rendered = message_style.render(
-        text=cmd,
+        text=text,
     )
     _manage_output.route_msg(
         msg_rendered,
@@ -70,6 +70,20 @@ def _write_cmd(
     )
     if is_skipped:
         _manage_output.record_skipped_action()
+
+
+def _write_cmd(
+    *,
+    action: _message_styles.Action,
+    cmd_parts: list[str],
+    is_skipped: bool = False,
+) -> None:
+    """Write a command as an action, quoted with `shlex.join` so it can be copied back into a shell."""
+    _write_action(
+        action=action,
+        text=shlex.join(cmd_parts),
+        is_skipped=is_skipped,
+    )
 
 
 def run_cmd_and_show_output(
@@ -136,6 +150,31 @@ def run_cmd_and_capture_output(
         cwd=working_directory,
     )
     return result.stdout.strip()
+
+
+def run_fn(
+    *,
+    description: str,
+    fn: Callable[[], None],
+) -> None:
+    """
+    Make a change with a Python function instead of a shell command, e.g. writing a file; shown as a run action with
+    `description` in place of a command, and skipped and counted in dry-run like a mutating command.
+
+    An exception raised by `fn` is passed on unchanged.
+    """
+    if _manage_output.get_active_built_in_params().dry_run:
+        _write_action(
+            action=_message_styles.Action.RUN,
+            text=description,
+            is_skipped=True,
+        )
+        return
+    _write_action(
+        action=_message_styles.Action.RUN,
+        text=description,
+    )
+    fn()
 
 
 def query_cmd_and_show_output(

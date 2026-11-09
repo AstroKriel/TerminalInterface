@@ -12,6 +12,9 @@ removed again at the end.
 ## === DEPENDENCIES
 ##
 
+## stdlib
+from pathlib import Path
+
 ## local
 from huginn import (
     _manage_output,
@@ -35,12 +38,17 @@ def main() -> None:
         input_value_type=cmd_args.InputValueTypes.YES_OR_NO,
     )
     manage_log.log_task(
-        "actions: a query captures its output for the tool; a run shows its output",
+        "actions: a query reads and runs even in a dry run; a run makes a change, by a command or a function",
         prepend_empty_line=True,
     )
     manage_shell.query_cmd_and_discard_output(cmd_parts=["test", "-d", demo_dir])
     kernel_name = manage_shell.query_cmd_and_capture_output(cmd_parts=["uname", "-s"])
     manage_shell.run_cmd_and_show_output(cmd_parts=["mkdir", "-p", demo_dir])
+    notes_path = Path(demo_dir) / "notes.md"
+    manage_shell.run_fn(
+        description=f"create {notes_path}",
+        fn=notes_path.touch,
+    )
     ## a tool gets dry-run from `--dry-run`; this demo turns it on directly to show a skipped change
     _manage_output.set_built_in_params(_manage_output.BuiltInParams(dry_run=True))
     manage_shell.run_cmd_and_show_output(cmd_parts=["rm", "-r", demo_dir])

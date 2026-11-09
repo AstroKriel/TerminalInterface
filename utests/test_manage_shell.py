@@ -132,6 +132,60 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         self.assertFalse(cmd_has_succeeded)
 
 
+class TestRunFn_Behaviour(unittest.TestCase):
+
+    def setUp(
+        self,
+    ) -> None:
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
+
+    def test_dry_run_skips_the_fn_shows_the_description_and_counts_it(
+        self,
+    ) -> None:
+        _turn_on_dry_run()
+        change_fn = mock.MagicMock()
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer):
+            manage_shell.run_fn(
+                description="save notes.md",
+                fn=change_fn,
+            )
+        change_fn.assert_not_called()
+        self.assertEqual(stderr_buffer.getvalue(), "→ skipped: save notes.md\n")
+        self.assertEqual(_manage_output.get_num_skipped_actions(), 1)
+
+    def test_calls_the_fn_and_shows_the_description_when_not_dry_run(
+        self,
+    ) -> None:
+        change_fn = mock.MagicMock()
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer):
+            manage_shell.run_fn(
+                description="save notes.md",
+                fn=change_fn,
+            )
+        change_fn.assert_called_once_with()
+        self.assertEqual(stderr_buffer.getvalue(), "→ run:     save notes.md\n")
+        self.assertEqual(_manage_output.get_num_skipped_actions(), 0)
+
+    def test_an_error_from_the_fn_is_passed_on(
+        self,
+    ) -> None:
+        change_fn = mock.MagicMock(side_effect=OSError("disk full"))
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(OSError):
+            manage_shell.run_fn(
+                description="save notes.md",
+                fn=change_fn,
+            )
+
+    def test_positional_args_are_rejected(
+        self,
+    ) -> None:
+        with self.assertRaises(TypeError):
+            manage_shell.run_fn("save notes.md", lambda: None)  # pyright: ignore[reportCallIssue]
+
+
 class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
 
     def setUp(
