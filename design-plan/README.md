@@ -54,6 +54,7 @@ A feature belongs here only if it is about the terminal and at least two tools n
 | [`<terminal-interface>/design-plan/manage_shell.md`](manage_shell.md) | command runners |
 | [`<terminal-interface>/design-plan/cmd_args.md`](cmd_args.md) | the args of a cmd: input value types and how a tool extends them, positional arguments, named arguments, flags, and their checks |
 | [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md) | the tool and its cmds, the built-in flags, grouped help, and the entry point |
+| [`<terminal-interface>/design-plan/jormi_log.md`](jormi_log.md) | moving the jormi log layer onto huginn: usage, mapping, grouped messages, library code, and uncaught exceptions |
 | [`<terminal-interface>/design-plan/adopting.md`](adopting.md) | how an existing tool moves onto this package, and how it pins a version |
 
 ---
@@ -65,6 +66,7 @@ TerminalInterface/
 ├── pyproject.toml  # one dependency: rich
 ├── README.md
 ├── design-plan/  # these notes
+├── demos/  # runnable examples: every message type, a small tool, and a job-style script
 ├── src/
 │   └── huginn/
 │       ├── cmd_args.py  # the args of a cmd: input value types, positional arguments, named arguments, and flags
