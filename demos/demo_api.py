@@ -30,7 +30,7 @@ def main() -> None:
         input_value_type=cmd_args.InputValueTypes.YES_OR_NO,
     )
     manage_log.log_task(
-        "actions: inspections run and their output is captured; changes show their output",
+        "actions: a query captures its output for the tool; a run shows its output",
         prepend_empty_line=True,
     )
     manage_shell.query_cmd_and_discard_output(cmd_parts=["test", "-d", demo_dir])

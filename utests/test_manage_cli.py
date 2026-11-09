@@ -391,13 +391,13 @@ class TestRunCli_Dispatch(unittest.TestCase):
         self.addCleanup(argv_patch.stop)
         _set_home_log_file_path()
 
-    def test_built_in_flags_set_the_active_built_in_params(
+    def test_a_cmd_can_read_the_built_in_flags(
         self,
     ) -> None:
         received: list[_manage_output.BuiltInParams] = []
 
         def record_built_in_params() -> None:
-            received.append(_manage_output.get_active_built_in_params())
+            received.append(manage_cli.get_built_in_params())
 
         go_cmd = _make_go_cmd(record_built_in_params)
         command_line_tool = _make_command_line_tool(cmd_groups=[_make_cmd_group(go_cmd)])
@@ -589,7 +589,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
                 argv=["--hide-actions", "go"],
             )
         self.assertEqual(stderr_buffer.getvalue(), "● inspecting\n")
-        self.assertIn("→ inspect: true", _get_log_file_path().read_text())
+        self.assertIn("→ query:   true", _get_log_file_path().read_text())
 
     def test_hidden_actions_still_show_dry_run_skips(
         self,

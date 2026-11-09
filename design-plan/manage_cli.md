@@ -25,7 +25,7 @@ CommandLineTool
 | `CommandGroup` | cmds listed together in help under one `title`; a `str` enum title prints its value | decided |
 | Built-in params | `run_cli` builds a `BuiltInParams` from the built-in flags with `from_parsed_args` (see [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md#built-in-params)) | decided |
 | Log file | `run_cli` never sets the log file path; the tool sets it before `run_cli`, usually to `manage_log.get_home_log_file_path`. A log file path that was not set, or a log file that cannot be written, ends the run with an error (see [`<terminal-interface>/design-plan/manage_log.md`](manage_log.md)) | decided |
-| Built-in flags | every tool gets `--dry-run` and `--hide-actions`, and no other tool flags; both are off unless the user passes them. huginn reads them itself, so a cmd never receives them. A flag a cmd needs, e.g. `--allow-dirty`, is a `FlagArgument` of that cmd | decided |
+| Built-in flags | every tool gets `--dry-run` and `--hide-actions`, and no other tool flags; both are off unless the user passes them. huginn reads them itself, so a cmd function is never passed them; a tool that needs one, e.g. to skip a file it writes in Python during a dry run, reads them with `manage_cli.get_built_in_params()`. A flag a cmd needs, e.g. `--allow-dirty`, is a `FlagArgument` of that cmd | decided |
 | Failed cmd | `run_cli` reports an error outcome naming the shell cmd that failed, then exits with its exit status | decided |
 | How a cmd function is called | `fn(<param_1>=..., <param_2>=...)`, every argument of the cmd by keyword under its `param_name` (the named argument `base-ref` becomes `base_ref`) | decided |
 | Type name | `CommandLineTool`; a variable holding one is named `command_line_tool` | decided |

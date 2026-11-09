@@ -13,8 +13,8 @@ task                 a stage of the program is starting
 note                 a remark about the current task
 prompt               a request for user input, answered on the same line
 action               a cmd run on the system, shown before it runs
-├── change           a cmd that changes the system; skipped in a dry run
-└── inspection       a cmd that only reads the system; the tool uses what it finds
+├── run              a cmd that changes the system; skipped in a dry run
+└── query            a cmd that only reads the system; the tool uses what it finds
 outcome              how a task or action ended, reported afterwards
 └── status           success | warning | skipped | failure | error
 item                 a detail giving context to a note or outcome, as name = value under it
@@ -23,15 +23,15 @@ return               what the tool returns via stdout
 
 A cmd in the style legend is always a shell cmd an action runs; what a cmd of the tool hands back is a return, of the tool.
 
-Colour is never the only signal: every meaning reads from the symbol and the words alone, as it must in the log file, which has no colour; colour is an extra layer in the terminal. The symbol says which concept a line is (closed circle: task; open circle: note; question mark: prompt; right arrow: action; hooked arrow: outcome; middle dot: item; none: return). Where a concept has more than one kind, a label word and a colon after the symbol say which, padded to one width so the text lines up, e.g. `↪ success: backed up the notes file` and `↪ error:   no command given`: `change` or `inspect` for an action, and `success`, `warning`, `skipped`, `failure`, or `error` for an outcome status; the colour repeats it. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `symbol`, `description`, `label`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private `_message_styles`: `TASK_STYLE`; `NOTE_STYLE`; `PROMPT_STYLE`; `Action` (`CHANGE`, `INSPECTION`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `ITEM_STYLE`; `RETURN_STYLE`. There are no named combinations: a change skipped in dry-run is drawn by a copy of the change style with the label and colour of the skipped status, `→ skipped: <cmd>`, and the style legend lists only the building blocks. Message text does not repeat its label, e.g. `↪ skipped: there is no notes file to back up`, not `↪ skipped: skipped the backup, ...`. `MESSAGE_GROUPS` lists everything by concept, and the style legend in the help is generated from it, so it cannot drift from the output. A style draws a message itself, with `MessageStyle.render`, and the private `_manage_output` sends it to each destination it belongs in with `route_msg`. A style always colours the whole message, symbol and text together. Every colour is mid-brightness, so a message reads on both light and dark terminal themes; there is no white.
+Colour is never the only signal: every meaning reads from the symbol and the words alone, as it must in the log file, which has no colour; colour is an extra layer in the terminal. The symbol says which concept a line is (closed circle: task; open circle: note; question mark: prompt; right arrow: action; hooked arrow: outcome; middle dot: item; none: return). Where a concept has more than one kind, a label word and a colon after the symbol say which, padded to one width so the text lines up, e.g. `↪ success: backed up the notes file` and `↪ error:   no command given`: `run` or `query` for an action, the same verbs that start the names of the runners that make them (`run_cmd_...`, `query_cmd_...`), and `success`, `warning`, `skipped`, `failure`, or `error` for an outcome status; the colour repeats it. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `symbol`, `description`, `label`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private `_message_styles`: `TASK_STYLE`; `NOTE_STYLE`; `PROMPT_STYLE`; `Action` (`RUN`, `QUERY`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `ITEM_STYLE`; `RETURN_STYLE`. There are no named combinations: a run skipped in dry-run is drawn by a copy of the run style with the label and colour of the skipped status, `→ skipped: <cmd>`, and the style legend lists only the building blocks. Message text does not repeat its label, e.g. `↪ skipped: there is no notes file to back up`, not `↪ skipped: skipped the backup, ...`. `MESSAGE_GROUPS` lists everything by concept, and the style legend in the help is generated from it, so it cannot drift from the output. A style draws a message itself, with `MessageStyle.render`, and the private `_manage_output` sends it to each destination it belongs in with `route_msg`. A style always colours the whole message, symbol and text together. Every colour is mid-brightness, so a message reads on both light and dark terminal themes; there is no white.
 
 | Concept | Facet | Value | Symbol | Label | Colour | State |
 |---|---|---|---|---|---|---|
 | task | | | closed circle | | purple | decided |
 | note | | | open circle | | purple | decided |
 | prompt | | a question for the user (see [Prompts](#prompts)) | question mark | | cyan | decided |
-| action | type | change, run for its effect | right arrow | `change` | blue | decided |
-| action | type | inspection, run for its result | right arrow | `inspect` | grey | decided |
+| action | type | run: changes the system | right arrow | `run` | blue | decided |
+| action | type | query: only reads the system | right arrow | `query` | grey | decided |
 | outcome | status | success | hooked arrow | `success` | green | decided |
 | outcome | status | warning | hooked arrow | `warning` | yellow | decided |
 | outcome | status | skipped | hooked arrow | `skipped` | orange | decided |
@@ -40,7 +40,7 @@ Colour is never the only signal: every meaning reads from the symbol and the wor
 | item | | a detail giving context to a note or outcome, one indent deeper | middle dot | | grey | decided |
 | return | | what the tool returns via stdout | none | | none: plain text on stdout, never wrapped, so a pipe gets clean data | decided |
 
-An inspection exists to produce a value; a change exists to alter the system and may produce a value along the way, e.g. the path of a directory it created. In dry-run a change is skipped, so a value it would have produced is unknown, and an outcome after it may describe a change that was not made. A cmd never sees the dry-run flag, so huginn marks the whole run instead (see [Dry-run marked at both ends](#output-for-one-run)). State: decided.
+A query exists to produce a value; a run exists to change the system and may produce a value along the way, e.g. the path of a directory it created. In dry-run a run is skipped, so a value it would have produced is unknown, and an outcome after it may describe a change that was not made. huginn marks the whole dry run at both ends (see [Dry-run marked at both ends](#output-for-one-run)), and a tool that changes the system without a runner, e.g. by writing a file in Python, reads `manage_cli.get_built_in_params().dry_run` and skips the change itself. State: decided.
 
 > **Note:** a richer message layer, with titled blocks and notes, is expected to move into this package later. These message types and statuses are its first layer, not a closed set.
 
@@ -106,7 +106,7 @@ A missing required arg is not a prompt: argparse reports it before the cmd runs,
 | Base type | `BuiltInParams(dry_run: bool = False, hide_actions: bool = False)`, frozen; every flag is off unless the user passes it | decided |
 | Building from flags | `from_parsed_args` fills every field from the flag of the same name; a field with no matching flag raises `AttributeError` | decided |
 | Who builds it | `run_cli` builds it once from the parsed flags (see [`<terminal-interface>/design-plan/manage_cli.md`](manage_cli.md)) and sets it as the active built-in params | decided |
-| Who reads it | huginn only: the output reads `hide_actions` and `dry_run`, and the mutating runners in `manage_shell` read `dry_run`; a cmd function never receives it | decided |
+| Who reads it | huginn: the output reads `hide_actions` and `dry_run`, and the runs in `manage_shell` read `dry_run`. A cmd function is never passed it, but a tool can read it with `manage_cli.get_built_in_params()`, for a change huginn cannot skip itself, e.g. a file the tool writes in Python | decided |
 | What goes in it | a setting the user passes as a built-in flag and huginn itself acts on; a flag only a cmd acts on is an argument of that cmd | decided |
 
 This is the first generalisation: the existing layer carried a tool-specific flag in a type named `Config`, which also said nothing about what it configured.
@@ -130,7 +130,7 @@ The entry point sets the built-in params once per process; the tool or script se
 | Log cannot be written | the run stops with an error naming the log file and exits with status 1; a run that cannot be recorded is not done quietly | decided |
 | No action goes unlogged | a message is logged before it is shown, and an action is shown before it runs, so when the log fails, the action it belongs to never starts and is never shown as started | decided |
 | Log in dry-run | nothing is written: the log is a history of what was done to the machine, and a dry-run does nothing | decided |
-| Dry-run marked at both ends | a cmd never sees the dry-run flag, so it cannot say its outcomes did not really happen; huginn says it for every tool instead: `run_cli` starts a dry run with the note `○ dry run: changes are shown, not made` and ends it with `↪ skipped: dry run; nothing was changed` and the item `skipped actions`, the number of actions shown but not run. The outcomes of the cmd stay as the tool wrote them; huginn cannot tell which of them depended on a skipped change | decided |
+| Dry-run marked at both ends | a tool should not have to phrase every outcome for a dry run, so huginn says it for every tool instead: `run_cli` starts a dry run with the note `○ dry run: changes are shown, not made` and ends it with `↪ skipped: dry run; nothing was changed` and the item `skipped actions`, the number of actions shown but not run. The outcomes of the cmd stay as the tool wrote them; huginn cannot tell which of them depended on a skipped change | decided |
 | Log growth | the file is only ever appended to; no rotation until a log grows large enough to need it | decided |
 | Terminal time stamps | none; the log carries the times | decided |
 | Tests | tests set the log file path to a temporary folder, or to `None`, so they never write to a real log | decided |

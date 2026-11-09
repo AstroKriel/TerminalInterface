@@ -96,7 +96,7 @@ class TestMessageStyle_Render(unittest.TestCase):
     ) -> None:
         skipped_style = _message_styles.OutcomeStatus.SKIPPED.value
         skipped_change_style = dataclasses.replace(
-            _message_styles.Action.CHANGE.value,
+            _message_styles.Action.RUN.value,
             colour=skipped_style.colour,
             label=skipped_style.label,
         )

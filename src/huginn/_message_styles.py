@@ -126,23 +126,23 @@ PROMPT_STYLE = MessageStyle(
 
 ##
 ## === ACTIONS
-## an action is something done to the system, shown before it happens.
+## an action is a cmd huginn runs on the system, shown before it runs: a run changes the system, a query only reads it.
 ##
 
 
 class Action(Enum):
-    """A change is skipped in dry-run; an inspection always runs."""
-    CHANGE = MessageStyle(
+    """A run is skipped in dry-run; a query always runs, since it changes nothing."""
+    RUN = MessageStyle(
         colour=Colour.BLUE,
         symbol=Symbol.RIGHT_ARROW,
         description="a cmd that changes the system; skipped in a dry run",
-        label="change",
+        label="run",
     )
-    INSPECTION = MessageStyle(
+    QUERY = MessageStyle(
         colour=Colour.GREY,
         symbol=Symbol.RIGHT_ARROW,
         description="a cmd that only reads the system; the tool uses what it finds",
-        label="inspect",
+        label="query",
     )
 
 

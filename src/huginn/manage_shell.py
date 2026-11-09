@@ -85,13 +85,13 @@ def run_cmd_and_show_output(
     """
     if _manage_output.get_active_built_in_params().dry_run:
         _write_cmd(
-            action=_message_styles.Action.CHANGE,
+            action=_message_styles.Action.RUN,
             cmd_parts=cmd_parts,
             is_skipped=True,
         )
         return True
     _write_cmd(
-        action=_message_styles.Action.CHANGE,
+        action=_message_styles.Action.RUN,
         cmd_parts=cmd_parts,
     )
     result = subprocess.run(
@@ -119,13 +119,13 @@ def run_cmd_and_capture_output(
     """
     if _manage_output.get_active_built_in_params().dry_run:
         _write_cmd(
-            action=_message_styles.Action.CHANGE,
+            action=_message_styles.Action.RUN,
             cmd_parts=cmd_parts,
             is_skipped=True,
         )
         return ""
     _write_cmd(
-        action=_message_styles.Action.CHANGE,
+        action=_message_styles.Action.RUN,
         cmd_parts=cmd_parts,
     )
     result = subprocess.run(
@@ -150,7 +150,7 @@ def query_cmd_and_capture_output(
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _write_cmd(
-        action=_message_styles.Action.INSPECTION,
+        action=_message_styles.Action.QUERY,
         cmd_parts=cmd_parts,
     )
     result = subprocess.run(
@@ -180,7 +180,7 @@ def query_cmd_and_capture_outcome(
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _write_cmd(
-        action=_message_styles.Action.INSPECTION,
+        action=_message_styles.Action.QUERY,
         cmd_parts=cmd_parts,
     )
     try:
@@ -214,7 +214,7 @@ def query_cmd_and_discard_output(
 ) -> int:
     """Run a read-only command and return its exit code, for yes/no checks; the command is shown, and its output is discarded."""
     _write_cmd(
-        action=_message_styles.Action.INSPECTION,
+        action=_message_styles.Action.QUERY,
         cmd_parts=cmd_parts,
     )
     result = subprocess.run(

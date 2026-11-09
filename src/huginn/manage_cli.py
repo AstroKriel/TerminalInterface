@@ -340,6 +340,16 @@ def _build_arg_parser(
     return arg_parser
 
 
+def get_built_in_params() -> _manage_output.BuiltInParams:
+    """
+    The built-in flags as passed for this run, e.g. `dry_run`.
+
+    huginn acts on them itself, e.g. a run is skipped in dry-run; a tool reads them for what huginn cannot see, such
+    as a file the tool writes in Python.
+    """
+    return _manage_output.get_active_built_in_params()
+
+
 def run_cli(
     *,
     command_line_tool: CommandLineTool,
@@ -364,7 +374,7 @@ def run_cli(
     cmds_by_name = {_cmd.name: _cmd for _cmd in command_line_tool.all_cmds}
     selected_cmd = cmds_by_name[parsed_args.cmd]
     try:
-        ## a cmd never sees the dry-run flag, so huginn marks the run at both ends instead
+        ## huginn marks a dry run at both ends, so no tool has to phrase its outcomes for one
         if built_in_params.dry_run:
             manage_log.log_note("dry run: changes are shown, not made")
         selected_cmd.call(parsed_args=parsed_args)

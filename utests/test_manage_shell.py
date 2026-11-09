@@ -56,13 +56,13 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
     ) -> None:
         self.assertEqual(
             self._print_query(["git", "commit", "-m", "a message"]),
-            "→ inspect: git commit -m 'a message'\n",
+            "→ query:   git commit -m 'a message'\n",
         )
 
     def test_brackets_in_args_print_literally(
         self,
     ) -> None:
-        self.assertEqual(self._print_query(["ls", "[red]"]), "→ inspect: ls '[red]'\n")
+        self.assertEqual(self._print_query(["ls", "[red]"]), "→ query:   ls '[red]'\n")
 
 
 class TestRunners_KeywordOnly(unittest.TestCase):
@@ -113,7 +113,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
             cmd_has_succeeded = manage_shell.run_cmd_and_show_output(cmd_parts=["git", "status"])
         mock_run.assert_called_once()
         self.assertTrue(cmd_has_succeeded)
-        self.assertEqual(stderr_buffer.getvalue(), "→ change:  git status\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ run:     git status\n")
 
     def test_failure_raises_by_default(
         self,
@@ -251,7 +251,7 @@ class TestQueryCmdAndDiscardOutput_Behaviour(unittest.TestCase):
         with contextlib.redirect_stderr(stderr_buffer):
             exit_code = manage_shell.query_cmd_and_discard_output(cmd_parts=["false"])
         self.assertEqual(exit_code, 1)
-        self.assertEqual(stderr_buffer.getvalue(), "→ inspect: false\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ query:   false\n")
 
     def test_passes_working_directory(
         self,
