@@ -12,26 +12,30 @@ The model has seven concepts, each a group of the style legend, named in the sin
 task                 a stage of the program is starting
 note                 a remark about the current task
 prompt               a request for user input, answered on the same line
-action               a cmd run on the system, shown before it runs
-├── run              a cmd that changes the system; skipped in a dry run
-└── query            a cmd that only reads the system; the tool uses what it finds
+action               work done on the system, shown before it runs
+├── run-cmd          a cmd that changes the system; skipped in a dry run
+├── run-fn           the tool's own Python changes the system; not a cmd; skipped in a dry run
+└── query-cmd        a cmd that only reads the system; the tool uses what it finds
 outcome              how a task or action ended, reported afterwards
 └── status           success | warning | skipped | failure | error
 item                 a detail giving context to a note or outcome, as name = value under it
 return               what the tool returns via stdout
 ```
 
-A cmd in the style legend is always a shell cmd an action runs; what a cmd of the tool hands back is a return, of the tool.
+A cmd in the style legend is always an external program an action runs; what a cmd of the tool hands back is a return, of the tool.
 
-Colour is never the only signal: every meaning reads from the symbol and the words alone, as it must in the log file, which has no colour; colour is an extra layer in the terminal. The symbol says which concept a line is (closed circle: task; open circle: note; question mark: prompt; right arrow: action; hooked arrow: outcome; middle dot: item; none: return). Where a concept has more than one kind, a label word and a colon after the symbol say which, padded to one width so the text lines up, e.g. `↪ success: backed up the notes file` and `↪ error:   no command given`: `run` or `query` for an action, the same verbs that start the names of the runners that make them (`run_cmd_...`, `query_cmd_...`), and `success`, `warning`, `skipped`, `failure`, or `error` for an outcome status; the colour repeats it. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `symbol`, `description`, `label`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private `_message_styles`: `TASK_STYLE`; `NOTE_STYLE`; `PROMPT_STYLE`; `Action` (`RUN`, `QUERY`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `ITEM_STYLE`; `RETURN_STYLE`. There are no named combinations: a run skipped in dry-run is drawn by a copy of the run style with the label and colour of the skipped status, `→ skipped: <cmd>`, and the style legend lists only the building blocks. Message text does not repeat its label, e.g. `↪ skipped: there is no notes file to back up`, not `↪ skipped: skipped the backup, ...`. `MESSAGE_GROUPS` lists everything by concept, and the style legend in the help is generated from it, so it cannot drift from the output. A style draws a message itself, with `MessageStyle.render`, and the private `_manage_output` sends it to each destination it belongs in with `route_msg`. A style always colours the whole message, symbol and text together. Every colour is mid-brightness, so a message reads on both light and dark terminal themes; there is no white.
+An action label names two things: what the action does to the system, `run` or `query`, and what does the work, `cmd` or `fn`. A `cmd` line is the exact command that ran, so it can be pasted into a shell to repeat the step. A `fn` line is a description of work the tool did in its own Python, e.g. saving content it produced, so it never reads as a command. A plain command is preferred wherever one can do the work, e.g. `mkdir` or `cp`, so the user can repeat what the tool did by hand. There is no `query-fn` yet: no tool shows a read done in Python as an action. The scopes are `cmd` and `fn`, not `shell` and `builtin`: huginn runs commands without a shell, and "builtin" already means a shell builtin such as `cd`. State: decided.
+
+Colour is never the only signal: every meaning reads from the symbol and the words alone, as it must in the log file, which has no colour; colour is an extra layer in the terminal. The symbol says which concept a line is (closed circle: task; open circle: note; question mark: prompt; right arrow: action; hooked arrow: outcome; middle dot: item; none: return). Where a concept has more than one kind, a label word and a colon after the symbol say which, followed by one space, never padded: in the terminal and the log, padding only adds uneven gaps, while the help legend lines up its own columns, e.g. `↪ success: backed up the notes file` and `↪ error: no command given`: `run-cmd`, `run-fn`, or `query-cmd` for an action, the same words that start the names of the runners that make them (`run_cmd_...`, `run_fn`, `query_cmd_...`), and `success`, `warning`, `skipped`, `failure`, or `error` for an outcome status; the colour repeats it. The vocabulary follows the jormi log manager: `MessageStyle` (`colour`, `symbol`, `description`, `label`), `Colour`, `Symbol`, notes, and an `ERROR` status beside `FAILURE`. Each base concept has its facets as enums of `MessageStyle` in the private `_message_styles`: `TASK_STYLE`; `NOTE_STYLE`; `PROMPT_STYLE`; `Action` (`RUN_CMD`, `RUN_FN`, `QUERY_CMD`); `OutcomeStatus` (`SUCCESS`, `WARNING`, `SKIPPED`, `FAILURE`, `ERROR`); `ITEM_STYLE`; `RETURN_STYLE`. There are no named combinations: a run skipped in dry-run is drawn by a copy of the run style with the label and colour of the skipped status, `→ skipped: <cmd>`, and the style legend lists only the building blocks. Message text does not repeat its label, e.g. `↪ skipped: there is no notes file to back up`, not `↪ skipped: skipped the backup, ...`. `MESSAGE_GROUPS` lists everything by concept, and the style legend in the help is generated from it, so it cannot drift from the output. A style draws a message itself, with `MessageStyle.render`, and the private `_manage_output` sends it to each destination it belongs in with `route_msg`. A style always colours the whole message, symbol and text together. Every colour is mid-brightness, so a message reads on both light and dark terminal themes; there is no white.
 
 | Concept | Facet | Value | Symbol | Label | Colour | State |
 |---|---|---|---|---|---|---|
 | task | | | closed circle | | purple | decided |
 | note | | | open circle | | purple | decided |
 | prompt | | a question for the user (see [Prompts](#prompts)) | question mark | | cyan | decided |
-| action | type | run: changes the system | right arrow | `run` | blue | decided |
-| action | type | query: only reads the system | right arrow | `query` | grey | decided |
+| action | type | run-cmd: a cmd that changes the system | right arrow | `run-cmd` | blue | decided |
+| action | type | run-fn: the tool's own Python changes the system | right arrow | `run-fn` | blue | decided |
+| action | type | query-cmd: a cmd that only reads the system | right arrow | `query-cmd` | grey | decided |
 | outcome | status | success | hooked arrow | `success` | green | decided |
 | outcome | status | warning | hooked arrow | `warning` | yellow | decided |
 | outcome | status | skipped | hooked arrow | `skipped` | orange | decided |

@@ -134,7 +134,7 @@ class TestLogFunctions_Output(unittest.TestCase):
         with contextlib.redirect_stderr(stderr_buffer), self.assertRaises(SystemExit) as exit_context:
             manage_log.exit_with_error("broken")
         self.assertEqual(exit_context.exception.code, 1)
-        self.assertEqual(stderr_buffer.getvalue(), "↪ error:   broken\n")
+        self.assertEqual(stderr_buffer.getvalue(), "↪ error: broken\n")
 
 
 class TestAsk_Answers(unittest.TestCase):
@@ -220,7 +220,7 @@ class TestAsk_Answers(unittest.TestCase):
             )
         self.assertEqual(exit_context.exception.code, 1)
         self.assertIn(
-            "↪ error:   no answer to `save it again? [y/N]`: input ended.\n",
+            "↪ error: no answer to `save it again? [y/N]`: input ended.\n",
             stderr_buffer.getvalue(),
         )
 

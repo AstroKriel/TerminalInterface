@@ -96,29 +96,17 @@ class TestMessageStyle_Render(unittest.TestCase):
     ) -> None:
         skipped_style = _message_styles.OutcomeStatus.SKIPPED.value
         skipped_change_style = dataclasses.replace(
-            _message_styles.Action.RUN.value,
+            _message_styles.Action.RUN_CMD.value,
             colour=skipped_style.colour,
             label=skipped_style.label,
         )
         self.assertEqual(skipped_change_style.render(text="git push"), "[#B86B00]→ skipped: git push[/]")
 
-    def test_labels_pad_to_one_width(
+    def test_label_is_followed_by_one_space_without_padding(
         self,
     ) -> None:
         error_style = _message_styles.OutcomeStatus.ERROR.value
-        success_style = _message_styles.OutcomeStatus.SUCCESS.value
-        self.assertEqual(error_style.render(text="x").index("x"), success_style.render(text="x").index("x"))
-
-    def test_label_longer_than_the_width_is_rejected(
-        self,
-    ) -> None:
-        with self.assertRaises(ValueError):
-            _message_styles.MessageStyle(
-                colour=None,
-                symbol=None,
-                description="too long",
-                label="much-too-long",
-            )
+        self.assertEqual(error_style.render(text="x"), "[#FF4500]↪ error: x[/]")
 
 
 ##

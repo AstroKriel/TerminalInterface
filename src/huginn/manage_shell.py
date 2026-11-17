@@ -7,6 +7,7 @@
 ## stdlib
 import dataclasses
 import shlex
+import signal
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ from huginn import _manage_output, _message_styles
 ##
 
 _CMD_NOT_FOUND_EXIT_CODE = 127
+_STOP_TIMEOUT_SECONDS = 5
 
 
 @dataclass(frozen=True)
@@ -90,26 +92,32 @@ def run_cmd_and_show_output(
     *,
     cmd_parts: list[str],
     working_directory: Path | None = None,
+    input_text: str | None = None,
     raise_error: bool = True,
 ) -> bool:
     """
     Run a mutating command with its output shown live in the terminal; `True` iff it succeeded or was skipped in dry-run.
 
-    A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
+    `input_text` is sent to the command on its stdin, e.g. text for `xclip` to put on the clipboard; without it, the
+    command reads the terminal. The output is never captured, so a command that leaves a child running, as `xclip`
+    does to hold the clipboard, cannot hang the run. A failure raises `CalledProcessError`; with `raise_error=False`
+    it returns `False` instead.
     """
     if _manage_output.get_active_built_in_params().dry_run:
         _write_cmd(
-            action=_message_styles.Action.RUN,
+            action=_message_styles.Action.RUN_CMD,
             cmd_parts=cmd_parts,
             is_skipped=True,
         )
         return True
     _write_cmd(
-        action=_message_styles.Action.RUN,
+        action=_message_styles.Action.RUN_CMD,
         cmd_parts=cmd_parts,
     )
     result = subprocess.run(
         cmd_parts,
+        input=input_text,
+        text=True,
         cwd=working_directory,
     )
     if raise_error and (result.returncode != 0):
@@ -118,6 +126,52 @@ def run_cmd_and_show_output(
             cmd=cmd_parts,
         )
     return result.returncode == 0
+
+
+def run_cmd_in_background(
+    *,
+    cmd_parts: list[str],
+    working_directory: Path | None = None,
+) -> subprocess.Popen[bytes] | None:
+    """
+    Start a mutating command that runs until `stop_cmd_in_background`, e.g. a recorder, and return its process;
+    `None` in dry-run, where it is skipped.
+
+    Its output is discarded, since it would print over whatever the tool shows while the command runs.
+    """
+    if _manage_output.get_active_built_in_params().dry_run:
+        _write_cmd(
+            action=_message_styles.Action.RUN_CMD,
+            cmd_parts=cmd_parts,
+            is_skipped=True,
+        )
+        return None
+    _write_cmd(
+        action=_message_styles.Action.RUN_CMD,
+        cmd_parts=cmd_parts,
+    )
+    return subprocess.Popen(
+        cmd_parts,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=working_directory,
+    )
+
+
+def stop_cmd_in_background(
+    process: subprocess.Popen[bytes],
+) -> int:
+    """
+    Stop a command started by `run_cmd_in_background` with SIGINT, as Ctrl-C would, and return its exit code.
+
+    SIGINT lets the command finish cleanly, e.g. a recorder completes its file. A command still running after
+    `_STOP_TIMEOUT_SECONDS` raises `TimeoutExpired`. Nothing is printed: a signal is not a command, so the tool
+    reports how the command ended as an outcome.
+    """
+    process_is_running = process.poll() is None
+    if process_is_running:
+        process.send_signal(signal.SIGINT)
+    return process.wait(timeout=_STOP_TIMEOUT_SECONDS)
 
 
 def run_cmd_and_capture_output(
@@ -133,13 +187,13 @@ def run_cmd_and_capture_output(
     """
     if _manage_output.get_active_built_in_params().dry_run:
         _write_cmd(
-            action=_message_styles.Action.RUN,
+            action=_message_styles.Action.RUN_CMD,
             cmd_parts=cmd_parts,
             is_skipped=True,
         )
         return ""
     _write_cmd(
-        action=_message_styles.Action.RUN,
+        action=_message_styles.Action.RUN_CMD,
         cmd_parts=cmd_parts,
     )
     result = subprocess.run(
@@ -158,20 +212,21 @@ def run_fn(
     fn: Callable[[], None],
 ) -> None:
     """
-    Make a change with a Python function instead of a shell command, e.g. writing a file; shown as a run action with
-    `description` in place of a command, and skipped and counted in dry-run like a mutating command.
+    Make a change with a Python function instead of a command, e.g. writing content the tool produced; shown as a
+    `run-fn` action with `description`, so it never reads as a command, and skipped and counted in dry-run like a
+    mutating command.
 
     An exception raised by `fn` is passed on unchanged.
     """
     if _manage_output.get_active_built_in_params().dry_run:
         _write_action(
-            action=_message_styles.Action.RUN,
+            action=_message_styles.Action.RUN_FN,
             text=description,
             is_skipped=True,
         )
         return
     _write_action(
-        action=_message_styles.Action.RUN,
+        action=_message_styles.Action.RUN_FN,
         text=description,
     )
     fn()
@@ -190,7 +245,7 @@ def query_cmd_and_show_output(
     A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
     """
     _write_cmd(
-        action=_message_styles.Action.QUERY,
+        action=_message_styles.Action.QUERY_CMD,
         cmd_parts=cmd_parts,
     )
     result = subprocess.run(
@@ -217,7 +272,7 @@ def query_cmd_and_capture_output(
     A non-zero exit raises `CalledProcessError`; with `raise_error=False` it returns an empty string instead.
     """
     _write_cmd(
-        action=_message_styles.Action.QUERY,
+        action=_message_styles.Action.QUERY_CMD,
         cmd_parts=cmd_parts,
     )
     result = subprocess.run(
@@ -247,7 +302,7 @@ def query_cmd_and_capture_outcome(
     A program that is not installed is reported as exit status 127, the shell code for command not found.
     """
     _write_cmd(
-        action=_message_styles.Action.QUERY,
+        action=_message_styles.Action.QUERY_CMD,
         cmd_parts=cmd_parts,
     )
     try:
@@ -281,7 +336,7 @@ def query_cmd_and_discard_output(
 ) -> int:
     """Run a read-only command and return its exit code, for yes/no checks; the command is shown, and its output is discarded."""
     _write_cmd(
-        action=_message_styles.Action.QUERY,
+        action=_message_styles.Action.QUERY_CMD,
         cmd_parts=cmd_parts,
     )
     result = subprocess.run(

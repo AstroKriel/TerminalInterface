@@ -90,14 +90,14 @@ Each meaning keeps one look wherever it comes from:
 | Path | Terminal | Log file |
 |---|---|---|
 | `raise_error=False` | a failure outcome: `↪ failure: <text>`, in red | the same line |
-| raised, and nothing catches it | an error outcome, `↪ error:   <text>`, the same as `exit_with_error`, then the traceback | the same error line, then the traceback (see [Uncaught Exceptions](#uncaught-exceptions)) |
+| raised, and nothing catches it | an error outcome, `↪ error: <text>`, the same as `exit_with_error`, then the traceback | the same error line, then the traceback (see [Uncaught Exceptions](#uncaught-exceptions)) |
 | raised, and the caller catches it | whatever the caller reports | the same |
 
 ---
 
 ## Uncaught Exceptions
 
-An exception that nothing catches ends the run with a traceback on stderr, and the log file stops at the message before it. huginn installs a hook (`sys.excepthook`) that reports it as an error outcome, `↪ error:   <exception message>`, in the same style as `exit_with_error`, then prints the traceback. The log file gets the error line, then each line of the traceback, indented under it and time-stamped like every other line, so the log keeps why each run crashed even after the piped output of that run is gone. The hook is installed when the log file path is set, so a tool and a script get it the same way. State: proposed.
+An exception that nothing catches ends the run with a traceback on stderr, and the log file stops at the message before it. huginn installs a hook (`sys.excepthook`) that reports it as an error outcome, `↪ error: <exception message>`, in the same style as `exit_with_error`, then prints the traceback. The log file gets the error line, then each line of the traceback, indented under it and time-stamped like every other line, so the log keeps why each run crashed even after the piped output of that run is gone. The hook is installed when the log file path is set, so a tool and a script get it the same way. State: proposed.
 
 ---
 

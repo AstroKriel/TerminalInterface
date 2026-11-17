@@ -13,12 +13,19 @@ Every runner is named `<verb>_cmd_and_<what happens to the output>` (`cmd` is th
 
 | Function | Output | On failure | In dry-run | Returns | State |
 |---|---|---|---|---|---|
-| `run_cmd_and_show_output(*, cmd_parts, working_directory=None, raise_error=True)` | shown live | raises `CalledProcessError`; returns `False` with `raise_error=False` | printed, skipped, counts as success | `True` iff it succeeded | decided |
+| `run_cmd_and_show_output(*, cmd_parts, working_directory=None, input_text=None, raise_error=True)` | shown live; `input_text`, if given, is sent on stdin | raises `CalledProcessError`; returns `False` with `raise_error=False` | printed, skipped, counts as success | `True` iff it succeeded | decided |
+| `run_cmd_in_background(*, cmd_parts, working_directory=None)` | discarded, so it cannot print over the tool while it runs | a missing program raises `FileNotFoundError` | printed, skipped | the process, or `None` in dry-run | decided |
 | `run_cmd_and_capture_output(*, cmd_parts, working_directory=None)` | captured | raises `CalledProcessError` | printed, skipped | stdout, stripped | decided |
 | `query_cmd_and_show_output(*, cmd_parts, working_directory=None, raise_error=True)` | shown live, e.g. a log or a diff for the user to read | raises `CalledProcessError`; returns `False` with `raise_error=False` | runs | `True` iff it succeeded | decided |
 | `query_cmd_and_capture_output(*, cmd_parts, working_directory=None, raise_error=True)` | captured | raises `CalledProcessError`; returns `""` with `raise_error=False` | runs | stdout, stripped | decided |
 | `query_cmd_and_capture_outcome(*, cmd_parts, working_directory=None)` | captured | never raises | runs | a `CommandOutcome`, output unstripped | decided |
 | `query_cmd_and_discard_output(*, cmd_parts, working_directory=None)` | discarded; the command is still shown, like every other runner, so a yes/no check is never hidden | never raises | runs | exit status | decided |
+
+A command that runs until it is stopped, e.g. a recorder, is started with `run_cmd_in_background` and ended with `stop_cmd_in_background(process)`, which sends SIGINT, as Ctrl-C would, so the command can finish cleanly, then waits up to five seconds and returns the exit code. The stop prints nothing: a signal is not a command, so the tool reports how the command ended as an outcome. State: decided.
+
+`input_text` exists for commands that read what they act on from stdin, e.g. `xclip -selection clipboard`. The printed line is still the exact command; the text it received is whatever the tool has just shown, e.g. a transcript. `run_cmd_and_show_output` never captures output, which matters here: `xclip` leaves a child running to hold the clipboard, and a runner that captured output would wait on it forever. State: decided.
+
+`run_fn(*, description, fn)` makes a change with the tool's own Python, e.g. saving content the tool produced, where no command can do the work honestly. It prints `→ run-fn: <description>`, never `run-cmd`, so a description is never mistaken for a command that can be pasted; it is skipped and counted in dry-run like a run. State: decided.
 
 Every runner takes keyword arguments only, and every runner accepts `working_directory`. `raise_error` follows the soft error convention: a caller that wants to continue past a failure passes `raise_error=False`. State: decided.
 

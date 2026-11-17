@@ -7,7 +7,6 @@
 ## stdlib
 from dataclasses import dataclass
 from enum import Enum, StrEnum
-from typing import ClassVar
 
 ## third-party
 from rich import markup as rich_markup
@@ -47,20 +46,10 @@ class MessageStyle:
     one kind, e.g. an outcome that is a success or a failure, the label says which, so the meaning survives in the
     log file, which has no colour. A message with no symbol and no colour prints as plain text.
     """
-    num_label_chars: ClassVar[int] = 7
     colour: Colour | None
     symbol: Symbol | None
     description: str
     label: str | None = None
-
-    def __post_init__(
-        self,
-    ) -> None:
-        label_is_too_long = (self.label is not None) and (len(self.label) > self.num_label_chars)
-        if label_is_too_long:
-            raise ValueError(
-                f"{type(self).__name__}: `label` must be at most {self.num_label_chars} characters, so every label lines up; got `{self.label}`.",
-            )
 
     def render(
         self,
@@ -68,8 +57,8 @@ class MessageStyle:
         text: str,
     ) -> str:
         """
-        Return the message drawn in this style, as markup: the symbol, then the label and a colon, padded to one width
-        so the text lines up, then the text, the whole message in the colour.
+        Return the message drawn in this style, as markup: the symbol, then the label and a colon, then the text, each
+        separated by one space, the whole message in the colour.
 
         `text` is raw text and always prints exactly as written, even where it looks like markup, so a tool never
         has to think about styling. A message that takes parts from two styles, e.g. a change skipped in dry-run, is
@@ -80,8 +69,7 @@ class MessageStyle:
             msg_parts.append(self.symbol)
         if self.label is not None:
             label_with_colon = f"{self.label}:"
-            label_padded = label_with_colon.ljust(self.num_label_chars + 1)
-            msg_parts.append(label_padded)
+            msg_parts.append(label_with_colon)
         text_markup = rich_markup.escape(text)
         msg_parts.append(text_markup)
         msg_markup = " ".join(msg_parts)
@@ -126,23 +114,30 @@ PROMPT_STYLE = MessageStyle(
 
 ##
 ## === ACTIONS
-## an action is a cmd huginn runs on the system, shown before it runs: a run changes the system, a query only reads it.
+## an action is work huginn does on the system, shown before it runs: a run changes the system, a query only reads it.
+## a cmd is an external program, printed exactly as it runs; a fn is the tool's own Python, printed as a description.
 ##
 
 
 class Action(Enum):
     """A run is skipped in dry-run; a query always runs, since it changes nothing."""
-    RUN = MessageStyle(
+    RUN_CMD = MessageStyle(
         colour=Colour.BLUE,
         symbol=Symbol.RIGHT_ARROW,
-        description="a cmd or fn that changes the system; skipped in a dry run",
-        label="run",
+        description="a cmd that changes the system; skipped in a dry run",
+        label="run-cmd",
     )
-    QUERY = MessageStyle(
+    RUN_FN = MessageStyle(
+        colour=Colour.BLUE,
+        symbol=Symbol.RIGHT_ARROW,
+        description="the tool's own Python changes the system; not a cmd; skipped in a dry run",
+        label="run-fn",
+    )
+    QUERY_CMD = MessageStyle(
         colour=Colour.GREY,
         symbol=Symbol.RIGHT_ARROW,
         description="a cmd that only reads the system; the tool uses what it finds",
-        label="query",
+        label="query-cmd",
     )
 
 

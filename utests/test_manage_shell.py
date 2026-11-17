@@ -7,6 +7,7 @@
 ## stdlib
 import contextlib
 import io
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -56,13 +57,13 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
     ) -> None:
         self.assertEqual(
             self._print_query(["git", "commit", "-m", "a message"]),
-            "→ query:   git commit -m 'a message'\n",
+            "→ query-cmd: git commit -m 'a message'\n",
         )
 
     def test_brackets_in_args_print_literally(
         self,
     ) -> None:
-        self.assertEqual(self._print_query(["ls", "[red]"]), "→ query:   ls '[red]'\n")
+        self.assertEqual(self._print_query(["ls", "[red]"]), "→ query-cmd: ls '[red]'\n")
 
 
 class TestRunners_KeywordOnly(unittest.TestCase):
@@ -113,7 +114,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
             cmd_has_succeeded = manage_shell.run_cmd_and_show_output(cmd_parts=["git", "status"])
         mock_run.assert_called_once()
         self.assertTrue(cmd_has_succeeded)
-        self.assertEqual(stderr_buffer.getvalue(), "→ run:     git status\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ run-cmd: git status\n")
 
     def test_failure_raises_by_default(
         self,
@@ -130,6 +131,59 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
                 raise_error=False,
             )
         self.assertFalse(cmd_has_succeeded)
+
+    def test_input_text_is_sent_to_the_cmd_on_stdin(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "out.txt"
+            with contextlib.redirect_stderr(io.StringIO()):
+                manage_shell.run_cmd_and_show_output(
+                    cmd_parts=["tee", str(output_path)],
+                    input_text="hello",
+                )
+            self.assertEqual(output_path.read_text(), "hello")
+
+
+class TestRunCmdInBackground_Behaviour(unittest.TestCase):
+
+    def setUp(
+        self,
+    ) -> None:
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
+
+    def test_dry_run_skips_and_returns_none(
+        self,
+    ) -> None:
+        _turn_on_dry_run()
+        stderr_buffer = io.StringIO()
+        with mock.patch("subprocess.Popen") as mock_popen, contextlib.redirect_stderr(stderr_buffer):
+            process = manage_shell.run_cmd_in_background(cmd_parts=["sleep", "30"])
+        mock_popen.assert_not_called()
+        self.assertIsNone(process)
+        self.assertEqual(stderr_buffer.getvalue(), "→ skipped: sleep 30\n")
+        self.assertEqual(_manage_output.get_num_skipped_actions(), 1)
+
+    def test_shows_the_cmd_and_stops_it_with_sigint(
+        self,
+    ) -> None:
+        stderr_buffer = io.StringIO()
+        with contextlib.redirect_stderr(stderr_buffer):
+            process = manage_shell.run_cmd_in_background(cmd_parts=["sleep", "30"])
+        assert process is not None
+        exit_code = manage_shell.stop_cmd_in_background(process)
+        self.assertEqual(stderr_buffer.getvalue(), "→ run-cmd: sleep 30\n")
+        self.assertEqual(exit_code, -signal.SIGINT)
+
+    def test_stopping_a_cmd_that_already_ended_returns_its_exit_code(
+        self,
+    ) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            process = manage_shell.run_cmd_in_background(cmd_parts=["false"])
+        assert process is not None
+        process.wait()
+        self.assertEqual(manage_shell.stop_cmd_in_background(process), 1)
 
 
 class TestRunFn_Behaviour(unittest.TestCase):
@@ -166,7 +220,7 @@ class TestRunFn_Behaviour(unittest.TestCase):
                 fn=change_fn,
             )
         change_fn.assert_called_once_with()
-        self.assertEqual(stderr_buffer.getvalue(), "→ run:     save notes.md\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ run-fn: save notes.md\n")
         self.assertEqual(_manage_output.get_num_skipped_actions(), 0)
 
     def test_an_error_from_the_fn_is_passed_on(
@@ -240,7 +294,7 @@ class TestQueryCmdAndShowOutput_Behaviour(unittest.TestCase):
                 working_directory=Path("/tmp"),
             )
         self.assertTrue(cmd_has_succeeded)
-        self.assertEqual(stderr_buffer.getvalue(), "→ query:   git log\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ query-cmd: git log\n")
         self.assertEqual(mock_run.call_args.kwargs["cwd"], Path("/tmp"))
 
     def test_runs_even_in_dry_run(
@@ -350,7 +404,7 @@ class TestQueryCmdAndDiscardOutput_Behaviour(unittest.TestCase):
         with contextlib.redirect_stderr(stderr_buffer):
             exit_code = manage_shell.query_cmd_and_discard_output(cmd_parts=["false"])
         self.assertEqual(exit_code, 1)
-        self.assertEqual(stderr_buffer.getvalue(), "→ query:   false\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ query-cmd: false\n")
 
     def test_passes_working_directory(
         self,

@@ -458,7 +458,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
                 argv=["go"],
             )
         self.assertEqual(exit_context.exception.code, 3)
-        self.assertEqual(stderr_buffer.getvalue(), "↪ error:   `false` failed with exit status 3.\n")
+        self.assertEqual(stderr_buffer.getvalue(), "↪ error: `false` failed with exit status 3.\n")
 
     def test_run_logs_its_invoked_cmd_then_its_messages(
         self,
@@ -596,7 +596,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
                 argv=["--hide-actions", "go"],
             )
         self.assertEqual(stderr_buffer.getvalue(), "● inspecting\n")
-        self.assertIn("→ query:   true", _get_log_file_path().read_text())
+        self.assertIn("→ query-cmd: true", _get_log_file_path().read_text())
 
     def test_hidden_actions_still_show_dry_run_skips(
         self,
@@ -716,7 +716,7 @@ class TestHelp_Output(unittest.TestCase):
         self.assertEqual(stdout_buffer.getvalue(), "")
         self.assertEqual(
             stderr_buffer.getvalue(),
-            "↪ error:   no command given; run `tool --help` to see the commands\n",
+            "↪ error: no command given; run `tool --help` to see the commands\n",
         )
 
     def test_asking_for_help_exits_cleanly(
