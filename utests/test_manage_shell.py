@@ -149,6 +149,48 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         self.assertFalse(cmd_has_succeeded)
 
 
+class TestRunCmdAndDiscardOutput_Behaviour(unittest.TestCase):
+
+    def setUp(
+        self,
+    ) -> None:
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
+
+    def test_shows_the_cmd_and_discards_its_output(
+        self,
+    ) -> None:
+        stderr_buffer = io.StringIO()
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
+            mock_run.return_value = mock.MagicMock(returncode=0)
+            cmd_has_succeeded = manage_shell.run_cmd_and_discard_output(cmd_parts=["xclip", "notes.txt"])
+        self.assertTrue(cmd_has_succeeded)
+        self.assertEqual(stderr_buffer.getvalue(), "→ run-cmd: xclip notes.txt\n")
+        self.assertEqual(mock_run.call_args.kwargs["stdout"], subprocess.DEVNULL)
+        self.assertEqual(mock_run.call_args.kwargs["stderr"], subprocess.DEVNULL)
+
+    def test_dry_run_skips_and_counts_as_success(
+        self,
+    ) -> None:
+        _turn_on_dry_run()
+        stderr_buffer = io.StringIO()
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
+            cmd_has_succeeded = manage_shell.run_cmd_and_discard_output(cmd_parts=["xclip", "notes.txt"])
+        mock_run.assert_not_called()
+        self.assertTrue(cmd_has_succeeded)
+        self.assertEqual(stderr_buffer.getvalue(), "→ skipped run-cmd: xclip notes.txt\n")
+
+    def test_failure_returns_false_when_not_raising(
+        self,
+    ) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            cmd_has_succeeded = manage_shell.run_cmd_and_discard_output(
+                cmd_parts=["false"],
+                raise_error=False,
+            )
+        self.assertFalse(cmd_has_succeeded)
+
+
 class TestRunCmdInBackground_Behaviour(unittest.TestCase):
 
     def setUp(

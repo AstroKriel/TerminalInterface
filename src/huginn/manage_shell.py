@@ -125,6 +125,45 @@ def run_cmd_and_show_output(
     return result.returncode == 0
 
 
+def run_cmd_and_discard_output(
+    *,
+    cmd_parts: list[str],
+    working_directory: Path | None = None,
+    raise_error: bool = True,
+) -> bool:
+    """
+    Run a mutating command with its stdout and stderr discarded; `True` iff it succeeded or was skipped in dry-run.
+
+    For a command that prints nothing useful and may leave a child running that keeps its output open, e.g. `xclip`,
+    whose child holds the clipboard: with the output discarded, the child cannot hold a pipe the tool writes to, so
+    `<tool> | tee <log>` still ends. The command is still printed. A failure raises `CalledProcessError`; with
+    `raise_error=False` it returns `False` instead.
+    """
+    if _manage_output.get_active_built_in_params().dry_run:
+        _write_cmd(
+            action=_message_styles.Action.RUN_CMD,
+            cmd_parts=cmd_parts,
+            is_skipped=True,
+        )
+        return True
+    _write_cmd(
+        action=_message_styles.Action.RUN_CMD,
+        cmd_parts=cmd_parts,
+    )
+    result = subprocess.run(
+        cmd_parts,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=working_directory,
+    )
+    if raise_error and (result.returncode != 0):
+        raise subprocess.CalledProcessError(
+            returncode=result.returncode,
+            cmd=cmd_parts,
+        )
+    return result.returncode == 0
+
+
 def run_cmd_in_background(
     *,
     cmd_parts: list[str],
