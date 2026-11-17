@@ -10,7 +10,7 @@ import inspect
 import shlex
 import signal
 import subprocess
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,12 +19,55 @@ from huginn import _manage_output, _message_styles
 
 ##
 ## === COMMAND RUNNERS
-## every runner prints its command with `shlex.join` before running it; `run_fn` prints a description instead.
+## every runner prints its command with `_format_cmd` before running it; `run_fn` prints the fn it calls instead.
 ##
 
 _CMD_NOT_FOUND_EXIT_CODE = 127
 _STOP_TIMEOUT_SECONDS = 5
 _ACTION_ITEM_INDENT = " " * 4
+_MAX_CMD_LINE_CHARS = 100
+_CMD_CONTINUATION_INDENT = " " * 4
+
+## an element is one arg, or a tuple of args that belong together, e.g. `("--model", <path>)`
+CmdPart = str | tuple[str, ...]
+CmdParts = Sequence[CmdPart]
+
+
+def _flatten_cmd_parts(
+    cmd_parts: CmdParts,
+) -> list[str]:
+    """Return the args of `cmd_parts` as one flat list, in order, as the command runs."""
+    flat_cmd_parts: list[str] = []
+    for cmd_part in cmd_parts:
+        if isinstance(cmd_part, tuple):
+            flat_cmd_parts.extend(cmd_part)
+        else:
+            flat_cmd_parts.append(cmd_part)
+    return flat_cmd_parts
+
+
+def _format_cmd(
+    cmd_parts: CmdParts,
+) -> str:
+    """
+    Return the command as printed, quoted with `shlex.quote` so it can be copied back into a shell.
+
+    A command whose `cmd_parts` hold no tuple is always one line. One that groups its args into tuples opts in to
+    wrapping: past `_MAX_CMD_LINE_CHARS`, its first two elements share the first line and each later element gets a
+    line of its own, every line but the last ending in ` \\`, so the printed block still runs when pasted.
+    """
+    flat_cmd_parts = _flatten_cmd_parts(cmd_parts)
+    cmd_on_one_line = shlex.join(flat_cmd_parts)
+    cmd_has_groups = any(isinstance(_cmd_part, tuple) for _cmd_part in cmd_parts)
+    cmd_fits_one_line = len(cmd_on_one_line) <= _MAX_CMD_LINE_CHARS
+    if (not cmd_has_groups) or cmd_fits_one_line:
+        return cmd_on_one_line
+    cmd_units = [
+        shlex.join(_flatten_cmd_parts([_cmd_part]))
+        for _cmd_part in cmd_parts
+    ]
+    cmd_lines = [" ".join(cmd_units[:2]), *cmd_units[2:]]
+    return f" \\\n{_CMD_CONTINUATION_INDENT}".join(cmd_lines)
 
 
 @dataclass(frozen=True)
@@ -79,20 +122,20 @@ def _write_action(
 def _write_cmd(
     *,
     action: _message_styles.Action,
-    cmd_parts: list[str],
+    cmd_parts: CmdParts,
     is_skipped: bool = False,
 ) -> None:
-    """Write a command as an action, quoted with `shlex.join` so it can be copied back into a shell."""
+    """Write a command as an action, as `_format_cmd` prints it."""
     _write_action(
         action=action,
-        text=shlex.join(cmd_parts),
+        text=_format_cmd(cmd_parts),
         is_skipped=is_skipped,
     )
 
 
 def run_cmd_and_show_output(
     *,
-    cmd_parts: list[str],
+    cmd_parts: CmdParts,
     working_directory: Path | None = None,
     raise_error: bool = True,
 ) -> bool:
@@ -113,21 +156,22 @@ def run_cmd_and_show_output(
         action=_message_styles.Action.RUN_CMD,
         cmd_parts=cmd_parts,
     )
+    flat_cmd_parts = _flatten_cmd_parts(cmd_parts)
     result = subprocess.run(
-        cmd_parts,
+        flat_cmd_parts,
         cwd=working_directory,
     )
     if raise_error and (result.returncode != 0):
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
-            cmd=cmd_parts,
+            cmd=flat_cmd_parts,
         )
     return result.returncode == 0
 
 
 def run_cmd_and_discard_output(
     *,
-    cmd_parts: list[str],
+    cmd_parts: CmdParts,
     working_directory: Path | None = None,
     raise_error: bool = True,
 ) -> bool:
@@ -150,8 +194,9 @@ def run_cmd_and_discard_output(
         action=_message_styles.Action.RUN_CMD,
         cmd_parts=cmd_parts,
     )
+    flat_cmd_parts = _flatten_cmd_parts(cmd_parts)
     result = subprocess.run(
-        cmd_parts,
+        flat_cmd_parts,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         cwd=working_directory,
@@ -159,14 +204,14 @@ def run_cmd_and_discard_output(
     if raise_error and (result.returncode != 0):
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
-            cmd=cmd_parts,
+            cmd=flat_cmd_parts,
         )
     return result.returncode == 0
 
 
 def run_cmd_in_background(
     *,
-    cmd_parts: list[str],
+    cmd_parts: CmdParts,
     working_directory: Path | None = None,
 ) -> subprocess.Popen[bytes] | None:
     """
@@ -186,8 +231,9 @@ def run_cmd_in_background(
         action=_message_styles.Action.RUN_CMD,
         cmd_parts=cmd_parts,
     )
+    flat_cmd_parts = _flatten_cmd_parts(cmd_parts)
     return subprocess.Popen(
-        cmd_parts,
+        flat_cmd_parts,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         cwd=working_directory,
@@ -212,7 +258,7 @@ def stop_cmd_in_background(
 
 def run_cmd_and_capture_output(
     *,
-    cmd_parts: list[str],
+    cmd_parts: CmdParts,
     working_directory: Path | None = None,
 ) -> str:
     """
@@ -232,8 +278,9 @@ def run_cmd_and_capture_output(
         action=_message_styles.Action.RUN_CMD,
         cmd_parts=cmd_parts,
     )
+    flat_cmd_parts = _flatten_cmd_parts(cmd_parts)
     result = subprocess.run(
-        cmd_parts,
+        flat_cmd_parts,
         capture_output=True,
         text=True,
         check=True,
@@ -323,7 +370,7 @@ def run_fn(
 
 def query_cmd_and_show_output(
     *,
-    cmd_parts: list[str],
+    cmd_parts: CmdParts,
     working_directory: Path | None = None,
     raise_error: bool = True,
 ) -> bool:
@@ -337,21 +384,22 @@ def query_cmd_and_show_output(
         action=_message_styles.Action.QUERY_CMD,
         cmd_parts=cmd_parts,
     )
+    flat_cmd_parts = _flatten_cmd_parts(cmd_parts)
     result = subprocess.run(
-        cmd_parts,
+        flat_cmd_parts,
         cwd=working_directory,
     )
     if raise_error and (result.returncode != 0):
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
-            cmd=cmd_parts,
+            cmd=flat_cmd_parts,
         )
     return result.returncode == 0
 
 
 def query_cmd_and_capture_output(
     *,
-    cmd_parts: list[str],
+    cmd_parts: CmdParts,
     working_directory: Path | None = None,
     raise_error: bool = True,
 ) -> str:
@@ -364,8 +412,9 @@ def query_cmd_and_capture_output(
         action=_message_styles.Action.QUERY_CMD,
         cmd_parts=cmd_parts,
     )
+    flat_cmd_parts = _flatten_cmd_parts(cmd_parts)
     result = subprocess.run(
-        cmd_parts,
+        flat_cmd_parts,
         capture_output=True,
         text=True,
         cwd=working_directory,
@@ -373,7 +422,7 @@ def query_cmd_and_capture_output(
     if raise_error and (result.returncode != 0):
         raise subprocess.CalledProcessError(
             returncode=result.returncode,
-            cmd=cmd_parts,
+            cmd=flat_cmd_parts,
             output=result.stdout,
             stderr=result.stderr,
         )
@@ -382,7 +431,7 @@ def query_cmd_and_capture_output(
 
 def query_cmd_and_capture_outcome(
     *,
-    cmd_parts: list[str],
+    cmd_parts: CmdParts,
     working_directory: Path | None = None,
 ) -> CommandOutcome:
     """
@@ -394,23 +443,24 @@ def query_cmd_and_capture_outcome(
         action=_message_styles.Action.QUERY_CMD,
         cmd_parts=cmd_parts,
     )
+    flat_cmd_parts = _flatten_cmd_parts(cmd_parts)
     try:
         result = subprocess.run(
-            cmd_parts,
+            flat_cmd_parts,
             capture_output=True,
             text=True,
             cwd=working_directory,
         )
     except FileNotFoundError:
         return CommandOutcome(
-            cmd=shlex.join(cmd_parts),
+            cmd=shlex.join(flat_cmd_parts),
             working_directory=working_directory,
             exit_code=_CMD_NOT_FOUND_EXIT_CODE,
             stdout="",
-            stderr=f"command not found: `{cmd_parts[0]}`.",
+            stderr=f"command not found: `{flat_cmd_parts[0]}`.",
         )
     return CommandOutcome(
-        cmd=shlex.join(cmd_parts),
+        cmd=shlex.join(flat_cmd_parts),
         working_directory=working_directory,
         exit_code=result.returncode,
         stdout=result.stdout,
@@ -420,7 +470,7 @@ def query_cmd_and_capture_outcome(
 
 def query_cmd_and_discard_output(
     *,
-    cmd_parts: list[str],
+    cmd_parts: CmdParts,
     working_directory: Path | None = None,
 ) -> int:
     """Run a read-only command and return its exit code, for yes/no checks; the command is shown, and its output is discarded."""
@@ -428,8 +478,9 @@ def query_cmd_and_discard_output(
         action=_message_styles.Action.QUERY_CMD,
         cmd_parts=cmd_parts,
     )
+    flat_cmd_parts = _flatten_cmd_parts(cmd_parts)
     result = subprocess.run(
-        cmd_parts,
+        flat_cmd_parts,
         capture_output=True,
         cwd=working_directory,
     )

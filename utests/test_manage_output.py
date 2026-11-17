@@ -143,6 +143,21 @@ class TestRouteMsg_Log(unittest.TestCase):
             ],
         )
 
+    def test_each_line_of_a_message_gets_its_own_time_stamp(
+        self,
+    ) -> None:
+        self._start_logging(dry_run=False)
+        with mock.patch.object(_manage_output, "_get_time_stamp", return_value="2026-01-02 03:04:05"):
+            with contextlib.redirect_stderr(io.StringIO()):
+                _manage_output.route_msg("→ run-cmd: tool --model m.bin \\\n    --file a.wav")
+        self.assertEqual(
+            self.log_file_path.read_text().splitlines()[1:],
+            [
+                "[2026-01-02 03:04:05] → run-cmd: tool --model m.bin \\",
+                "[2026-01-02 03:04:05]     --file a.wav",
+            ],
+        )
+
     def test_unset_log_file_path_raises_before_the_terminal_shows_anything(
         self,
     ) -> None:

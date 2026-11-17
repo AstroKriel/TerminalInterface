@@ -57,7 +57,7 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
 
     def _print_query(
         self,
-        cmd_parts: list[str],
+        cmd_parts: manage_shell.CmdParts,
     ) -> str:
         stderr_buffer = io.StringIO()
         with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
@@ -80,6 +80,77 @@ class TestPrintedCmds_Quoting(unittest.TestCase):
         self,
     ) -> None:
         self.assertEqual(self._print_query(["ls", "[red]"]), "→ query-cmd: ls '[red]'\n")
+
+
+class TestPrintedCmds_Wrapping(unittest.TestCase):
+
+    def setUp(
+        self,
+    ) -> None:
+        _manage_output.reset_active_state()
+        self.addCleanup(_manage_output.reset_active_state)
+
+    def _print_and_run_query(
+        self,
+        cmd_parts: manage_shell.CmdParts,
+    ) -> tuple[str, list[str]]:
+        stderr_buffer = io.StringIO()
+        with mock.patch("subprocess.run") as mock_run, contextlib.redirect_stderr(stderr_buffer):
+            mock_run.return_value = mock.MagicMock(
+                stdout="",
+                returncode=0,
+            )
+            manage_shell.query_cmd_and_capture_output(cmd_parts=cmd_parts)
+        return stderr_buffer.getvalue(), mock_run.call_args.args[0]
+
+    def test_grouped_cmd_runs_as_the_flat_args(
+        self,
+    ) -> None:
+        _, run_cmd_parts = self._print_and_run_query(["tool", ("--file", "a.txt"), "--quiet"])
+        self.assertEqual(run_cmd_parts, ["tool", "--file", "a.txt", "--quiet"])
+
+    def test_short_grouped_cmd_stays_on_one_line(
+        self,
+    ) -> None:
+        printed_text, _ = self._print_and_run_query(["tool", ("--file", "a.txt"), "--quiet"])
+        self.assertEqual(printed_text, "→ query-cmd: tool --file a.txt --quiet\n")
+
+    def test_long_grouped_cmd_puts_each_later_element_on_its_own_line(
+        self,
+    ) -> None:
+        long_path = "/tmp/" + "x" * 60
+        printed_text, _ = self._print_and_run_query(
+            ["tool", ("--model", long_path), ("--file", long_path), "--quiet", "out dir"],
+        )
+        expected_lines = [
+            f"→ query-cmd: tool --model {long_path} \\",
+            f"    --file {long_path} \\",
+            "    --quiet \\",
+            "    'out dir'",
+        ]
+        self.assertEqual(printed_text, "\n".join(expected_lines) + "\n")
+
+    def test_long_flat_cmd_stays_on_one_line(
+        self,
+    ) -> None:
+        long_path = "/tmp/" + "x" * 120
+        printed_text, _ = self._print_and_run_query(["tool", "--file", long_path])
+        self.assertEqual(printed_text, f"→ query-cmd: tool --file {long_path}\n")
+
+    def test_wrapped_cmd_pastes_back_as_the_same_args(
+        self,
+    ) -> None:
+        long_path = "/tmp/" + "x" * 60
+        cmd_parts: manage_shell.CmdParts = ["tool", ("--model", long_path), ("--file", "a b.txt"), "--quiet"]
+        printed_text, run_cmd_parts = self._print_and_run_query(cmd_parts)
+        printed_cmd = printed_text.removeprefix("→ query-cmd: ")
+        shell_result = subprocess.run(
+            ["sh", "-c", f"set -- {printed_cmd}\nprintf '%s\\n' \"$@\""],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(shell_result.stdout.splitlines(), run_cmd_parts)
 
 
 class TestRunners_KeywordOnly(unittest.TestCase):

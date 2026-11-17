@@ -166,7 +166,8 @@ def append_to_log_file(
     msg_rendered: str,
 ) -> None:
     """
-    Append one time-stamped line to the log file only, after the invoked cmd when it is the first line of this run.
+    Append a message to the log file only, one time-stamped line per line of the message, e.g. a wrapped command,
+    after the invoked cmd when it is the first message of this run.
 
     Nothing is written in dry-run or when the log file is `None`. Logging before the log file path is set raises,
     even in dry-run, so a tool or script that forgot to set it finds out on its first message.
@@ -182,7 +183,7 @@ def append_to_log_file(
         invoked_cmd = shlex.join(invoked_cmd_parts)
         msg_text = f"$ {invoked_cmd}"
         log_lines.append(msg_text)
-    log_lines.append(msg_plain)
+    log_lines.extend(msg_plain.splitlines())
     time_stamp = _get_time_stamp()
     msg_for_log_file = "".join(f"[{time_stamp}] {_log_line}\n" for _log_line in log_lines)
     try:
