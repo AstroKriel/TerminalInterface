@@ -70,7 +70,3 @@ Every tool and script sets its log file path before its first message: a path to
 ## Demos
 
 [`demos/`](demos/) has two runnable examples: `demo_tool.py` is a small command line tool that keeps dated backups of a notes file in `/tmp/huginn_demo/`, so every cmd can be tried with `--dry-run` and `--hide-actions`; `demo_api.py` calls every output function once, so it shows every message type on one screen. Each one says how to run it at the top.
-
-## Design
-
-The design notes are in [`design-plan/`](design-plan/README.md).
