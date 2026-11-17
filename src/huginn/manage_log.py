@@ -72,11 +72,16 @@ def log_note(
     text: str,
     *,
     items: Mapping[str, object] | None = None,
+    prepend_empty_line: bool = False,
 ) -> None:
-    """Note something about the current task, then its items, one per line."""
-    _render_and_route_msg(
-        message_style=_message_styles.NOTE_STYLE,
-        text=text,
+    """
+    Note something about the current task, then its items, one per line; `prepend_empty_line` puts an empty line
+    before it, for a section that starts with a note, e.g. a prompt that begins each round of a loop.
+    """
+    msg_rendered = _message_styles.NOTE_STYLE.render(text=text)
+    _manage_output.route_msg(
+        msg_rendered,
+        prepend_empty_line=prepend_empty_line,
     )
     if items is not None:
         _render_and_route_items(items)

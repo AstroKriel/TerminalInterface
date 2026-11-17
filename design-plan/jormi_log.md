@@ -36,7 +36,7 @@ Counts are calls across the scripts and packages that use jormi, demos and tests
 | `log_hint` | `log_note`: a choice the script made is a remark about the work | proposed |
 | `log_alert` | `log_outcome` with `SKIPPED` or `WARNING`, whichever the caller means | proposed |
 | `log_debug` | dropped: no caller outside the demos | proposed |
-| `log_empty_lines` | `log_task(..., prepend_empty_line=True)`: an empty line only ever starts a new section, so the author marks the section and huginn places the line | decided |
+| `log_empty_lines` | `log_task(..., prepend_empty_line=True)`, or `log_note` for a section that starts with a note: an empty line only ever starts a new section, so the author marks the section and huginn places the line | decided |
 | `set_block_width_mode` | dropped: every caller lifts the cap, so huginn never caps the width | proposed |
 | `show_time` on every function | dropped: the terminal shows no time stamps, and the log file has them on every line | proposed |
 | `log_section` | `log_task`: a heading for a run is a task that covers the whole run | proposed |

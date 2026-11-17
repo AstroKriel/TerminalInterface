@@ -63,6 +63,12 @@ class TestLogFunctions_Output(unittest.TestCase):
         _, stderr_text = self._capture(lambda: manage_log.log_task("next section", prepend_empty_line=True))
         self.assertEqual(stderr_text, "\n● next section\n")
 
+    def test_log_note_can_prepend_an_empty_line(
+        self,
+    ) -> None:
+        _, stderr_text = self._capture(lambda: manage_log.log_note("press enter", prepend_empty_line=True))
+        self.assertEqual(stderr_text, "\n○ press enter\n")
+
     def test_log_outcome_prints_every_status(
         self,
     ) -> None:

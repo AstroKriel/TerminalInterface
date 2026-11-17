@@ -57,7 +57,7 @@ A tool chooses from one function per concept of the message model: task, note, o
 | Function | Prints | Stream | State |
 |---|---|---|---|
 | `log_task(text, *, prepend_empty_line=False)` | a task starting, from one step to the heading of a whole run; with `prepend_empty_line=True`, an empty line comes first, so the task starts a new section. The author marks where a section starts, and huginn decides how a section looks; the empty line is for the terminal only, never the log file | narration | decided |
-| `log_note(text, *, items=None)` | a remark about the current task, then its items, if any | narration | decided |
+| `log_note(text, *, items=None, prepend_empty_line=False)` | a remark about the current task, then its items, if any; with `prepend_empty_line=True`, an empty line comes first, for a section that starts with a note rather than a task, e.g. the prompt that begins each round of a loop | narration | decided |
 | `log_outcome(text, *, status, items=None)` | how a task or action ended, then its items, if any; `status` is required, never assumed | narration | decided |
 | `log_return(text)` | what the tool returns, for the user or a pipe | stdout | decided |
 | `exit_with_error(text, *, exit_code=1)` | an error outcome, then exits with `exit_code` | narration | decided |
