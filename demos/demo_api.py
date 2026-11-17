@@ -46,8 +46,9 @@ def main() -> None:
     manage_shell.run_cmd_and_show_output(cmd_parts=["mkdir", "-p", demo_dir])
     notes_path = Path(demo_dir) / "notes.md"
     manage_shell.run_fn(
-        description=f"create {notes_path}",
         fn=notes_path.touch,
+        purpose="create an empty notes file",
+        items={"output": notes_path},
     )
     ## a tool gets dry-run from `--dry-run`; this demo turns it on directly to show a skipped change
     _manage_output.set_built_in_params(_manage_output.BuiltInParams(dry_run=True))

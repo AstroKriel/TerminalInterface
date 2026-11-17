@@ -6,10 +6,11 @@
 
 ## stdlib
 import dataclasses
+import inspect
 import shlex
 import signal
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from huginn import _manage_output, _message_styles
 
 _CMD_NOT_FOUND_EXIT_CODE = 127
 _STOP_TIMEOUT_SECONDS = 5
+_ACTION_ITEM_INDENT = " " * 4
 
 
 @dataclass(frozen=True)
@@ -92,16 +94,13 @@ def run_cmd_and_show_output(
     *,
     cmd_parts: list[str],
     working_directory: Path | None = None,
-    input_text: str | None = None,
     raise_error: bool = True,
 ) -> bool:
     """
     Run a mutating command with its output shown live in the terminal; `True` iff it succeeded or was skipped in dry-run.
 
-    `input_text` is sent to the command on its stdin, e.g. text for `xclip` to put on the clipboard; without it, the
-    command reads the terminal. The output is never captured, so a command that leaves a child running, as `xclip`
-    does to hold the clipboard, cannot hang the run. A failure raises `CalledProcessError`; with `raise_error=False`
-    it returns `False` instead.
+    The output is never captured, so a command that leaves a child running, as `xclip` does to hold the clipboard,
+    cannot hang the run. A failure raises `CalledProcessError`; with `raise_error=False` it returns `False` instead.
     """
     if _manage_output.get_active_built_in_params().dry_run:
         _write_cmd(
@@ -116,8 +115,6 @@ def run_cmd_and_show_output(
     )
     result = subprocess.run(
         cmd_parts,
-        input=input_text,
-        text=True,
         cwd=working_directory,
     )
     if raise_error and (result.returncode != 0):
@@ -206,30 +203,83 @@ def run_cmd_and_capture_output(
     return result.stdout.strip()
 
 
+def _get_fn_call_text(
+    *,
+    fn: Callable[..., None],
+    fn_kwargs: Mapping[str, object],
+) -> str:
+    """
+    Return where `fn` lives and that it is called, e.g. `voice_note.transcribe_audio.join_transcript_lines(...)`;
+    `(...)` when it takes arguments, which are not printed, and `()` when it takes none.
+
+    A lambda or a `functools.partial` has no name of its own to point at, so either is rejected.
+    """
+    fn_is_named_callable = inspect.isfunction(fn) or inspect.ismethod(fn) or inspect.isbuiltin(fn)
+    if (not fn_is_named_callable) or (fn.__name__ == "<lambda>"):
+        raise ValueError(
+            f"run_fn: `fn` must be a named function or method, so the output can say where it lives; got `{fn!r}`.",
+        )
+    if len(fn_kwargs) == 0:
+        call_marker = "()"
+    else:
+        call_marker = "(...)"
+    return f"{fn.__module__}.{fn.__qualname__}{call_marker}"
+
+
+def _write_action_items(
+    *,
+    items: Mapping[str, object],
+    is_skipped: bool,
+) -> None:
+    """Write the items of an action under it; hidden along with the action, unless the action was skipped."""
+    for item_name, item_value in items.items():
+        msg_rendered = _message_styles.ITEM_STYLE.render(text=f"{item_name} = {item_value}")
+        _manage_output.route_msg(
+            f"{_ACTION_ITEM_INDENT}{msg_rendered}",
+            is_action=not is_skipped,
+        )
+
+
 def run_fn(
     *,
-    description: str,
-    fn: Callable[[], None],
+    fn: Callable[..., None],
+    purpose: str,
+    fn_kwargs: Mapping[str, object] | None = None,
+    items: Mapping[str, object] | None = None,
 ) -> None:
     """
-    Make a change with a Python function instead of a command, e.g. writing content the tool produced; shown as a
-    `run-fn` action with `description`, so it never reads as a command, and skipped and counted in dry-run like a
-    mutating command.
+    Make a change with the tool's own Python where no command can do it, e.g. writing content the tool produced;
+    skipped and counted in dry-run like a mutating command.
 
-    An exception raised by `fn` is passed on unchanged.
+    Shown as a `run-fn` action naming the function and its module, so the user knows which code ran and where to
+    find it, then `purpose`, then `items`, e.g. the file it writes. `fn` is called with `fn_kwargs`. An exception
+    raised by `fn` is passed on unchanged.
     """
-    if _manage_output.get_active_built_in_params().dry_run:
-        _write_action(
-            action=_message_styles.Action.RUN_FN,
-            text=description,
-            is_skipped=True,
-        )
-        return
+    resolved_fn_kwargs: Mapping[str, object]
+    if fn_kwargs is None:
+        resolved_fn_kwargs = {}
+    else:
+        resolved_fn_kwargs = fn_kwargs
+    fn_call_text = _get_fn_call_text(
+        fn=fn,
+        fn_kwargs=resolved_fn_kwargs,
+    )
+    action_items: dict[str, object] = {"purpose": purpose}
+    if items is not None:
+        action_items.update(items)
+    is_skipped = _manage_output.get_active_built_in_params().dry_run
     _write_action(
         action=_message_styles.Action.RUN_FN,
-        text=description,
+        text=fn_call_text,
+        is_skipped=is_skipped,
     )
-    fn()
+    _write_action_items(
+        items=action_items,
+        is_skipped=is_skipped,
+    )
+    if is_skipped:
+        return
+    fn(**resolved_fn_kwargs)
 
 
 def query_cmd_and_show_output(

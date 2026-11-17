@@ -6,6 +6,7 @@
 
 ## stdlib
 import contextlib
+import functools
 import io
 import signal
 import subprocess
@@ -24,6 +25,21 @@ from huginn import _manage_output, manage_shell
 
 def _turn_on_dry_run() -> None:
     _manage_output.set_built_in_params(_manage_output.BuiltInParams(dry_run=True))
+
+
+def _save_notes(
+    *,
+    notes_path: Path,
+) -> None:
+    notes_path.write_text("notes")
+
+
+def _do_nothing() -> None:
+    pass
+
+
+def _raise_disk_full() -> None:
+    raise OSError("disk full")
 
 
 ##
@@ -132,18 +148,6 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
             )
         self.assertFalse(cmd_has_succeeded)
 
-    def test_input_text_is_sent_to_the_cmd_on_stdin(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / "out.txt"
-            with contextlib.redirect_stderr(io.StringIO()):
-                manage_shell.run_cmd_and_show_output(
-                    cmd_parts=["tee", str(output_path)],
-                    input_text="hello",
-                )
-            self.assertEqual(output_path.read_text(), "hello")
-
 
 class TestRunCmdInBackground_Behaviour(unittest.TestCase):
 
@@ -194,50 +198,82 @@ class TestRunFn_Behaviour(unittest.TestCase):
         _manage_output.reset_active_state()
         self.addCleanup(_manage_output.reset_active_state)
 
-    def test_dry_run_skips_the_fn_shows_the_description_and_counts_it(
+    def test_dry_run_skips_the_fn_shows_it_and_counts_it(
         self,
     ) -> None:
         _turn_on_dry_run()
-        change_fn = mock.MagicMock()
-        stderr_buffer = io.StringIO()
-        with contextlib.redirect_stderr(stderr_buffer):
-            manage_shell.run_fn(
-                description="save notes.md",
-                fn=change_fn,
-            )
-        change_fn.assert_not_called()
-        self.assertEqual(stderr_buffer.getvalue(), "→ skipped run-fn: save notes.md\n")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            notes_path = Path(temp_dir) / "notes.md"
+            stderr_buffer = io.StringIO()
+            with contextlib.redirect_stderr(stderr_buffer):
+                manage_shell.run_fn(
+                    fn=_save_notes,
+                    fn_kwargs={"notes_path": notes_path},
+                    purpose="save the notes",
+                )
+            self.assertFalse(notes_path.exists())
+        self.assertEqual(
+            stderr_buffer.getvalue(),
+            f"→ skipped run-fn: {__name__}._save_notes(...)\n    · purpose = save the notes\n",
+        )
         self.assertEqual(_manage_output.get_num_skipped_actions(), 1)
 
-    def test_calls_the_fn_and_shows_the_description_when_not_dry_run(
+    def test_calls_the_fn_and_shows_its_name_purpose_and_items(
         self,
     ) -> None:
-        change_fn = mock.MagicMock()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            notes_path = Path(temp_dir) / "notes.md"
+            stderr_buffer = io.StringIO()
+            with contextlib.redirect_stderr(stderr_buffer):
+                manage_shell.run_fn(
+                    fn=_save_notes,
+                    fn_kwargs={"notes_path": notes_path},
+                    purpose="save the notes",
+                    items={"output": notes_path},
+                )
+            self.assertEqual(notes_path.read_text(), "notes")
+        self.assertEqual(
+            stderr_buffer.getvalue(),
+            f"→ run-fn: {__name__}._save_notes(...)\n    · purpose = save the notes\n    · output = {notes_path}\n",
+        )
+        self.assertEqual(_manage_output.get_num_skipped_actions(), 0)
+
+    def test_a_fn_without_args_is_shown_with_empty_brackets(
+        self,
+    ) -> None:
         stderr_buffer = io.StringIO()
         with contextlib.redirect_stderr(stderr_buffer):
             manage_shell.run_fn(
-                description="save notes.md",
-                fn=change_fn,
+                fn=_do_nothing,
+                purpose="do nothing",
             )
-        change_fn.assert_called_once_with()
-        self.assertEqual(stderr_buffer.getvalue(), "→ run-fn: save notes.md\n")
-        self.assertEqual(_manage_output.get_num_skipped_actions(), 0)
+        self.assertIn(f"→ run-fn: {__name__}._do_nothing()\n", stderr_buffer.getvalue())
+
+    def test_a_lambda_or_partial_is_rejected(
+        self,
+    ) -> None:
+        for unnamed_fn in [lambda: None, functools.partial(_do_nothing)]:
+            with self.subTest(unnamed_fn=unnamed_fn), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(ValueError):
+                    manage_shell.run_fn(
+                        fn=unnamed_fn,
+                        purpose="do nothing",
+                    )
 
     def test_an_error_from_the_fn_is_passed_on(
         self,
     ) -> None:
-        change_fn = mock.MagicMock(side_effect=OSError("disk full"))
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(OSError):
             manage_shell.run_fn(
-                description="save notes.md",
-                fn=change_fn,
+                fn=_raise_disk_full,
+                purpose="fail",
             )
 
     def test_positional_args_are_rejected(
         self,
     ) -> None:
         with self.assertRaises(TypeError):
-            manage_shell.run_fn("save notes.md", lambda: None)  # pyright: ignore[reportCallIssue]
+            manage_shell.run_fn(_do_nothing, "do nothing")  # pyright: ignore[reportCallIssue]
 
 
 class TestRunCmdAndCaptureOutput_Behaviour(unittest.TestCase):
