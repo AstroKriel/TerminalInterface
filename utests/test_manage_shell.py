@@ -94,7 +94,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
             cmd_has_succeeded = manage_shell.run_cmd_and_show_output(cmd_parts=["git", "push"])
         mock_run.assert_not_called()
         self.assertTrue(cmd_has_succeeded)
-        self.assertEqual(stderr_buffer.getvalue(), "→ skipped: git push\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ skipped run-cmd: git push\n")
 
     def test_dry_run_line_uses_the_change_symbol_with_the_skipped_label_and_colour(
         self,
@@ -103,7 +103,7 @@ class TestRunCmdAndShowOutput_Behaviour(unittest.TestCase):
         with mock.patch.object(_manage_output, "route_msg") as mock_route_msg:
             manage_shell.run_cmd_and_show_output(cmd_parts=["git", "push"])
         msg_rendered = mock_route_msg.call_args.args[0]
-        self.assertEqual(msg_rendered, "[#B86B00]→ skipped: git push[/]")
+        self.assertEqual(msg_rendered, "[#B86B00]→ skipped run-cmd: git push[/]")
 
     def test_logs_and_executes_when_not_dry_run(
         self,
@@ -162,7 +162,7 @@ class TestRunCmdInBackground_Behaviour(unittest.TestCase):
             process = manage_shell.run_cmd_in_background(cmd_parts=["sleep", "30"])
         mock_popen.assert_not_called()
         self.assertIsNone(process)
-        self.assertEqual(stderr_buffer.getvalue(), "→ skipped: sleep 30\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ skipped run-cmd: sleep 30\n")
         self.assertEqual(_manage_output.get_num_skipped_actions(), 1)
 
     def test_shows_the_cmd_and_stops_it_with_sigint(
@@ -206,7 +206,7 @@ class TestRunFn_Behaviour(unittest.TestCase):
                 fn=change_fn,
             )
         change_fn.assert_not_called()
-        self.assertEqual(stderr_buffer.getvalue(), "→ skipped: save notes.md\n")
+        self.assertEqual(stderr_buffer.getvalue(), "→ skipped run-fn: save notes.md\n")
         self.assertEqual(_manage_output.get_num_skipped_actions(), 1)
 
     def test_calls_the_fn_and_shows_the_description_when_not_dry_run(

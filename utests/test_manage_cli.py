@@ -612,7 +612,7 @@ class TestRunCli_Dispatch(unittest.TestCase):
                 command_line_tool=command_line_tool,
                 argv=["--dry-run", "--hide-actions", "go"],
             )
-        self.assertIn("→ skipped: git push\n", stderr_buffer.getvalue())
+        self.assertIn("→ skipped run-cmd: git push\n", stderr_buffer.getvalue())
 
     def test_dry_run_is_marked_at_both_ends_with_the_skipped_count(
         self,
@@ -633,8 +633,8 @@ class TestRunCli_Dispatch(unittest.TestCase):
             stderr_buffer.getvalue().splitlines(),
             [
                 "○ dry run: changes are shown, not made",
-                "→ skipped: git push",
-                "→ skipped: git push --tags",
+                "→ skipped run-cmd: git push",
+                "→ skipped run-cmd: git push --tags",
                 "↪ skipped: dry run; nothing was changed",
                 "    · skipped actions = 2",
             ],

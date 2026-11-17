@@ -59,7 +59,7 @@ def main() -> None:
 ```text
 $ example_tool --dry-run pull --rebase
 ● updating the working tree
-→ skipped: git pull --rebase
+→ skipped run-cmd: git pull --rebase
 ↪ success: up to date
 ```
 

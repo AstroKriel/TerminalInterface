@@ -48,8 +48,8 @@ def _write_action(
     is_skipped: bool = False,
 ) -> None:
     """
-    Write an action with its symbol and label; an action skipped in dry-run takes the label and colour of the
-    skipped status.
+    Write an action with its symbol and label; an action skipped in dry-run takes the colour of the skipped status,
+    and its label puts the skipped label before its own, e.g. `skipped run-cmd`, so it still says what was skipped.
 
     A skipped action is always shown, since showing it is the point of a dry run; other actions can be hidden. Each
     skipped action is counted, so the end of the run can say how many actions were skipped.
@@ -59,7 +59,7 @@ def _write_action(
         message_style = dataclasses.replace(
             action.value,
             colour=skipped_style.colour,
-            label=skipped_style.label,
+            label=f"{skipped_style.label} {action.value.label}",
         )
     else:
         message_style = action.value

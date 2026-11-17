@@ -98,9 +98,9 @@ class TestMessageStyle_Render(unittest.TestCase):
         skipped_change_style = dataclasses.replace(
             _message_styles.Action.RUN_CMD.value,
             colour=skipped_style.colour,
-            label=skipped_style.label,
+            label=f"{skipped_style.label} run-cmd",
         )
-        self.assertEqual(skipped_change_style.render(text="git push"), "[#B86B00]→ skipped: git push[/]")
+        self.assertEqual(skipped_change_style.render(text="git push"), "[#B86B00]→ skipped run-cmd: git push[/]")
 
     def test_label_is_followed_by_one_space_without_padding(
         self,
